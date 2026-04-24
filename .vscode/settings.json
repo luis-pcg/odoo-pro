@@ -1,0 +1,83 @@
+{
+  // ─── General (mirrors pre-commit-hooks) ───────────────────────────────────
+  // trailing-whitespace + end-of-file-fixer + mixed-line-ending --fix=lf
+  "editor.formatOnSave": true,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+
+  // ─── Python — Ruff ────────────────────────────────────────────────────────
+  // Mirrors: ruff --fix + ruff-format hooks
+  // Config from addons/.ruff.toml: line-length=119, fix=true, isort via "I" rules
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+  // Explicit path so Cursor finds the config regardless of workspace root
+  "ruff.configuration": "addons/.ruff.toml",
+  "ruff.configurationPreference": "editorFirst",
+
+  // ─── JavaScript — ESLint ──────────────────────────────────────────────────
+  // Mirrors: eslint --color --fix hook
+  // Config from addons/eslint.config.cjs (eslint-plugin-jsdoc, ecmaVersion 2024)
+  "[javascript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "eslint.format.enable": true,
+  "eslint.options": {
+    "overrideConfigFile": "addons/eslint.config.cjs"
+  },
+
+  // ─── XML / HTML / CSS / JSON / YAML — Prettier ────────────────────────────
+  // Mirrors the prettier hook (temporarily disabled in pre-commit but configured).
+  // Config from addons/prettier.config.cjs:
+  //   bracketSpacing: false, printWidth: 88, semi: true,
+  //   trailingComma: "es5", xmlWhitespaceSensitivity: "preserve",
+  //   @prettier/plugin-xml
+  "prettier.configPath": "addons/prettier.config.cjs",
+  "[xml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[less]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  }
+}

@@ -1,0 +1,17 @@
+debugpy
+pycountry
+httpx
+pycountry>=19.8.18
+dict2xml==1.7.2
+xmltodict==0.13.0
+openupgradelib
+signxml==3.2.2
+pysftp==0.2.8
+cryptography<37
+paramiko>=2.10.1
+pyOpenSSL>=19.0.0
+pyazul==3.2.0
+google_auth
+gtts
+pandas
+openpyxl
