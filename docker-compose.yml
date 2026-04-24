@@ -1,0 +1,24 @@
+services:
+  odoo:
+    container_name: "${ODOO_DEVELOPER}"
+    image: odoo-my:19.0
+    ports:
+      - "${ODOO_PORT}:8069"
+      - "${ODOO_DEBUG_PORT}:3001"
+    environment:
+      - DB_PORT_5432_TCP_ADDR=${DB_PORT_5432_TCP_ADDR}
+      - DB_PORT_5432_TCP_PORT=${DB_PORT_5432_TCP_PORT}
+      - DB_ENV_POSTGRES_USER=${DB_ENV_POSTGRES_USER}
+      - DB_ENV_POSTGRES_PASSWORD=${DB_ENV_POSTGRES_PASSWORD}
+      - ODOO_DEBUG_PORT=${ODOO_DEBUG_PORT}
+      - ODOO_AUTO_UPDATE_MODULES=${ODOO_AUTO_UPDATE_MODULES}
+      - ODOO_DATABASE_NAME=${ODOO_DATABASE_NAME}
+    volumes:
+      - ./addons/:/mnt/extra-addons:delegated
+      - ./enterprise/:/mnt/extra-addons-enterprise:delegated
+      - ./conf:/etc/odoo:delegated
+      - odoo_pro_ODOO_DATA:/var/lib/odoo:cached
+      - ./pyazul/pyazul:/usr/local/lib/python3.12/dist-packages/pyazul:delegated
+      - ./spreadsheet_controllers:/usr/lib/python3/dist-packages/odoo/addons/spreadsheet/controllers:delegated
+volumes:
+  odoo_pro_ODOO_DATA:

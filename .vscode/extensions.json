@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    // Python - Ruff (linting + formateo, reemplaza pylint/black/isort en VSCode)
+    "charliermarsh.ruff",
+    // JavaScript - ESLint
+    "dbaeumer.vscode-eslint",
+    // Prettier (para cuando se reactive en pre-commit)
+    "esbenp.prettier-vscode",
+    // XML support
+    "redhat.vscode-xml"
+  ]
+}
