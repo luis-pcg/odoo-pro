@@ -1,0 +1,4 @@
+[submodule "odoo-pro"]
+	path = odoo-pro
+	url = git@github.com:indexa-git/odoo-pro.git
+	branch = 17.0
