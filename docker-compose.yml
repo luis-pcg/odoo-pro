@@ -17,10 +17,16 @@ services:
       - ODOO_AUTO_UPDATE_MODULES=${ODOO_AUTO_UPDATE_MODULES}
       - ODOO_DATABASE_NAME=${ODOO_DATABASE_NAME}
     volumes:
-      - ./addons/:/mnt/extra-addons:delegated
       - ./enterprise/:/mnt/extra-addons-enterprise:delegated
+      - ./odoo-pro/:/mnt/extra-addons-pro:delegated
       - ./conf:/etc/odoo:delegated
       - odoo_pro_ODOO_DATA:/var/lib/odoo:cached
+    networks:
+      - odoo_shared_network
 
 volumes:
   odoo_pro_ODOO_DATA:
+
+networks:
+  odoo_shared_network:
+    external: true
