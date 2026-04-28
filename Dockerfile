@@ -4,7 +4,7 @@ USER root
 
 # 1. Copiamos el requirements.txt e instalamos las librerías
 COPY ./requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt --break-system-packages --ignore-installed
 
 # 2. Copiamos tu nuevo entrypoint personalizado
 COPY ./entrypoint.sh /usr/bin/my_entrypoint.sh

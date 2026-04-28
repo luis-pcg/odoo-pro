@@ -2,3 +2,13 @@
 	path = odoo-pro
 	url = git@github.com:indexa-git/odoo-pro.git
 	branch = 19.0
+[submodule "enterprise"]
+	path = enterprise
+	url = git@github.com:indexa-git/enterprise.git
+	branch = 19.0
+[submodule "pyazul"]
+	path = pyazul
+	url = git@github.com:indexa-git/pyazul.git
+[submodule "upgrade-util"]
+	path = upgrade-util
+	url = git@github.com:indexa-git/upgrade-util.git
