@@ -1,10 +1,13 @@
 services:
   odoo:
-    container_name: "${ODOO_DEVELOPER}"
-    image: odoo-my:19.0
+    container_name: "${ODOO_DEVELOPER}_v19"
+    user: root
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "${ODOO_PORT}:8069"
-      - "${ODOO_DEBUG_PORT}:3001"
+      - "${ODOO_PORT}:8069"        # Puerto de Odoo
+      - "${ODOO_DEBUG_PORT}:3001" # Puerto del Debugger
     environment:
       - DB_PORT_5432_TCP_ADDR=${DB_PORT_5432_TCP_ADDR}
       - DB_PORT_5432_TCP_PORT=${DB_PORT_5432_TCP_PORT}
@@ -14,11 +17,16 @@ services:
       - ODOO_AUTO_UPDATE_MODULES=${ODOO_AUTO_UPDATE_MODULES}
       - ODOO_DATABASE_NAME=${ODOO_DATABASE_NAME}
     volumes:
-      - ./addons/:/mnt/extra-addons:delegated
       - ./enterprise/:/mnt/extra-addons-enterprise:delegated
+      - ./odoo-pro/:/mnt/extra-addons-pro:delegated
       - ./conf:/etc/odoo:delegated
       - odoo_pro_ODOO_DATA:/var/lib/odoo:cached
-      - ./pyazul/pyazul:/usr/local/lib/python3.12/dist-packages/pyazul:delegated
-      - ./spreadsheet_controllers:/usr/lib/python3/dist-packages/odoo/addons/spreadsheet/controllers:delegated
+    networks:
+      - odoo_shared_network
+
 volumes:
   odoo_pro_ODOO_DATA:
+
+networks:
+  odoo_shared_network:
+    external: true
