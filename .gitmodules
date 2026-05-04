@@ -6,10 +6,6 @@
 	path = enterprise
 	url = git@github.com:indexa-git/enterprise.git
 	branch = 17.0
-[submodule "odoo"]
-	path = odoo
-	url = git@github.com:odoo/odoo.git
-	branch = 17.0
 [submodule "addons/OCA/account-analytic"]
 	path = addons/OCA/account-analytic
 	url = https://github.com/OCA/account-analytic.git
