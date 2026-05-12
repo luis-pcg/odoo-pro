@@ -12,3 +12,7 @@
 [submodule "upgrade-util"]
 	path = upgrade-util
 	url = git@github.com:indexa-git/upgrade-util.git
+[submodule "odoo"]
+	path = odoo
+	url = git@github.com:odoo/odoo.git
+	branch = 19.0
