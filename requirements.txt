@@ -1,7 +1,45 @@
+# ── Dev tools ─────────────────────────────────────────────────────────────────
 debugpy
-pycountry
+packaging
+
+# ── Odoo / upgrade ────────────────────────────────────────────────────────────
+openupgradelib
+# odoo_upgrade @ git+https://github.com/indexa-git/upgrade-util@master
+
+# ── HTTP / API ────────────────────────────────────────────────────────────────
 httpx[http2]>=0.28.1
 pydantic>=2.11.5
 pydantic-settings>=2.9.1
 python-dotenv>=1.1.0
 typing-extensions>=4.0.0
+
+# ── XML / Data formats ────────────────────────────────────────────────────────
+dict2xml==1.7.2
+xmltodict==0.13.0
+signxml>=4.0.0
+
+# ── SSH / SFTP ────────────────────────────────────────────────────────────────
+pysftp==0.2.8
+paramiko>=2.10.1
+pyOpenSSL>=19.0.0
+
+# ── Spreadsheets / Data ───────────────────────────────────────────────────────
+xlrd==2.0.1
+openpyxl==3.1.2
+pandas==2.1.2
+SQLAlchemy==2.0.32
+
+# ── Geo / Locale ──────────────────────────────────────────────────────────────
+pycountry>=19.8.18
+
+# ── Media / Print ─────────────────────────────────────────────────────────────
+gTTS==2.5.1
+ghostscript
+pydub
+zplgrf
+
+# ── Telephony / Messaging ─────────────────────────────────────────────────────
+phonenumbers
+
+# ── Database connectors ───────────────────────────────────────────────────────
+mysql-connector==2.2.9

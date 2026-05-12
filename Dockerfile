@@ -2,9 +2,13 @@ FROM odoo:19.0
 
 USER root
 
-# 1. Copiamos el requirements.txt e instalamos las librerías
+# 1. Instalamos dependencias Python
 COPY ./requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt --break-system-packages --ignore-installed
+
+# pyazul se instala desde el source local para que pip genere metadata
+COPY ./pyazul /tmp/pyazul
+RUN pip3 install /tmp/pyazul --break-system-packages --ignore-installed
 
 # 2. Copiamos tu nuevo entrypoint personalizado
 COPY ./entrypoint.sh /usr/bin/my_entrypoint.sh
