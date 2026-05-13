@@ -1,82 +1,54 @@
 # Odoo Pro v19 — Reporte de Tests
 
-> Generado: 2026-05-12 12:42:44
+> Generado: 2026-05-13 10:49:09
 
 ## Resumen
 
 | Métrica | Valor |
 |---------|-------|
-| Módulos pro descubiertos | 191 |
-| Instalados correctamente | 110 |
+| Módulos pro descubiertos | 192 |
+| Instalados correctamente | 51 |
 | Versión incompatible (no instalables) | 4 |
-| Fallaron instalación | 0 |
-| Módulos pro con tests | 90 |
-| Módulos con tests corridos | 75 |
-| Tests individuales corridos | 723 |
-| ↳ Fallaron (assert) | 5 |
-| ↳ Errores (excepción) | 67 |
-| ✅ Módulos — todos los tests pasaron | 45 |
-| ❌ Módulos — tests fallaron | 30 |
-| ⚠️  Módulos con warnings en tests | 3 |
+| Fallaron instalación | 1 |
+| Módulos pro con tests | 91 |
+| Módulos con tests corridos | 33 |
+| Tests individuales corridos | 304 |
+| ↳ Fallaron (assert) | 4 |
+| ↳ Errores (excepción) | 45 |
+| ✅ Módulos — todos los tests pasaron | 17 |
+| ❌ Módulos — tests fallaron | 16 |
+| ⚠️  Módulos con warnings en tests | 1 |
 | ⏩ Módulos pro sin directorio tests/ | 97 |
-| Tiempo fase instalación | 77s (1m 17s) |
-| Tiempo fase tests | 4300s (71m 40s) |
+| Tiempo fase instalación | 59s (0m 59s) |
+| Tiempo fase tests | 546s (9m 6s) |
 
-## ✅ Tests pasaron (45 módulos)
+## ✅ Tests pasaron (17 módulos)
 
 | Módulo | Tests | Tiempo |
 |--------|:-----:|:------:|
-| `acap_bank_statement_import` | 7 | 4.31s |
-| `account_bank_charge_import_base` | 8 | 0.07s |
-| `account_bank_statement_import_csv_patch` | 4 | 0.48s |
-| `account_financial_risk_features` | 18 | 1.79s |
-| `account_followup_extra_features` | 12 | 2.1s |
-| `account_lock_fiscal_date` | 14 | 2.94s |
-| `account_move_route` | 5 | 3.11s |
-| `account_multi_journal_payment_authorization_code` | 12 | 0.56s |
-| `account_partner_fields` | 3 | 0.1s |
-| `account_payment_advance_payment` | 7 | 0.16s |
-| `account_payment_authorization_code` | 6 | 0.13s |
-| `account_payment_reconcile_features` | 12 | 4.47s |
-| `apap_bank_statement_import` | 7 | 2.22s |
+| `account_bank_charge_import_base` | 8 | 0.1s |
+| `account_financial_risk_features` | 18 | 1.57s |
+| `account_followup_extra_features` | 12 | 2.08s |
+| `account_lock_fiscal_date` | 14 | 2.91s |
+| `account_move_route` | 5 | 2.67s |
+| `account_payment_advance_payment` | 7 | 0.09s |
+| `account_payment_internal_transfer` | 14 | 5.53s |
+| `account_payment_reconcile_features` | 12 | 4.26s |
 | `auto_backup_sh` ⚠️ | 28 | 0.05s |
-| `bdr_bank_statement_import` | 7 | 2.4s |
-| `bhd_bank_statement_import` | 7 | 7.99s |
-| `bhd_panama_bank_statement_import` | 7 | 2.74s |
-| `blh_bank_statement_import` | 7 | 2.15s |
-| `bnc_bank_statement_import` | 6 | 2.21s |
-| `bpd_bank_statement_import` | 8 | 3.19s |
-| `bpm_bank_statement_import` | 8 | 2.21s |
-| `bsc_bank_statement_import` | 9 | 4.35s |
-| `fleet_product_management` | 24 | 0.88s |
-| `fleet_product_rules` | 14 | 0.35s |
-| `jmmb_bank_statement_import` | 9 | 0.86s |
-| `l10n_do_account_batch_payment_base` | 5 | 0.12s |
-| `l10n_do_account_batch_payment_ee` | 6 | 0.13s |
-| `l10n_do_bank_charges_import` | 11 | 0.8s |
+| `bnc_bank_statement_import` | 6 | 2.12s |
+| `fleet_product_management` | 24 | 0.78s |
+| `l10n_do_account_batch_payment_base` | 5 | 0.14s |
 | `l10n_do_currency_update` | 4 | 0.67s |
-| `l10n_do_ecommerce` | 3 | 0.02s |
-| `l10n_do_rnc_validation` ⚠️ | 12 | 0.27s |
 | `odoo_cheque_features` | 3 | 0.07s |
-| `payment_salesperson` | 13 | 0.8s |
 | `product_foreign_cost_price` | 9 | 0.08s |
-| `product_price_history` | 14 | 0.43s |
-| `product_pricelist_user_restriction` | 13 | 0.21s |
-| `purchase_financial_risk_features` | 8 | 0.18s |
-| `purchase_request_features` | 3 | 0.08s |
-| `repair_services` | 23 | 0.69s |
-| `sale_crm_features` | 7 | 0.16s |
-| `sale_financial_risk_features` | 9 | 0.26s |
-| `sale_order_time_total` | 4 | 0.74s |
-| `sale_product_generic_readonly` | 8 | 0.23s |
-| `scotiabank_statement_import` | 10 | 3.74s |
-| `stock_inventory_forecasted_report` | 48 | 0.56s |
+| `product_price_history` | 14 | 0.39s |
+| `stock_warehouse_orderpoint_uom` | 7 | 0.73s |
 
-## ❌ Tests fallaron (30 módulos)
+## ❌ Tests fallaron (16 módulos)
 
 ### `account_bank_charge_import_bhd`
 
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.19s
+- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.2s
 
 ```
 ERROR: TestAccountBankChargeImportBHD.test_001_bhd_bank_charge_import_dop
@@ -85,16 +57,24 @@ ERROR: TestAccountBankChargeImportBHD.test_002_bhd_bank_charge_import_usd
 
 ### `account_bank_charge_import_bpd`
 
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.52s
+- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.22s
 
 ```
 ERROR: TestAccountBankChargeImportBPD.test_001_bpd_bank_charge_import_txt
 ERROR: TestAccountBankChargeImportBPD.test_002_bpd_bank_charge_import_csv
 ```
 
+### `account_bank_statement_import_csv_patch`
+
+- Failures: **0** | Errors: **1** | Tests: 4 | Tiempo: 0.25s
+
+```
+ERROR: TestBankStatementDraft.test_01_statement_line_draft_and_balance_calculation
+```
+
 ### `account_default_journals`
 
-- Failures: **2** | Errors: **4** | Tests: 8 | Tiempo: 2.89s
+- Failures: **2** | Errors: **4** | Tests: 8 | Tiempo: 2.79s
 
 ```
 FAIL: TestAccountDefaultJournals.test_payment_onchange_purchase_journal
@@ -113,9 +93,36 @@ ERROR: TestAccountDefaultJournals.test_wizard_single_sale_invoice_uses_partner_j
 ERROR: setUpClass (odoo.addons.account_multi_journal_payment.tests.test_account_multi_journal_payment.TestAccountMultiJournalPayment)
 ```
 
+### `account_multi_journal_payment_authorization_code`
+
+- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.08s
+
+```
+ERROR: setUpClass (odoo.addons.account_multi_journal_payment_authorization_code.tests.test_multi_journal_authorization_code.TestMultiJournalAuthorizationCode)
+```
+
+### `account_partner_fields`
+
+- Failures: **0** | Errors: **1** | Tests: 3 | Tiempo: 0.1s
+
+```
+ERROR: AccountMoveTest.test_001_onchange_type
+```
+
+### `account_payment_authorization_code`
+
+- Failures: **0** | Errors: **4** | Tests: 6 | Tiempo: 0.05s
+
+```
+ERROR: TestAccountPaymentAuthorizationCode.test_payment_constraint_without_code_raises
+ERROR: TestAccountPaymentAuthorizationCode.test_payment_optional_when_company_disabled
+ERROR: TestAccountPaymentAuthorizationCode.test_payment_with_code_posts
+ERROR: TestAccountPaymentAuthorizationCode.test_require_authorization_code_compute
+```
+
 ### `account_payment_compensation`
 
-- Failures: **1** | Errors: **15** | Tests: 28 | Tiempo: 6.16s
+- Failures: **1** | Errors: **15** | Tests: 28 | Tiempo: 6.27s
 
 ```
 ERROR: TestCompensationInvoiceFlow.test_invoice_flow_lines_have_invoice_id
@@ -137,57 +144,12 @@ ERROR: TestCompensationPaymentFlow.test_payment_flow_requires_at_least_one_filte
 
 ### `account_transfer_features`
 
-- Failures: **0** | Errors: **3** | Tests: 6 | Tiempo: 0.41s
+- Failures: **0** | Errors: **3** | Tests: 6 | Tiempo: 0.39s
 
 ```
 ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestDailyFrequency)
 ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestPartnerInMoveLines)
 ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestPartnerField)
-```
-
-### `crm_helpdesk_custom`
-
-- Failures: **0** | Errors: **2** | Tests: 24 | Tiempo: 1.08s
-
-```
-ERROR: TestCrmHelpdeskCustom.test_config_settings_relay_to_company
-ERROR: TestCrmHelpdeskCustom.test_crm_group_user_can_create_ticket
-```
-
-### `helpdesk_sale_custom`
-
-- Failures: **0** | Errors: **1** | Tests: 13 | Tiempo: 0.67s
-
-```
-ERROR: TestHelpdeskSaleCustom.test_config_settings_relay_to_company
-```
-
-### `l10n_do_account_batch_payment_bdr`
-
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.14s
-
-```
-ERROR: TestBDRBatchPayment.test_02_transaction_data_mapping_bdr
-ERROR: TestBDRBatchPayment.test_03_wizard_file_generation_bdr
-```
-
-### `l10n_do_account_batch_payment_bhd`
-
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.15s
-
-```
-ERROR: TestBHDBatchPayment.test_02_transaction_data_mapping_bhd
-ERROR: TestBHDBatchPayment.test_03_wizard_file_generation_bhd
-```
-
-### `l10n_do_account_batch_payment_bpd`
-
-- Failures: **1** | Errors: **2** | Tests: 9 | Tiempo: 0.21s
-
-```
-FAIL: TestBPDBatchPaymentFail.test_04_effective_date_validation_fail
-ERROR: TestBPDBatchPaymentFail.test_05_transaction_data_mapping_fail
-ERROR: TestBPDBatchPaymentFail.test_06_full_wizard_flow_fail
 ```
 
 ### `l10n_do_accounting`
@@ -199,96 +161,25 @@ ERROR: setUpClass (odoo.addons.l10n_do_accounting.tests.test_account_journal.Acc
 ERROR: setUpClass (odoo.addons.l10n_do_accounting.tests.test_account_move.AccountMoveTest)
 ```
 
-### `l10n_do_credit_note`
+### `payment_salesperson`
 
-- Failures: **0** | Errors: **2** | Tests: 4 | Tiempo: 0.0s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_credit_note.tests.test_l10n_do_credit_note.TestL10nDOCreditNoteItbis)
-ERROR: setUpClass (odoo.addons.l10n_do_credit_note.tests.test_l10n_do_credit_note.TestL10nDOCreditNoteCurrency)
-```
-
-### `l10n_do_document_pools`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.0s
+- Failures: **0** | Errors: **6** | Tests: 13 | Tiempo: 0.38s
 
 ```
-ERROR: setUpClass (odoo.addons.l10n_do_document_pools.tests.test_document_pools.TestDocumentPools)
-```
-
-### `l10n_do_ecf_invoicing`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.0s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_ecf_invoicing.tests.test_account_move.AccountMoveTest)
-```
-
-### `l10n_do_ncf_validation`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.0s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_ncf_validation.tests.test_account_move.AccountMoveTest)
-```
-
-### `l10n_do_purchase`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.0s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_purchase.tests.test_purchase_order.TestL10nDOPurchaseOrder)
-```
-
-### `l10n_do_sale`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.26s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_sale.tests.test_sale_order.TestL10nDOSaleOrder)
-```
-
-### `l10n_do_withholding_certification`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.0s
-
-```
-ERROR: setUpClass (odoo.addons.l10n_do_withholding_certification.tests.test_account_payment.AccountPaymentWithholdingTest)
-ERROR: setUpClass (odoo.addons.l10n_do_withholding_certification.tests.test_account_payment.AccountPaymentWithholdingTest)
-```
-
-### `payment_azul_webpages`
-
-- Failures: **0** | Errors: **9** | Tests: 72 | Tiempo: 1.8s
-
-```
-ERROR: AzulTransactionRenderingTest.test_rendering_values_contain_required_fields
-ERROR: AzulTransactionRenderingTest.test_rendering_values_each_demo_token_sets_correct_datavault_token
-ERROR: AzulTransactionRenderingTest.test_rendering_values_locale_english
-ERROR: AzulTransactionRenderingTest.test_rendering_values_locale_spanish
-ERROR: AzulTransactionRenderingTest.test_rendering_values_merchant_id_matches_demo_provider
-ERROR: AzulTransactionRenderingTest.test_rendering_values_normal_payment
-ERROR: AzulTransactionRenderingTest.test_rendering_values_tokenize_sets_save_to_vault
-ERROR: AzulTransactionRenderingTest.test_rendering_values_validation_sets_create_and_datavault_url
-ERROR: AzulTransactionRenderingTest.test_rendering_values_with_demo_token
-```
-
-### `payment_azul_webservices`
-
-- Failures: **0** | Errors: **2** | Tests: 18 | Tiempo: 0.08s
-
-```
-ERROR: setUpClass (odoo.addons.payment_azul_webservices.tests.test_payment_azul_webservices.TestAzulProvider)
-ERROR: setUpClass (odoo.addons.payment_azul_webservices.tests.test_payment_azul_webservices.TestAzulTransaction)
+ERROR: TestPaymentSalesperson.test_create_assigns_salesperson_from_partner
+ERROR: TestPaymentSalesperson.test_create_from_invoice_first_invoice_mode
+ERROR: TestPaymentSalesperson.test_create_no_salesperson_when_partner_has_none
+ERROR: TestPaymentSalesperson.test_write_create_uid_as_regular_user_denied
+ERROR: TestPaymentSalesperson.test_write_salesperson_as_account_manager_allowed
+ERROR: TestPaymentSalesperson.test_write_salesperson_as_regular_user_denied
 ```
 
 ### `purchase_financial_risk`
 
-- Failures: **1** | Errors: **1** | Tests: 20 | Tiempo: 0.87s
+- Failures: **1** | Errors: **0** | Tests: 20 | Tiempo: 0.98s
 
 ```
 FAIL: TestPurchaseFinancialRisk.test_partner_risk_purchase_order_compute
-ERROR: TestPurchaseFinancialRisk.test_res_config_settings_include_risk_purchase_order_done
 ```
 
 ### `purchase_foreign_cost_update`
@@ -301,7 +192,7 @@ ERROR: setUpClass (odoo.addons.purchase_foreign_cost_update.tests.test_purchase_
 
 ### `purchase_order_rate`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.35s
+- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.34s
 
 ```
 ERROR: setUpClass (odoo.addons.purchase_order_rate.tests.test_purchase_rate.TestPurchaseOrderRate)
@@ -309,55 +200,17 @@ ERROR: setUpClass (odoo.addons.purchase_order_rate.tests.test_purchase_rate.Test
 
 ### `sale_order_rate`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.35s
+- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.34s
 
 ```
 ERROR: setUpClass (odoo.addons.sale_order_rate.tests.test_sale_rate.TestSaleOrderRate)
 ```
 
-### `sale_stock_restriction`
+## 🔴 Fallaron instalación (1 módulos pro)
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.18s
-
-```
-ERROR: setUpClass (odoo.addons.sale_stock_restriction.tests.test_sale_stock_restriction.TestSaleStockRestriction)
-```
-
-### `sale_stock_serial`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.19s
-
-```
-ERROR: setUpClass (odoo.addons.sale_stock_serial.tests.test_sale_stock_serial.TestSaleStockSerial)
-```
-
-### `stock_landed_costs_features`
-
-- Failures: **0** | Errors: **1** | Tests: 3 | Tiempo: 1.58s
-
-```
-ERROR: TestStockLandedCostsSpecificProducts.test_landed_costs_specific_products
-```
-
-### `stock_picking_invoice_link_extra`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.56s
-
-```
-ERROR: setUpClass (odoo.addons.stock_picking_invoice_link_extra.tests.test_picking_invoice_residual.TestPickingInvoiceResidual)
-```
-
-### `stock_warehouse_orderpoint_uom`
-
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.24s
-
-```
-ERROR: setUpClass (odoo.addons.stock_warehouse_orderpoint_uom.tests.test_orderpoint_uom.TestOrderpointUom)
-```
-
-## 🔴 Fallaron instalación (0 módulos pro)
-
-_Todos los módulos pro se instalaron correctamente_ ✅
+| Módulo | Error |
+|--------|-------|
+| `hr_payroll_import_inputs` | Failed to load registry |
 
 ## 🚫 Versión incompatible (4 módulos pro)
 
@@ -368,35 +221,13 @@ _Todos los módulos pro se instalaron correctamente_ ✅
 | `pos_hr_minimal_rights` |
 | `sale_pos_backend_multi_journal_payment` |
 
-## ⚠️  Warnings en tests (3 módulos)
+## ⚠️  Warnings en tests (1 módulos)
 
 <details>
 <summary><code>auto_backup_sh</code> (1 warnings)</summary>
 
 ```
 File not found: Backup file _daily.sql.gz not found in path /home/odoo/backup.daily
-```
-
-</details>
-
-<details>
-<summary><code>l10n_do_rnc_validation</code> (4 warnings)</summary>
-
-```
-Invalid format for: 999999901
-Invalid format for: 99999990101
-Invalid format for: 999999901
-Invalid format for: 999999901
-```
-
-</details>
-
-<details>
-<summary><code>payment_azul_webpages</code> (2 warnings)</summary>
-
-```
-Azul: DataVaultToken has unexpected format, skipping tokenization for transaction Test Transaction
-Azul: DataVaultToken has unexpected format, skipping tokenization for transaction Test Transaction
 ```
 
 </details>
@@ -439,18 +270,18 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 | `whatsapp_connector_crm` | `whatsapp_connector_pack` | `whatsapp_connector_sale` |
 | `wk_odoo_directly_print_reports` |  |  |
 
-## 📦 Módulos pro descubiertos (191)
+## 📦 Módulos pro descubiertos (192)
 
 <details>
 <summary>Ver lista completa con estado</summary>
 
 ```
-✅ PASS        acap_bank_statement_import
+⚠️  NOT_LOADED  acap_bank_statement_import
 ⏩ NO_TESTS    account_accountant_cheque
 ✅ PASS        account_bank_charge_import_base
 ❌ FAIL        account_bank_charge_import_bhd
 ❌ FAIL        account_bank_charge_import_bpd
-✅ PASS        account_bank_statement_import_csv_patch
+❌ FAIL        account_bank_statement_import_csv_patch
 ⏩ NO_TESTS    account_date_filters
 ❌ FAIL        account_default_journals
 ✅ PASS        account_financial_risk_features
@@ -459,66 +290,67 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 ✅ PASS        account_lock_fiscal_date
 ✅ PASS        account_move_route
 ❌ FAIL        account_multi_journal_payment
-✅ PASS        account_multi_journal_payment_authorization_code
-✅ PASS        account_partner_fields
+❌ FAIL        account_multi_journal_payment_authorization_code
+❌ FAIL        account_partner_fields
 ✅ PASS        account_payment_advance_payment
-✅ PASS        account_payment_authorization_code
+❌ FAIL        account_payment_authorization_code
 ⚠️  NOT_LOADED  account_payment_card_bin
 ⚠️  NOT_LOADED  account_payment_cash_custom_workflow
 ❌ FAIL        account_payment_compensation
-⏩ NO_TESTS    account_payment_compensation_news
+⚠️  NOT_LOADED  account_payment_compensation_news
+✅ PASS        account_payment_internal_transfer
 ⚠️  NOT_LOADED  account_payment_promotion_discount
 ✅ PASS        account_payment_reconcile_features
 ❌ FAIL        account_transfer_features
 ⏩ NO_TESTS    advanced_web_domain_widget
-✅ PASS        apap_bank_statement_import
+⚠️  NOT_LOADED  apap_bank_statement_import
 ⚠️  NOT_LOADED  auto_attribute_value
 ✅ PASS        auto_backup_sh
-✅ PASS        bdr_bank_statement_import
-✅ PASS        bhd_bank_statement_import
-✅ PASS        bhd_panama_bank_statement_import
+⚠️  NOT_LOADED  bdr_bank_statement_import
+⚠️  NOT_LOADED  bhd_bank_statement_import
+⚠️  NOT_LOADED  bhd_panama_bank_statement_import
 ⏩ NO_TESTS    bi_all_in_one_schedule_activity
 ⚠️  NOT_LOADED  bi_warranty_registration
-✅ PASS        blh_bank_statement_import
+⚠️  NOT_LOADED  blh_bank_statement_import
 ✅ PASS        bnc_bank_statement_import
-✅ PASS        bpd_bank_statement_import
-✅ PASS        bpm_bank_statement_import
-✅ PASS        bsc_bank_statement_import
-❌ FAIL        crm_helpdesk_custom
+⚠️  NOT_LOADED  bpd_bank_statement_import
+⚠️  NOT_LOADED  bpm_bank_statement_import
+⚠️  NOT_LOADED  bsc_bank_statement_import
+⚠️  NOT_LOADED  crm_helpdesk_custom
 ⚠️  NOT_LOADED  delivery_buenvio
 ⏩ NO_TESTS    dgii_reports
 ⚠️  NOT_LOADED  export_view_pdf
 ⚠️  NOT_LOADED  fleet_account_asset
 ⚠️  NOT_LOADED  fleet_industry_fsm
 ✅ PASS        fleet_product_management
-✅ PASS        fleet_product_rules
+⚠️  NOT_LOADED  fleet_product_rules
 ⚠️  NOT_LOADED  fleet_product_rules_renting
-❌ FAIL        helpdesk_sale_custom
+⚠️  NOT_LOADED  helpdesk_sale_custom
 ⏩ NO_TESTS    helpdesk_ticket_signature
 ⚠️  NOT_LOADED  hms_account
 ⚠️  NOT_LOADED  hms_partner
 ⚠️  NOT_LOADED  hms_sale_pos_backend
 ⚠️  NOT_LOADED  hms_sales
-⚠️  NOT_LOADED  hr_payroll_import_inputs
-✅ PASS        jmmb_bank_statement_import
+🔴 INST_FAIL   hr_payroll_import_inputs
+⚠️  NOT_LOADED  jmmb_bank_statement_import
 ⏩ NO_TESTS    ks_dashboard_ninja
 ⏩ NO_TESTS    ks_dn_advance
 ✅ PASS        l10n_do_account_batch_payment_base
-❌ FAIL        l10n_do_account_batch_payment_bdr
-❌ FAIL        l10n_do_account_batch_payment_bhd
-❌ FAIL        l10n_do_account_batch_payment_bpd
-✅ PASS        l10n_do_account_batch_payment_ee
-⏩ NO_TESTS    l10n_do_account_withholding_tax
+⚠️  NOT_LOADED  l10n_do_account_batch_payment_bdr
+⚠️  NOT_LOADED  l10n_do_account_batch_payment_bhd
+⚠️  NOT_LOADED  l10n_do_account_batch_payment_bpd
+⚠️  NOT_LOADED  l10n_do_account_batch_payment_ee
+⚠️  NOT_LOADED  l10n_do_account_withholding_tax
 ❌ FAIL        l10n_do_accounting
-✅ PASS        l10n_do_bank_charges_import
+⚠️  NOT_LOADED  l10n_do_bank_charges_import
 ⏩ NO_TESTS    l10n_do_banks
-❌ FAIL        l10n_do_credit_note
+⚠️  NOT_LOADED  l10n_do_credit_note
 ✅ PASS        l10n_do_currency_update
-❌ FAIL        l10n_do_document_pools
-❌ FAIL        l10n_do_ecf_invoicing
+⚠️  NOT_LOADED  l10n_do_document_pools
+⚠️  NOT_LOADED  l10n_do_ecf_invoicing
 ⚠️  NOT_LOADED  l10n_do_ecf_reception
 ⚠️  NOT_LOADED  l10n_do_ecf_reception_workflow
-✅ PASS        l10n_do_ecommerce
+⚠️  NOT_LOADED  l10n_do_ecommerce
 ⏩ NO_TESTS    l10n_do_hr
 ⚠️  NOT_LOADED  l10n_do_hr_course
 ⚠️  NOT_LOADED  l10n_do_hr_fleet
@@ -526,34 +358,34 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 ⏩ NO_TESTS    l10n_do_hr_news
 ⚠️  NOT_LOADED  l10n_do_hr_news_accounts_receivable
 ⚠️  NOT_LOADED  l10n_do_hr_news_attendance
-⏩ NO_TESTS    l10n_do_hr_payroll
+⚠️  NOT_LOADED  l10n_do_hr_payroll
 ⚠️  NOT_LOADED  l10n_do_hr_payroll_import_inputs
-⏩ NO_TESTS    l10n_do_hr_payroll_news
+⚠️  NOT_LOADED  l10n_do_hr_payroll_news
 ⚠️  NOT_LOADED  l10n_do_hr_payroll_news_attendance
 ⏩ NO_TESTS    l10n_do_hr_recruitment
 ⚠️  NOT_LOADED  l10n_do_hr_recurrent_news
-❌ FAIL        l10n_do_ncf_validation
-⏩ NO_TESTS    l10n_do_payroll_bhd_file
-⏩ NO_TESTS    l10n_do_payroll_bpd_file
-⏩ NO_TESTS    l10n_do_payroll_brrd_file
-⏩ NO_TESTS    l10n_do_payroll_file_base
-⏩ NO_TESTS    l10n_do_pos
-❌ FAIL        l10n_do_purchase
-✅ PASS        l10n_do_rnc_validation
-❌ FAIL        l10n_do_sale
+⚠️  NOT_LOADED  l10n_do_ncf_validation
+⚠️  NOT_LOADED  l10n_do_payroll_bhd_file
+⚠️  NOT_LOADED  l10n_do_payroll_bpd_file
+⚠️  NOT_LOADED  l10n_do_payroll_brrd_file
+⚠️  NOT_LOADED  l10n_do_payroll_file_base
+⚠️  NOT_LOADED  l10n_do_pos
+⚠️  NOT_LOADED  l10n_do_purchase
+⚠️  NOT_LOADED  l10n_do_rnc_validation
+⚠️  NOT_LOADED  l10n_do_sale
 ⚠️  NOT_LOADED  l10n_do_sale_pos_backend
 ⚠️  NOT_LOADED  l10n_do_sale_pos_backend_reconcile_payment
 ⚠️  NOT_LOADED  l10n_do_sign_to_xml
-❌ FAIL        l10n_do_withholding_certification
+⚠️  NOT_LOADED  l10n_do_withholding_certification
 ⚠️  NOT_LOADED  looker_connector
 ✅ PASS        odoo_cheque_features
 ⏩ NO_TESTS    odoo_cheque_management
 ⚠️  NOT_LOADED  odoo_document_printer
 ⚠️  NOT_LOADED  odoo_document_printer_customization_base
-❌ FAIL        payment_azul_webpages
-❌ FAIL        payment_azul_webservices
+⚠️  NOT_LOADED  payment_azul_webpages
+⚠️  NOT_LOADED  payment_azul_webservices
 🚫 INCOMPAT    payment_bhd
-✅ PASS        payment_salesperson
+❌ FAIL        payment_salesperson
 🚫 INCOMPAT    pos_azul
 🚫 INCOMPAT    pos_hr_minimal_rights
 ⚠️  NOT_LOADED  printnode_base
@@ -565,20 +397,20 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 ⚠️  NOT_LOADED  product_part_number
 ⚠️  NOT_LOADED  product_price_checker
 ✅ PASS        product_price_history
-✅ PASS        product_pricelist_user_restriction
-⏩ NO_TESTS    product_product_price_widget
+⚠️  NOT_LOADED  product_pricelist_user_restriction
+⚠️  NOT_LOADED  product_product_price_widget
 ⚠️  NOT_LOADED  product_segment
-⏩ NO_TESTS    product_stock_qty_date_widgets
+⚠️  NOT_LOADED  product_stock_qty_date_widgets
 ⚠️  NOT_LOADED  product_warehouse_quantity
 ⚠️  NOT_LOADED  professional_templates
 ❌ FAIL        purchase_financial_risk
-✅ PASS        purchase_financial_risk_features
+⚠️  NOT_LOADED  purchase_financial_risk_features
 ❌ FAIL        purchase_foreign_cost_update
 ❌ FAIL        purchase_order_rate
 ⏩ NO_TESTS    purchase_partner_fields
 ⚠️  NOT_LOADED  purchase_picking_default
 ⚠️  NOT_LOADED  purchase_request_currency
-✅ PASS        purchase_request_features
+⚠️  NOT_LOADED  purchase_request_features
 ⚠️  NOT_LOADED  qztray
 ⚠️  NOT_LOADED  qztray_base
 ⚠️  NOT_LOADED  qztray_location_labels
@@ -589,15 +421,15 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 ⚠️  NOT_LOADED  repair_helpdesk_custom
 ⚠️  NOT_LOADED  repair_location_settings
 ⚠️  NOT_LOADED  repair_no_negative_allow
-✅ PASS        repair_services
+⚠️  NOT_LOADED  repair_services
 ⚠️  NOT_LOADED  repair_warranty_extra_info
 ⚠️  NOT_LOADED  res_partner_phone_search
-✅ PASS        sale_crm_features
-✅ PASS        sale_financial_risk_features
+⚠️  NOT_LOADED  sale_crm_features
+⚠️  NOT_LOADED  sale_financial_risk_features
 ⚠️  NOT_LOADED  sale_mr_inherit_modify
 ⚠️  NOT_LOADED  sale_order_glasses_description
 ❌ FAIL        sale_order_rate
-✅ PASS        sale_order_time_total
+⚠️  NOT_LOADED  sale_order_time_total
 ⚠️  NOT_LOADED  sale_order_with_other_locations
 ⏩ NO_TESTS    sale_partner_fields
 ⚠️  NOT_LOADED  sale_pos_backend
@@ -609,26 +441,26 @@ Azul: DataVaultToken has unexpected format, skipping tokenization for transactio
 ⚠️  NOT_LOADED  sale_pos_backend_part_number
 ⚠️  NOT_LOADED  sale_pos_backend_warranty_reports
 ⚠️  NOT_LOADED  sale_pos_session_link
-✅ PASS        sale_product_generic_readonly
-⏩ NO_TESTS    sale_stock_product_price_widget
-⏩ NO_TESTS    sale_stock_qty_date_widgets
-❌ FAIL        sale_stock_restriction
-❌ FAIL        sale_stock_serial
+⚠️  NOT_LOADED  sale_product_generic_readonly
+⚠️  NOT_LOADED  sale_stock_product_price_widget
+⚠️  NOT_LOADED  sale_stock_qty_date_widgets
+⚠️  NOT_LOADED  sale_stock_restriction
+⚠️  NOT_LOADED  sale_stock_serial
 ⚠️  NOT_LOADED  sales_bavel
-✅ PASS        scotiabank_statement_import
+⚠️  NOT_LOADED  scotiabank_statement_import
 ⚠️  NOT_LOADED  sh_all_in_one_margin
 ⚠️  NOT_LOADED  sh_low_stock_notification
 ⚠️  NOT_LOADED  sh_product_multi_barcode
 ⚠️  NOT_LOADED  sh_restrict_pricelist
 ⏩ NO_TESTS    simplify_access_management
-✅ PASS        stock_inventory_forecasted_report
-❌ FAIL        stock_landed_costs_features
-⏩ NO_TESTS    stock_landed_costs_file
-❌ FAIL        stock_picking_invoice_link_extra
-❌ FAIL        stock_warehouse_orderpoint_uom
-⏩ NO_TESTS    tss_report
-⏩ NO_TESTS    website_quotation
-⏩ NO_TESTS    website_stock_availability
+⚠️  NOT_LOADED  stock_inventory_forecasted_report
+⚠️  NOT_LOADED  stock_landed_costs_features
+⚠️  NOT_LOADED  stock_landed_costs_file
+⚠️  NOT_LOADED  stock_picking_invoice_link_extra
+✅ PASS        stock_warehouse_orderpoint_uom
+⚠️  NOT_LOADED  tss_report
+⚠️  NOT_LOADED  website_quotation
+⚠️  NOT_LOADED  website_stock_availability
 ⚠️  NOT_LOADED  website_store_pickup
 ⚠️  NOT_LOADED  whatsapp_connector
 ⚠️  NOT_LOADED  whatsapp_connector_chatter
