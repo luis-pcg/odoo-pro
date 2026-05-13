@@ -1,80 +1,106 @@
-# Odoo Pro v19 — Reporte de Tests
+# 🧪 Odoo Pro v19 — Test Report
 
-> Generado: 2026-05-13 10:49:09
+> **Generado:** 13/05/2026 13:45:15 &nbsp;|&nbsp; **Instalación:** 1m 1s &nbsp;|&nbsp; **Tests:** 8m 59s
 
-## Resumen
+---
 
-| Métrica | Valor |
-|---------|-------|
-| Módulos pro descubiertos | 192 |
-| Instalados correctamente | 51 |
-| Versión incompatible (no instalables) | 4 |
-| Fallaron instalación | 1 |
-| Módulos pro con tests | 91 |
-| Módulos con tests corridos | 33 |
-| Tests individuales corridos | 304 |
-| ↳ Fallaron (assert) | 4 |
-| ↳ Errores (excepción) | 45 |
-| ✅ Módulos — todos los tests pasaron | 17 |
-| ❌ Módulos — tests fallaron | 16 |
-| ⚠️  Módulos con warnings en tests | 1 |
-| ⏩ Módulos pro sin directorio tests/ | 97 |
-| Tiempo fase instalación | 59s (0m 59s) |
-| Tiempo fase tests | 546s (9m 6s) |
+## 📊 Resumen Ejecutivo
 
-## ✅ Tests pasaron (17 módulos)
+| KPI | Valor | Detalle |
+|-----|:-----:|---------|
+| **Módulos descubiertos** | 192 | 116 instalables · 76 pendientes migración |
+| **Módulos instalados** | 51 / 116 | 1 fallaron · 4 incompatibles |
+| **Módulos con tests** | 76 / 79 | 60 pasaron · 16 fallaron |
+| **Tests individuales** | 827 | 6 assert · 35 excepciones |
+| **Tasa de éxito (módulos)** | 79% | `████████████████░░░░` 79% |
+| **Tasa de éxito (tests)** | 95% | `███████████████████░` 95% |
 
-| Módulo | Tests | Tiempo |
-|--------|:-----:|:------:|
-| `account_bank_charge_import_base` | 8 | 0.1s |
-| `account_financial_risk_features` | 18 | 1.57s |
-| `account_followup_extra_features` | 12 | 2.08s |
-| `account_lock_fiscal_date` | 14 | 2.91s |
-| `account_move_route` | 5 | 2.67s |
-| `account_payment_advance_payment` | 7 | 0.09s |
-| `account_payment_internal_transfer` | 14 | 5.53s |
-| `account_payment_reconcile_features` | 12 | 4.26s |
-| `auto_backup_sh` ⚠️ | 28 | 0.05s |
-| `bnc_bank_statement_import` | 6 | 2.12s |
-| `fleet_product_management` | 24 | 0.78s |
-| `l10n_do_account_batch_payment_base` | 5 | 0.14s |
-| `l10n_do_currency_update` | 4 | 0.67s |
-| `odoo_cheque_features` | 3 | 0.07s |
-| `product_foreign_cost_price` | 9 | 0.08s |
-| `product_price_history` | 14 | 0.39s |
-| `stock_warehouse_orderpoint_uom` | 7 | 0.73s |
+### Estado por categoría
 
-## ❌ Tests fallaron (16 módulos)
+| Estado | Módulos | Descripción |
+|--------|:-------:|-------------|
+| ✅ Pasaron | **60** | módulos con todos los tests en verde |
+| ❌ Fallaron | **16** | módulos con fallos o errores |
+| ⚠️  Con warnings | **4** | módulos con advertencias |
+| ⏩ Sin tests | **33** | módulos sin directorio tests/ |
+| 🔒 No instalables | **76** | installable=False — pendientes migración |
+| 🚫 Incompatibles | **4** | versión incompatible con v19 |
+| 🔴 Error install | **1** | fallaron durante la instalación |
 
-### `account_bank_charge_import_bhd`
+---
 
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.2s
+## ✅ Tests Pasaron &nbsp; `60 módulos`
 
-```
-ERROR: TestAccountBankChargeImportBHD.test_001_bhd_bank_charge_import_dop
-ERROR: TestAccountBankChargeImportBHD.test_002_bhd_bank_charge_import_usd
-```
+| Módulo | Tests | Tiempo | Autor | Estado |
+|--------|:-----:|:------:|-------|:------:|
+| `acap_bank_statement_import` | 7 | 3.88s | lfernandez | ✅ |
+| `account_bank_charge_import_base` | 8 | 0.09s | Luis Fernandez | ✅ |
+| `account_bank_charge_import_bhd` | 6 | 6.92s | lfernandez | ✅ |
+| `account_bank_charge_import_bpd` | 6 | 5.47s | lfernandez | ✅ |
+| `account_bank_statement_import_csv_patch` | 4 | 1.18s | Luis Fernandez | ✅ |
+| `account_financial_risk_features` | 18 | 1.58s | lfernandez | ✅ |
+| `account_followup_extra_features` | 12 | 2.02s | lfernandez | ✅ |
+| `account_lock_fiscal_date` | 14 | 2.77s | lfernandez | ✅ |
+| `account_move_route` | 5 | 2.61s | Erick Cuesto | ✅ |
+| `account_multi_journal_payment_authorization_code` | 12 | 1.3s | lfernandez | ✅ |
+| `account_payment_advance_payment` | 7 | 0.09s | lfernandez | ✅ |
+| `account_payment_authorization_code` | 6 | 1.26s | lfernandez | ✅ |
+| `account_payment_internal_transfer` | 14 | 4.38s | Erick Cuesto | ✅ |
+| `account_payment_reconcile_features` | 12 | 4.19s | Erick Cuesto | ✅ |
+| `account_transfer_features` | 21 | 1.22s | Luis Fernandez | ✅ |
+| `apap_bank_statement_import` | 7 | 1.91s | lfernandez | ✅ |
+| `auto_backup_sh` ⚠️ | 28 | 0.05s | lfernandez | ✅⚠️ |
+| `bdr_bank_statement_import` | 7 | 2.16s | lfernandez | ✅ |
+| `bhd_bank_statement_import` | 7 | 6.61s | lfernandez | ✅ |
+| `bhd_panama_bank_statement_import` | 7 | 2.51s | lfernandez | ✅ |
+| `blh_bank_statement_import` | 7 | 2.05s | lfernandez | ✅ |
+| `bnc_bank_statement_import` | 6 | 2.1s | lfernandez | ✅ |
+| `bpd_bank_statement_import` | 8 | 2.95s | lfernandez | ✅ |
+| `bpm_bank_statement_import` | 8 | 2.12s | lfernandez | ✅ |
+| `bsc_bank_statement_import` | 9 | 3.87s | lfernandez | ✅ |
+| `crm_helpdesk_custom` | 24 | 1.24s | lfernandez | ✅ |
+| `fleet_product_management` | 24 | 0.78s | Luis Fernandez | ✅ |
+| `fleet_product_rules` | 14 | 0.34s | lfernandez | ✅ |
+| `helpdesk_sale_custom` | 13 | 0.83s | Erick Cuesto | ✅ |
+| `jmmb_bank_statement_import` | 9 | 1.55s | lfernandez | ✅ |
+| `l10n_do_account_batch_payment_base` | 5 | 0.12s | lfernandez | ✅ |
+| `l10n_do_account_batch_payment_bdr` | 6 | 0.14s | lfernandez | ✅ |
+| `l10n_do_account_batch_payment_bhd` | 6 | 0.14s | lfernandez | ✅ |
+| `l10n_do_account_batch_payment_bpd` | 9 | 0.21s | lfernandez | ✅ |
+| `l10n_do_account_batch_payment_ee` | 6 | 0.12s | lfernandez | ✅ |
+| `l10n_do_bank_charges_import` | 11 | 1.5s | lfernandez | ✅ |
+| `l10n_do_currency_update` | 4 | 0.54s | DanielAPereyraB | ✅ |
+| `l10n_do_ecommerce` | 3 | 0.02s | Erick Cuesto | ✅ |
+| `l10n_do_rnc_validation` ⚠️ | 12 | 0.27s | Erick Cuesto | ✅⚠️ |
+| `odoo_cheque_features` | 3 | 0.07s | - | ✅ |
+| `payment_azul_webpages` ⚠️ | 72 | 2.07s | DanielAPereyraB | ✅⚠️ |
+| `payment_azul_webservices` ⚠️ | 56 | 0.39s | DanielAPereyraB | ✅⚠️ |
+| `payment_salesperson` | 13 | 1.53s | lfernandez | ✅ |
+| `product_foreign_cost_price` | 9 | 0.08s | Erick Cuesto | ✅ |
+| `product_price_history` | 14 | 0.42s | lfernandez | ✅ |
+| `product_pricelist_user_restriction` | 13 | 0.22s | lfernandez | ✅ |
+| `purchase_financial_risk` | 20 | 0.99s | lfernandez | ✅ |
+| `purchase_financial_risk_features` | 8 | 0.18s | lfernandez | ✅ |
+| `purchase_request_features` | 3 | 0.08s | lfernandez | ✅ |
+| `repair_services` | 23 | 0.81s | lfernandez | ✅ |
+| `sale_crm_features` | 7 | 0.14s | lfernandez | ✅ |
+| `sale_financial_risk_features` | 9 | 0.25s | lfernandez | ✅ |
+| `sale_order_time_total` | 4 | 0.69s | lfernandez | ✅ |
+| `sale_product_generic_readonly` | 8 | 0.19s | lfernandez | ✅ |
+| `sale_stock_restriction` | 16 | 1.6s | Erick Cuesto | ✅ |
+| `sale_stock_serial` | 9 | 1.36s | Erick Cuesto | ✅ |
+| `scotiabank_statement_import` | 10 | 3.15s | lfernandez | ✅ |
+| `stock_inventory_forecasted_report` | 48 | 0.6s | lfernandez | ✅ |
+| `stock_picking_invoice_link_extra` | 7 | 2.46s | lfernandez | ✅ |
+| `stock_warehouse_orderpoint_uom` | 7 | 0.85s | lfernandez | ✅ |
 
-### `account_bank_charge_import_bpd`
+## ❌ Tests Fallaron &nbsp; `16 módulos`
 
-- Failures: **0** | Errors: **2** | Tests: 6 | Tiempo: 0.22s
+### ❌ `account_default_journals`
 
-```
-ERROR: TestAccountBankChargeImportBPD.test_001_bpd_bank_charge_import_txt
-ERROR: TestAccountBankChargeImportBPD.test_002_bpd_bank_charge_import_csv
-```
+> **Autor:** Erick Cuesto &nbsp;|&nbsp; **Fallos:** 2 &nbsp;|&nbsp; **Errores:** 4 &nbsp;|&nbsp; **Tests:** 8 &nbsp;|&nbsp; **Tiempo:** 2.81s
 
-### `account_bank_statement_import_csv_patch`
-
-- Failures: **0** | Errors: **1** | Tests: 4 | Tiempo: 0.25s
-
-```
-ERROR: TestBankStatementDraft.test_01_statement_line_draft_and_balance_calculation
-```
-
-### `account_default_journals`
-
-- Failures: **2** | Errors: **4** | Tests: 8 | Tiempo: 2.79s
+**Detalle de fallos:**
 
 ```
 FAIL: TestAccountDefaultJournals.test_payment_onchange_purchase_journal
@@ -85,44 +111,31 @@ ERROR: TestAccountDefaultJournals.test_wizard_single_purchase_invoice_uses_partn
 ERROR: TestAccountDefaultJournals.test_wizard_single_sale_invoice_uses_partner_journal
 ```
 
-### `account_multi_journal_payment`
+### ❌ `account_multi_journal_payment`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.09s
+> **Autor:** Erick Cuesto &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.09s
+
+**Detalle de fallos:**
 
 ```
 ERROR: setUpClass (odoo.addons.account_multi_journal_payment.tests.test_account_multi_journal_payment.TestAccountMultiJournalPayment)
 ```
 
-### `account_multi_journal_payment_authorization_code`
+### ❌ `account_partner_fields`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.08s
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 3 &nbsp;|&nbsp; **Tiempo:** 0.1s
 
-```
-ERROR: setUpClass (odoo.addons.account_multi_journal_payment_authorization_code.tests.test_multi_journal_authorization_code.TestMultiJournalAuthorizationCode)
-```
-
-### `account_partner_fields`
-
-- Failures: **0** | Errors: **1** | Tests: 3 | Tiempo: 0.1s
+**Detalle de fallos:**
 
 ```
 ERROR: AccountMoveTest.test_001_onchange_type
 ```
 
-### `account_payment_authorization_code`
+### ❌ `account_payment_compensation`
 
-- Failures: **0** | Errors: **4** | Tests: 6 | Tiempo: 0.05s
+> **Autor:** Daniel Alexander Pereyra Beltran &nbsp;|&nbsp; **Fallos:** 1 &nbsp;|&nbsp; **Errores:** 15 &nbsp;|&nbsp; **Tests:** 28 &nbsp;|&nbsp; **Tiempo:** 5.72s
 
-```
-ERROR: TestAccountPaymentAuthorizationCode.test_payment_constraint_without_code_raises
-ERROR: TestAccountPaymentAuthorizationCode.test_payment_optional_when_company_disabled
-ERROR: TestAccountPaymentAuthorizationCode.test_payment_with_code_posts
-ERROR: TestAccountPaymentAuthorizationCode.test_require_authorization_code_compute
-```
-
-### `account_payment_compensation`
-
-- Failures: **1** | Errors: **15** | Tests: 28 | Tiempo: 6.27s
+**Detalle de fallos:**
 
 ```
 ERROR: TestCompensationInvoiceFlow.test_invoice_flow_lines_have_invoice_id
@@ -142,332 +155,432 @@ ERROR: TestCompensationPaymentFlow.test_payment_flow_lines_have_payment_id
 ERROR: TestCompensationPaymentFlow.test_payment_flow_requires_at_least_one_filter
 ```
 
-### `account_transfer_features`
+### ❌ `l10n_do_accounting`
 
-- Failures: **0** | Errors: **3** | Tests: 6 | Tiempo: 0.39s
+> **Autor:** Daniel Alexander Pereyra Beltran &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 2 &nbsp;|&nbsp; **Tests:** 4 &nbsp;|&nbsp; **Tiempo:** 0.0s
 
-```
-ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestDailyFrequency)
-ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestPartnerInMoveLines)
-ERROR: setUpClass (odoo.addons.account_transfer_features.tests.test_transfer_features.TestPartnerField)
-```
-
-### `l10n_do_accounting`
-
-- Failures: **0** | Errors: **2** | Tests: 4 | Tiempo: 0.0s
+**Detalle de fallos:**
 
 ```
 ERROR: setUpClass (odoo.addons.l10n_do_accounting.tests.test_account_journal.AccountJournalTest)
 ERROR: setUpClass (odoo.addons.l10n_do_accounting.tests.test_account_move.AccountMoveTest)
 ```
 
-### `payment_salesperson`
+### ❌ `l10n_do_credit_note`
 
-- Failures: **0** | Errors: **6** | Tests: 13 | Tiempo: 0.38s
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 2 &nbsp;|&nbsp; **Tests:** 4 &nbsp;|&nbsp; **Tiempo:** 0.0s
 
-```
-ERROR: TestPaymentSalesperson.test_create_assigns_salesperson_from_partner
-ERROR: TestPaymentSalesperson.test_create_from_invoice_first_invoice_mode
-ERROR: TestPaymentSalesperson.test_create_no_salesperson_when_partner_has_none
-ERROR: TestPaymentSalesperson.test_write_create_uid_as_regular_user_denied
-ERROR: TestPaymentSalesperson.test_write_salesperson_as_account_manager_allowed
-ERROR: TestPaymentSalesperson.test_write_salesperson_as_regular_user_denied
-```
-
-### `purchase_financial_risk`
-
-- Failures: **1** | Errors: **0** | Tests: 20 | Tiempo: 0.98s
+**Detalle de fallos:**
 
 ```
-FAIL: TestPurchaseFinancialRisk.test_partner_risk_purchase_order_compute
+ERROR: setUpClass (odoo.addons.l10n_do_credit_note.tests.test_l10n_do_credit_note.TestL10nDOCreditNoteItbis)
+ERROR: setUpClass (odoo.addons.l10n_do_credit_note.tests.test_l10n_do_credit_note.TestL10nDOCreditNoteCurrency)
 ```
 
-### `purchase_foreign_cost_update`
+### ❌ `l10n_do_document_pools`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 0.11s
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.0s
+
+**Detalle de fallos:**
+
+```
+ERROR: setUpClass (odoo.addons.l10n_do_document_pools.tests.test_document_pools.TestDocumentPools)
+```
+
+### ❌ `l10n_do_ecf_invoicing`
+
+> **Autor:** Daniel Alexander Pereyra Beltran &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.0s
+
+**Detalle de fallos:**
+
+```
+ERROR: setUpClass (odoo.addons.l10n_do_ecf_invoicing.tests.test_account_move.AccountMoveTest)
+```
+
+### ❌ `l10n_do_ncf_validation`
+
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.0s
+
+**Detalle de fallos:**
+
+```
+ERROR: setUpClass (odoo.addons.l10n_do_ncf_validation.tests.test_account_move.AccountMoveTest)
+```
+
+### ❌ `l10n_do_purchase`
+
+> **Autor:** Erick Cuesto &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.0s
+
+**Detalle de fallos:**
+
+```
+ERROR: setUpClass (odoo.addons.l10n_do_purchase.tests.test_purchase_order.TestL10nDOPurchaseOrder)
+```
+
+### ❌ `l10n_do_sale`
+
+> **Autor:** Erick Cuesto &nbsp;|&nbsp; **Fallos:** 3 &nbsp;|&nbsp; **Errores:** 0 &nbsp;|&nbsp; **Tests:** 8 &nbsp;|&nbsp; **Tiempo:** 1.16s
+
+**Detalle de fallos:**
+
+```
+FAIL: TestL10nDOSaleOrder.test_change_partner_triggers_constraint
+FAIL: TestL10nDOSaleOrder.test_no_vat_high_amount_raises
+FAIL: TestL10nDOSaleOrder.test_no_vat_taxpayer_low_amount_raises
+```
+
+### ❌ `l10n_do_withholding_certification`
+
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 2 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.0s
+
+**Detalle de fallos:**
+
+```
+ERROR: setUpClass (odoo.addons.l10n_do_withholding_certification.tests.test_account_payment.AccountPaymentWithholdingTest)
+ERROR: setUpClass (odoo.addons.l10n_do_withholding_certification.tests.test_account_payment.AccountPaymentWithholdingTest)
+```
+
+### ❌ `purchase_foreign_cost_update`
+
+> **Autor:** Erick Cuesto &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 0.11s
+
+**Detalle de fallos:**
 
 ```
 ERROR: setUpClass (odoo.addons.purchase_foreign_cost_update.tests.test_purchase_foreign_cost_update.TestPurchaseForeignCostUpdate)
 ```
 
-### `purchase_order_rate`
+### ❌ `purchase_order_rate`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.34s
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 1.39s
+
+**Detalle de fallos:**
 
 ```
 ERROR: setUpClass (odoo.addons.purchase_order_rate.tests.test_purchase_rate.TestPurchaseOrderRate)
 ```
 
-### `sale_order_rate`
+### ❌ `sale_order_rate`
 
-- Failures: **0** | Errors: **1** | Tests: 2 | Tiempo: 1.34s
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 2 &nbsp;|&nbsp; **Tiempo:** 1.39s
+
+**Detalle de fallos:**
 
 ```
 ERROR: setUpClass (odoo.addons.sale_order_rate.tests.test_sale_rate.TestSaleOrderRate)
 ```
 
-## 🔴 Fallaron instalación (1 módulos pro)
+### ❌ `stock_landed_costs_features`
 
-| Módulo | Error |
-|--------|-------|
+> **Autor:** DanielAPereyraB &nbsp;|&nbsp; **Fallos:** 0 &nbsp;|&nbsp; **Errores:** 1 &nbsp;|&nbsp; **Tests:** 3 &nbsp;|&nbsp; **Tiempo:** 1.74s
+
+**Detalle de fallos:**
+
+```
+ERROR: TestStockLandedCostsSpecificProducts.test_landed_costs_specific_products
+```
+
+---
+
+## 🔴 Fallos de Instalación &nbsp; `1 módulos`
+
+| Módulo | Causa del fallo |
+|--------|-----------------|
 | `hr_payroll_import_inputs` | Failed to load registry |
 
-## 🚫 Versión incompatible (4 módulos pro)
+## 🚫 Versión Incompatible &nbsp; `4 módulos`
 
-| Módulo |
-|--------|
-| `payment_bhd` |
-| `pos_azul` |
-| `pos_hr_minimal_rights` |
-| `sale_pos_backend_multi_journal_payment` |
+| Módulo | Módulo | Módulo | Módulo |
+|-----|-----|-----|-----|
+| `payment_bhd` | `pos_azul` | `pos_hr_minimal_rights` | `sale_pos_backend_multi_journal_payment` |
 
-## ⚠️  Warnings en tests (1 módulos)
+## 🔒 Pendientes de Migración a v19 &nbsp; `76 módulos`
 
-<details>
-<summary><code>auto_backup_sh</code> (1 warnings)</summary>
+> Módulos con `installable = False`. Excluidos del proceso de instalación y tests.
 
-```
-File not found: Backup file _daily.sql.gz not found in path /home/odoo/backup.daily
-```
-
-</details>
-
-## ⏩ Módulos pro sin directorio tests/ (97)
-
-| | | |
-|---|---|---|
-| `account_accountant_cheque` | `account_date_filters` | `account_invoice_read_notification` |
-| `account_payment_card_bin` | `account_payment_cash_custom_workflow` | `account_payment_compensation_news` |
-| `account_payment_promotion_discount` | `advanced_web_domain_widget` | `auto_attribute_value` |
-| `bi_all_in_one_schedule_activity` | `bi_warranty_registration` | `dgii_reports` |
+| Módulo | Módulo | Módulo |
+|------|------|------|
+| `account_payment_card_bin` | `account_payment_cash_custom_workflow` | `account_payment_promotion_discount` |
+| `auto_attribute_value` | `bi_warranty_registration` | `delivery_buenvio` |
 | `export_view_pdf` | `fleet_account_asset` | `fleet_industry_fsm` |
-| `fleet_product_rules_renting` | `helpdesk_ticket_signature` | `hms_sale_pos_backend` |
-| `hr_payroll_import_inputs` | `ks_dashboard_ninja` | `ks_dn_advance` |
-| `l10n_do_account_withholding_tax` | `l10n_do_banks` | `l10n_do_ecf_reception_workflow` |
-| `l10n_do_hr_course` | `l10n_do_hr_fleet` | `l10n_do_hr_maintenance` |
-| `l10n_do_hr_news` | `l10n_do_hr_news_accounts_receivable` | `l10n_do_hr_news_attendance` |
-| `l10n_do_hr_payroll_import_inputs` | `l10n_do_hr_payroll_news` | `l10n_do_hr_payroll_news_attendance` |
-| `l10n_do_hr_recruitment` | `l10n_do_hr_recurrent_news` | `l10n_do_payroll_bhd_file` |
-| `l10n_do_payroll_bpd_file` | `l10n_do_payroll_brrd_file` | `l10n_do_payroll_file_base` |
-| `l10n_do_pos` | `l10n_do_sale_pos_backend` | `l10n_do_sale_pos_backend_reconcile_payment` |
-| `l10n_do_sign_to_xml` | `looker_connector` | `odoo_cheque_management` |
-| `odoo_document_printer` | `odoo_document_printer_customization_base` | `product_fields_tracking` |
+| `fleet_product_rules_renting` | `hms_account` | `hms_partner` |
+| `hms_sale_pos_backend` | `hms_sales` | `l10n_do_ecf_reception` |
+| `l10n_do_ecf_reception_workflow` | `l10n_do_hr_course` | `l10n_do_hr_fleet` |
+| `l10n_do_hr_maintenance` | `l10n_do_hr_news_accounts_receivable` | `l10n_do_hr_news_attendance` |
+| `l10n_do_hr_payroll_import_inputs` | `l10n_do_hr_payroll_news_attendance` | `l10n_do_hr_recurrent_news` |
+| `l10n_do_sale_pos_backend` | `l10n_do_sale_pos_backend_reconcile_payment` | `l10n_do_sign_to_xml` |
+| `looker_connector` | `odoo_document_printer` | `odoo_document_printer_customization_base` |
+| `printnode_base` | `product_category_inter_company` | `product_category_multi_company` |
 | `product_label_for_zebra_printer` | `product_part_number` | `product_price_checker` |
-| `product_product_price_widget` | `product_segment` | `product_stock_qty_date_widgets` |
-| `product_warehouse_quantity` | `professional_templates` | `purchase_partner_fields` |
-| `purchase_request_currency` | `qztray` | `qztray_base` |
-| `qztray_location_labels` | `qztray_partner_labels` | `qztray_product_inventory` |
-| `qztray_product_labels` | `qztray_product_purchase` | `repair_helpdesk_custom` |
-| `repair_location_settings` | `repair_no_negative_allow` | `repair_warranty_extra_info` |
-| `sale_mr_inherit_modify` | `sale_order_with_other_locations` | `sale_partner_fields` |
-| `sale_pos_backend` | `sale_pos_backend_card_bin_promotion` | `sale_pos_backend_card_bin_promotion_payments` |
-| `sale_pos_backend_discount_display_amount` | `sale_pos_backend_journal_control` | `sale_pos_backend_part_number` |
-| `sale_pos_backend_warranty_reports` | `sale_pos_session_link` | `sale_stock_product_price_widget` |
-| `sale_stock_qty_date_widgets` | `sh_all_in_one_margin` | `sh_low_stock_notification` |
-| `sh_product_multi_barcode` | `sh_restrict_pricelist` | `simplify_access_management` |
-| `stock_landed_costs_file` | `website_quotation` | `website_stock_availability` |
+| `product_segment` | `product_warehouse_quantity` | `professional_templates` |
+| `purchase_picking_default` | `purchase_request_currency` | `qztray` |
+| `qztray_base` | `qztray_location_labels` | `qztray_partner_labels` |
+| `qztray_product_inventory` | `qztray_product_labels` | `qztray_product_purchase` |
+| `repair_helpdesk_custom` | `repair_location_settings` | `repair_no_negative_allow` |
+| `repair_warranty_extra_info` | `res_partner_phone_search` | `sale_mr_inherit_modify` |
+| `sale_order_glasses_description` | `sale_order_with_other_locations` | `sale_pos_backend` |
+| `sale_pos_backend_card_bin_promotion` | `sale_pos_backend_card_bin_promotion_payments` | `sale_pos_backend_discount_display_amount` |
+| `sale_pos_backend_journal_control` | `sale_pos_backend_part_number` | `sale_pos_backend_warranty_reports` |
+| `sale_pos_session_link` | `sales_bavel` | `sh_all_in_one_margin` |
+| `sh_low_stock_notification` | `sh_product_multi_barcode` | `sh_restrict_pricelist` |
 | `website_store_pickup` | `whatsapp_connector` | `whatsapp_connector_chatter` |
 | `whatsapp_connector_crm` | `whatsapp_connector_pack` | `whatsapp_connector_sale` |
 | `wk_odoo_directly_print_reports` |  |  |
 
-## 📦 Módulos pro descubiertos (192)
+## ⚠️  Warnings en Tests &nbsp; `4 módulos`
+
+<details><summary><code>auto_backup_sh</code> — 1 warnings</summary>
+
+```text
+File not found: Backup file _daily.sql.gz not found in path /home/odoo/backup.daily
+```
+</details>
+
+<details><summary><code>l10n_do_rnc_validation</code> — 4 warnings</summary>
+
+```text
+Invalid format for: 999999901
+Invalid format for: 99999990101
+Invalid format for: 999999901
+Invalid format for: 999999901
+```
+</details>
+
+<details><summary><code>payment_azul_webpages</code> — 2 warnings</summary>
+
+```text
+Azul: DataVaultToken has unexpected format, skipping tokenization for transaction Test Transaction
+Azul: DataVaultToken has unexpected format, skipping tokenization for transaction Test Transaction
+```
+</details>
+
+<details><summary><code>payment_azul_webservices</code> — 1 warnings</summary>
+
+```text
+Cannot create token: No partner associated with transaction TEST-0
+```
+</details>
+
+## ⏩ Sin Directorio de Tests &nbsp; `33 módulos`
+
+| Módulo | Módulo | Módulo |
+|------|------|------|
+| `account_accountant_cheque` | `account_date_filters` | `account_invoice_read_notification` |
+| `account_payment_compensation_news` | `advanced_web_domain_widget` | `bi_all_in_one_schedule_activity` |
+| `dgii_reports` | `helpdesk_ticket_signature` | `hr_payroll_import_inputs` |
+| `ks_dashboard_ninja` | `ks_dn_advance` | `l10n_do_account_withholding_tax` |
+| `l10n_do_banks` | `l10n_do_hr_news` | `l10n_do_hr_payroll_news` |
+| `l10n_do_hr_recruitment` | `l10n_do_payroll_bhd_file` | `l10n_do_payroll_bpd_file` |
+| `l10n_do_payroll_brrd_file` | `l10n_do_payroll_file_base` | `l10n_do_pos` |
+| `odoo_cheque_management` | `product_fields_tracking` | `product_product_price_widget` |
+| `product_stock_qty_date_widgets` | `purchase_partner_fields` | `sale_partner_fields` |
+| `sale_stock_product_price_widget` | `sale_stock_qty_date_widgets` | `simplify_access_management` |
+| `stock_landed_costs_file` | `website_quotation` | `website_stock_availability` |
+
+---
+
+## 📦 Inventario Completo &nbsp; `192 módulos`
 
 <details>
-<summary>Ver lista completa con estado</summary>
+<summary>Expandir inventario completo</summary>
 
-```
-⚠️  NOT_LOADED  acap_bank_statement_import
-⏩ NO_TESTS    account_accountant_cheque
-✅ PASS        account_bank_charge_import_base
-❌ FAIL        account_bank_charge_import_bhd
-❌ FAIL        account_bank_charge_import_bpd
-❌ FAIL        account_bank_statement_import_csv_patch
-⏩ NO_TESTS    account_date_filters
-❌ FAIL        account_default_journals
-✅ PASS        account_financial_risk_features
-✅ PASS        account_followup_extra_features
-⏩ NO_TESTS    account_invoice_read_notification
-✅ PASS        account_lock_fiscal_date
-✅ PASS        account_move_route
-❌ FAIL        account_multi_journal_payment
-❌ FAIL        account_multi_journal_payment_authorization_code
-❌ FAIL        account_partner_fields
-✅ PASS        account_payment_advance_payment
-❌ FAIL        account_payment_authorization_code
-⚠️  NOT_LOADED  account_payment_card_bin
-⚠️  NOT_LOADED  account_payment_cash_custom_workflow
-❌ FAIL        account_payment_compensation
-⚠️  NOT_LOADED  account_payment_compensation_news
-✅ PASS        account_payment_internal_transfer
-⚠️  NOT_LOADED  account_payment_promotion_discount
-✅ PASS        account_payment_reconcile_features
-❌ FAIL        account_transfer_features
-⏩ NO_TESTS    advanced_web_domain_widget
-⚠️  NOT_LOADED  apap_bank_statement_import
-⚠️  NOT_LOADED  auto_attribute_value
-✅ PASS        auto_backup_sh
-⚠️  NOT_LOADED  bdr_bank_statement_import
-⚠️  NOT_LOADED  bhd_bank_statement_import
-⚠️  NOT_LOADED  bhd_panama_bank_statement_import
-⏩ NO_TESTS    bi_all_in_one_schedule_activity
-⚠️  NOT_LOADED  bi_warranty_registration
-⚠️  NOT_LOADED  blh_bank_statement_import
-✅ PASS        bnc_bank_statement_import
-⚠️  NOT_LOADED  bpd_bank_statement_import
-⚠️  NOT_LOADED  bpm_bank_statement_import
-⚠️  NOT_LOADED  bsc_bank_statement_import
-⚠️  NOT_LOADED  crm_helpdesk_custom
-⚠️  NOT_LOADED  delivery_buenvio
-⏩ NO_TESTS    dgii_reports
-⚠️  NOT_LOADED  export_view_pdf
-⚠️  NOT_LOADED  fleet_account_asset
-⚠️  NOT_LOADED  fleet_industry_fsm
-✅ PASS        fleet_product_management
-⚠️  NOT_LOADED  fleet_product_rules
-⚠️  NOT_LOADED  fleet_product_rules_renting
-⚠️  NOT_LOADED  helpdesk_sale_custom
-⏩ NO_TESTS    helpdesk_ticket_signature
-⚠️  NOT_LOADED  hms_account
-⚠️  NOT_LOADED  hms_partner
-⚠️  NOT_LOADED  hms_sale_pos_backend
-⚠️  NOT_LOADED  hms_sales
-🔴 INST_FAIL   hr_payroll_import_inputs
-⚠️  NOT_LOADED  jmmb_bank_statement_import
-⏩ NO_TESTS    ks_dashboard_ninja
-⏩ NO_TESTS    ks_dn_advance
-✅ PASS        l10n_do_account_batch_payment_base
-⚠️  NOT_LOADED  l10n_do_account_batch_payment_bdr
-⚠️  NOT_LOADED  l10n_do_account_batch_payment_bhd
-⚠️  NOT_LOADED  l10n_do_account_batch_payment_bpd
-⚠️  NOT_LOADED  l10n_do_account_batch_payment_ee
-⚠️  NOT_LOADED  l10n_do_account_withholding_tax
-❌ FAIL        l10n_do_accounting
-⚠️  NOT_LOADED  l10n_do_bank_charges_import
-⏩ NO_TESTS    l10n_do_banks
-⚠️  NOT_LOADED  l10n_do_credit_note
-✅ PASS        l10n_do_currency_update
-⚠️  NOT_LOADED  l10n_do_document_pools
-⚠️  NOT_LOADED  l10n_do_ecf_invoicing
-⚠️  NOT_LOADED  l10n_do_ecf_reception
-⚠️  NOT_LOADED  l10n_do_ecf_reception_workflow
-⚠️  NOT_LOADED  l10n_do_ecommerce
-⏩ NO_TESTS    l10n_do_hr
-⚠️  NOT_LOADED  l10n_do_hr_course
-⚠️  NOT_LOADED  l10n_do_hr_fleet
-⚠️  NOT_LOADED  l10n_do_hr_maintenance
-⏩ NO_TESTS    l10n_do_hr_news
-⚠️  NOT_LOADED  l10n_do_hr_news_accounts_receivable
-⚠️  NOT_LOADED  l10n_do_hr_news_attendance
-⚠️  NOT_LOADED  l10n_do_hr_payroll
-⚠️  NOT_LOADED  l10n_do_hr_payroll_import_inputs
-⚠️  NOT_LOADED  l10n_do_hr_payroll_news
-⚠️  NOT_LOADED  l10n_do_hr_payroll_news_attendance
-⏩ NO_TESTS    l10n_do_hr_recruitment
-⚠️  NOT_LOADED  l10n_do_hr_recurrent_news
-⚠️  NOT_LOADED  l10n_do_ncf_validation
-⚠️  NOT_LOADED  l10n_do_payroll_bhd_file
-⚠️  NOT_LOADED  l10n_do_payroll_bpd_file
-⚠️  NOT_LOADED  l10n_do_payroll_brrd_file
-⚠️  NOT_LOADED  l10n_do_payroll_file_base
-⚠️  NOT_LOADED  l10n_do_pos
-⚠️  NOT_LOADED  l10n_do_purchase
-⚠️  NOT_LOADED  l10n_do_rnc_validation
-⚠️  NOT_LOADED  l10n_do_sale
-⚠️  NOT_LOADED  l10n_do_sale_pos_backend
-⚠️  NOT_LOADED  l10n_do_sale_pos_backend_reconcile_payment
-⚠️  NOT_LOADED  l10n_do_sign_to_xml
-⚠️  NOT_LOADED  l10n_do_withholding_certification
-⚠️  NOT_LOADED  looker_connector
-✅ PASS        odoo_cheque_features
-⏩ NO_TESTS    odoo_cheque_management
-⚠️  NOT_LOADED  odoo_document_printer
-⚠️  NOT_LOADED  odoo_document_printer_customization_base
-⚠️  NOT_LOADED  payment_azul_webpages
-⚠️  NOT_LOADED  payment_azul_webservices
-🚫 INCOMPAT    payment_bhd
-❌ FAIL        payment_salesperson
-🚫 INCOMPAT    pos_azul
-🚫 INCOMPAT    pos_hr_minimal_rights
-⚠️  NOT_LOADED  printnode_base
-⚠️  NOT_LOADED  product_category_inter_company
-⚠️  NOT_LOADED  product_category_multi_company
-⏩ NO_TESTS    product_fields_tracking
-✅ PASS        product_foreign_cost_price
-⚠️  NOT_LOADED  product_label_for_zebra_printer
-⚠️  NOT_LOADED  product_part_number
-⚠️  NOT_LOADED  product_price_checker
-✅ PASS        product_price_history
-⚠️  NOT_LOADED  product_pricelist_user_restriction
-⚠️  NOT_LOADED  product_product_price_widget
-⚠️  NOT_LOADED  product_segment
-⚠️  NOT_LOADED  product_stock_qty_date_widgets
-⚠️  NOT_LOADED  product_warehouse_quantity
-⚠️  NOT_LOADED  professional_templates
-❌ FAIL        purchase_financial_risk
-⚠️  NOT_LOADED  purchase_financial_risk_features
-❌ FAIL        purchase_foreign_cost_update
-❌ FAIL        purchase_order_rate
-⏩ NO_TESTS    purchase_partner_fields
-⚠️  NOT_LOADED  purchase_picking_default
-⚠️  NOT_LOADED  purchase_request_currency
-⚠️  NOT_LOADED  purchase_request_features
-⚠️  NOT_LOADED  qztray
-⚠️  NOT_LOADED  qztray_base
-⚠️  NOT_LOADED  qztray_location_labels
-⚠️  NOT_LOADED  qztray_partner_labels
-⚠️  NOT_LOADED  qztray_product_inventory
-⚠️  NOT_LOADED  qztray_product_labels
-⚠️  NOT_LOADED  qztray_product_purchase
-⚠️  NOT_LOADED  repair_helpdesk_custom
-⚠️  NOT_LOADED  repair_location_settings
-⚠️  NOT_LOADED  repair_no_negative_allow
-⚠️  NOT_LOADED  repair_services
-⚠️  NOT_LOADED  repair_warranty_extra_info
-⚠️  NOT_LOADED  res_partner_phone_search
-⚠️  NOT_LOADED  sale_crm_features
-⚠️  NOT_LOADED  sale_financial_risk_features
-⚠️  NOT_LOADED  sale_mr_inherit_modify
-⚠️  NOT_LOADED  sale_order_glasses_description
-❌ FAIL        sale_order_rate
-⚠️  NOT_LOADED  sale_order_time_total
-⚠️  NOT_LOADED  sale_order_with_other_locations
-⏩ NO_TESTS    sale_partner_fields
-⚠️  NOT_LOADED  sale_pos_backend
-⚠️  NOT_LOADED  sale_pos_backend_card_bin_promotion
-⚠️  NOT_LOADED  sale_pos_backend_card_bin_promotion_payments
-⚠️  NOT_LOADED  sale_pos_backend_discount_display_amount
-⚠️  NOT_LOADED  sale_pos_backend_journal_control
-🚫 INCOMPAT    sale_pos_backend_multi_journal_payment
-⚠️  NOT_LOADED  sale_pos_backend_part_number
-⚠️  NOT_LOADED  sale_pos_backend_warranty_reports
-⚠️  NOT_LOADED  sale_pos_session_link
-⚠️  NOT_LOADED  sale_product_generic_readonly
-⚠️  NOT_LOADED  sale_stock_product_price_widget
-⚠️  NOT_LOADED  sale_stock_qty_date_widgets
-⚠️  NOT_LOADED  sale_stock_restriction
-⚠️  NOT_LOADED  sale_stock_serial
-⚠️  NOT_LOADED  sales_bavel
-⚠️  NOT_LOADED  scotiabank_statement_import
-⚠️  NOT_LOADED  sh_all_in_one_margin
-⚠️  NOT_LOADED  sh_low_stock_notification
-⚠️  NOT_LOADED  sh_product_multi_barcode
-⚠️  NOT_LOADED  sh_restrict_pricelist
-⏩ NO_TESTS    simplify_access_management
-⚠️  NOT_LOADED  stock_inventory_forecasted_report
-⚠️  NOT_LOADED  stock_landed_costs_features
-⚠️  NOT_LOADED  stock_landed_costs_file
-⚠️  NOT_LOADED  stock_picking_invoice_link_extra
-✅ PASS        stock_warehouse_orderpoint_uom
-⚠️  NOT_LOADED  tss_report
-⚠️  NOT_LOADED  website_quotation
-⚠️  NOT_LOADED  website_stock_availability
-⚠️  NOT_LOADED  website_store_pickup
-⚠️  NOT_LOADED  whatsapp_connector
-⚠️  NOT_LOADED  whatsapp_connector_chatter
-⚠️  NOT_LOADED  whatsapp_connector_crm
-⚠️  NOT_LOADED  whatsapp_connector_pack
-⚠️  NOT_LOADED  whatsapp_connector_sale
-⚠️  NOT_LOADED  wk_odoo_directly_print_reports
-```
+| Estado | Módulo | Autor |
+|:------:|--------|-------|
+| ✅ `PASS` | `acap_bank_statement_import` | lfernandez |
+| ⏩ `NO_TESTS` | `account_accountant_cheque` | lfernandez |
+| ✅ `PASS` | `account_bank_charge_import_base` | Luis Fernandez |
+| ✅ `PASS` | `account_bank_charge_import_bhd` | lfernandez |
+| ✅ `PASS` | `account_bank_charge_import_bpd` | lfernandez |
+| ✅ `PASS` | `account_bank_statement_import_csv_patch` | Luis Fernandez |
+| ⏩ `NO_TESTS` | `account_date_filters` | Erick Cuesto |
+| ❌ `FAIL` | `account_default_journals` | Erick Cuesto |
+| ✅ `PASS` | `account_financial_risk_features` | lfernandez |
+| ✅ `PASS` | `account_followup_extra_features` | lfernandez |
+| ⏩ `NO_TESTS` | `account_invoice_read_notification` | Erick Cuesto |
+| ✅ `PASS` | `account_lock_fiscal_date` | lfernandez |
+| ✅ `PASS` | `account_move_route` | Erick Cuesto |
+| ❌ `FAIL` | `account_multi_journal_payment` | Erick Cuesto |
+| ✅ `PASS` | `account_multi_journal_payment_authorization_code` | lfernandez |
+| ❌ `FAIL` | `account_partner_fields` | DanielAPereyraB |
+| ✅ `PASS` | `account_payment_advance_payment` | lfernandez |
+| ✅ `PASS` | `account_payment_authorization_code` | lfernandez |
+| 🔒 `NO_INST` | `account_payment_card_bin` | DanielAPereyraB |
+| 🔒 `NO_INST` | `account_payment_cash_custom_workflow` | DanielAPereyraB |
+| ❌ `FAIL` | `account_payment_compensation` | Daniel Alexander Pereyra Beltran |
+| ⚠️  `NOT_LOADED` | `account_payment_compensation_news` | Daniel Alexander Pereyra Beltran |
+| ✅ `PASS` | `account_payment_internal_transfer` | Erick Cuesto |
+| 🔒 `NO_INST` | `account_payment_promotion_discount` | DanielAPereyraB |
+| ✅ `PASS` | `account_payment_reconcile_features` | Erick Cuesto |
+| ✅ `PASS` | `account_transfer_features` | Luis Fernandez |
+| ⏩ `NO_TESTS` | `advanced_web_domain_widget` | - |
+| ✅ `PASS` | `apap_bank_statement_import` | lfernandez |
+| 🔒 `NO_INST` | `auto_attribute_value` | DanielAPereyraB |
+| ✅⚠️ `PASS+W` | `auto_backup_sh` | lfernandez |
+| ✅ `PASS` | `bdr_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bhd_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bhd_panama_bank_statement_import` | lfernandez |
+| ⏩ `NO_TESTS` | `bi_all_in_one_schedule_activity` | - |
+| 🔒 `NO_INST` | `bi_warranty_registration` | - |
+| ✅ `PASS` | `blh_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bnc_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bpd_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bpm_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `bsc_bank_statement_import` | lfernandez |
+| ✅ `PASS` | `crm_helpdesk_custom` | lfernandez |
+| 🔒 `NO_INST` | `delivery_buenvio` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `dgii_reports` | DanielAPereyraB |
+| 🔒 `NO_INST` | `export_view_pdf` | - |
+| 🔒 `NO_INST` | `fleet_account_asset` | DanielAPereyraB |
+| 🔒 `NO_INST` | `fleet_industry_fsm` | DanielAPereyraB |
+| ✅ `PASS` | `fleet_product_management` | Luis Fernandez |
+| ✅ `PASS` | `fleet_product_rules` | lfernandez |
+| 🔒 `NO_INST` | `fleet_product_rules_renting` | DanielAPereyraB |
+| ✅ `PASS` | `helpdesk_sale_custom` | Erick Cuesto |
+| ⏩ `NO_TESTS` | `helpdesk_ticket_signature` | Erick Cuesto |
+| 🔒 `NO_INST` | `hms_account` | DanielAPereyraB |
+| 🔒 `NO_INST` | `hms_partner` | DanielAPereyraB |
+| 🔒 `NO_INST` | `hms_sale_pos_backend` | DanielAPereyraB |
+| 🔒 `NO_INST` | `hms_sales` | DanielAPereyraB |
+| 🔴 `INST_FAIL` | `hr_payroll_import_inputs` | DanielAPereyraB |
+| ✅ `PASS` | `jmmb_bank_statement_import` | lfernandez |
+| ⏩ `NO_TESTS` | `ks_dashboard_ninja` | - |
+| ⏩ `NO_TESTS` | `ks_dn_advance` | - |
+| ✅ `PASS` | `l10n_do_account_batch_payment_base` | lfernandez |
+| ✅ `PASS` | `l10n_do_account_batch_payment_bdr` | lfernandez |
+| ✅ `PASS` | `l10n_do_account_batch_payment_bhd` | lfernandez |
+| ✅ `PASS` | `l10n_do_account_batch_payment_bpd` | lfernandez |
+| ✅ `PASS` | `l10n_do_account_batch_payment_ee` | lfernandez |
+| ⚠️  `NOT_LOADED` | `l10n_do_account_withholding_tax` | Daniel Alexander Pereyra Beltran |
+| ❌ `FAIL` | `l10n_do_accounting` | Daniel Alexander Pereyra Beltran |
+| ✅ `PASS` | `l10n_do_bank_charges_import` | lfernandez |
+| ⏩ `NO_TESTS` | `l10n_do_banks` | lfernandez |
+| ❌ `FAIL` | `l10n_do_credit_note` | DanielAPereyraB |
+| ✅ `PASS` | `l10n_do_currency_update` | DanielAPereyraB |
+| ❌ `FAIL` | `l10n_do_document_pools` | DanielAPereyraB |
+| ❌ `FAIL` | `l10n_do_ecf_invoicing` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_ecf_reception` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_ecf_reception_workflow` | DanielAPereyraB |
+| ✅ `PASS` | `l10n_do_ecommerce` | Erick Cuesto |
+| ⏩ `NO_TESTS` | `l10n_do_hr` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_hr_course` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_hr_fleet` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_hr_maintenance` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `l10n_do_hr_news` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_hr_news_accounts_receivable` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_hr_news_attendance` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `l10n_do_hr_payroll` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_hr_payroll_import_inputs` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `l10n_do_hr_payroll_news` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_hr_payroll_news_attendance` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `l10n_do_hr_recruitment` | Daniel Alexander Pereyra Beltran |
+| 🔒 `NO_INST` | `l10n_do_hr_recurrent_news` | DanielAPereyraB |
+| ❌ `FAIL` | `l10n_do_ncf_validation` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `l10n_do_payroll_bhd_file` | Daniel Alexander Pereyra Beltran |
+| ⚠️  `NOT_LOADED` | `l10n_do_payroll_bpd_file` | lfernandez |
+| ⚠️  `NOT_LOADED` | `l10n_do_payroll_brrd_file` | Daniel Alexander Pereyra Beltran |
+| ⚠️  `NOT_LOADED` | `l10n_do_payroll_file_base` | lfernandez |
+| ⚠️  `NOT_LOADED` | `l10n_do_pos` | andrp92 |
+| ❌ `FAIL` | `l10n_do_purchase` | Erick Cuesto |
+| ✅⚠️ `PASS+W` | `l10n_do_rnc_validation` | Erick Cuesto |
+| ❌ `FAIL` | `l10n_do_sale` | Erick Cuesto |
+| 🔒 `NO_INST` | `l10n_do_sale_pos_backend` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_sale_pos_backend_reconcile_payment` | DanielAPereyraB |
+| 🔒 `NO_INST` | `l10n_do_sign_to_xml` | DanielAPereyraB |
+| ❌ `FAIL` | `l10n_do_withholding_certification` | DanielAPereyraB |
+| 🔒 `NO_INST` | `looker_connector` | - |
+| ✅ `PASS` | `odoo_cheque_features` | - |
+| ⏩ `NO_TESTS` | `odoo_cheque_management` | andrp92 |
+| 🔒 `NO_INST` | `odoo_document_printer` | - |
+| 🔒 `NO_INST` | `odoo_document_printer_customization_base` | - |
+| ✅⚠️ `PASS+W` | `payment_azul_webpages` | DanielAPereyraB |
+| ✅⚠️ `PASS+W` | `payment_azul_webservices` | DanielAPereyraB |
+| 🚫 `INCOMPAT` | `payment_bhd` | andrp92 |
+| ✅ `PASS` | `payment_salesperson` | lfernandez |
+| 🚫 `INCOMPAT` | `pos_azul` | Daniel Alexander Pereyra Beltran |
+| 🚫 `INCOMPAT` | `pos_hr_minimal_rights` | DanielAPereyraB |
+| 🔒 `NO_INST` | `printnode_base` | - |
+| 🔒 `NO_INST` | `product_category_inter_company` | DanielAPereyraB |
+| 🔒 `NO_INST` | `product_category_multi_company` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `product_fields_tracking` | lfernandez |
+| ✅ `PASS` | `product_foreign_cost_price` | Erick Cuesto |
+| 🔒 `NO_INST` | `product_label_for_zebra_printer` | andrp92 |
+| 🔒 `NO_INST` | `product_part_number` | DanielAPereyraB |
+| 🔒 `NO_INST` | `product_price_checker` | - |
+| ✅ `PASS` | `product_price_history` | lfernandez |
+| ✅ `PASS` | `product_pricelist_user_restriction` | lfernandez |
+| ⚠️  `NOT_LOADED` | `product_product_price_widget` | DanielAPereyraB |
+| 🔒 `NO_INST` | `product_segment` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `product_stock_qty_date_widgets` | DanielAPereyraB |
+| 🔒 `NO_INST` | `product_warehouse_quantity` | - |
+| 🔒 `NO_INST` | `professional_templates` | - |
+| ✅ `PASS` | `purchase_financial_risk` | lfernandez |
+| ✅ `PASS` | `purchase_financial_risk_features` | lfernandez |
+| ❌ `FAIL` | `purchase_foreign_cost_update` | Erick Cuesto |
+| ❌ `FAIL` | `purchase_order_rate` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `purchase_partner_fields` | DanielAPereyraB |
+| 🔒 `NO_INST` | `purchase_picking_default` | DanielAPereyraB |
+| 🔒 `NO_INST` | `purchase_request_currency` | DanielAPereyraB |
+| ✅ `PASS` | `purchase_request_features` | lfernandez |
+| 🔒 `NO_INST` | `qztray` | - |
+| 🔒 `NO_INST` | `qztray_base` | - |
+| 🔒 `NO_INST` | `qztray_location_labels` | - |
+| 🔒 `NO_INST` | `qztray_partner_labels` | - |
+| 🔒 `NO_INST` | `qztray_product_inventory` | - |
+| 🔒 `NO_INST` | `qztray_product_labels` | - |
+| 🔒 `NO_INST` | `qztray_product_purchase` | - |
+| 🔒 `NO_INST` | `repair_helpdesk_custom` | andrp92 |
+| 🔒 `NO_INST` | `repair_location_settings` | andrp92 |
+| 🔒 `NO_INST` | `repair_no_negative_allow` | DanielAPereyraB |
+| ✅ `PASS` | `repair_services` | lfernandez |
+| 🔒 `NO_INST` | `repair_warranty_extra_info` | andrp92 |
+| 🔒 `NO_INST` | `res_partner_phone_search` | DanielAPereyraB |
+| ✅ `PASS` | `sale_crm_features` | lfernandez |
+| ✅ `PASS` | `sale_financial_risk_features` | lfernandez |
+| 🔒 `NO_INST` | `sale_mr_inherit_modify` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_order_glasses_description` | DanielAPereyraB |
+| ❌ `FAIL` | `sale_order_rate` | DanielAPereyraB |
+| ✅ `PASS` | `sale_order_time_total` | lfernandez |
+| 🔒 `NO_INST` | `sale_order_with_other_locations` | DanielAPereyraB |
+| ⏩ `NO_TESTS` | `sale_partner_fields` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend_card_bin_promotion` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend_card_bin_promotion_payments` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend_discount_display_amount` | andrp92 |
+| 🔒 `NO_INST` | `sale_pos_backend_journal_control` | DanielAPereyraB |
+| 🚫 `INCOMPAT` | `sale_pos_backend_multi_journal_payment` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend_part_number` | DanielAPereyraB |
+| 🔒 `NO_INST` | `sale_pos_backend_warranty_reports` | - |
+| 🔒 `NO_INST` | `sale_pos_session_link` | DanielAPereyraB |
+| ✅ `PASS` | `sale_product_generic_readonly` | lfernandez |
+| ⚠️  `NOT_LOADED` | `sale_stock_product_price_widget` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `sale_stock_qty_date_widgets` | DanielAPereyraB |
+| ✅ `PASS` | `sale_stock_restriction` | Erick Cuesto |
+| ✅ `PASS` | `sale_stock_serial` | Erick Cuesto |
+| 🔒 `NO_INST` | `sales_bavel` | DanielAPereyraB |
+| ✅ `PASS` | `scotiabank_statement_import` | lfernandez |
+| 🔒 `NO_INST` | `sh_all_in_one_margin` | - |
+| 🔒 `NO_INST` | `sh_low_stock_notification` | - |
+| 🔒 `NO_INST` | `sh_product_multi_barcode` | - |
+| 🔒 `NO_INST` | `sh_restrict_pricelist` | - |
+| ⏩ `NO_TESTS` | `simplify_access_management` | - |
+| ✅ `PASS` | `stock_inventory_forecasted_report` | lfernandez |
+| ❌ `FAIL` | `stock_landed_costs_features` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `stock_landed_costs_file` | DanielAPereyraB |
+| ✅ `PASS` | `stock_picking_invoice_link_extra` | lfernandez |
+| ✅ `PASS` | `stock_warehouse_orderpoint_uom` | lfernandez |
+| ⚠️  `NOT_LOADED` | `tss_report` | DanielAPereyraB |
+| ⚠️  `NOT_LOADED` | `website_quotation` | Erick Cuesto |
+| ⚠️  `NOT_LOADED` | `website_stock_availability` | Erick Cuesto |
+| 🔒 `NO_INST` | `website_store_pickup` | DanielAPereyraB |
+| 🔒 `NO_INST` | `whatsapp_connector` | - |
+| 🔒 `NO_INST` | `whatsapp_connector_chatter` | - |
+| 🔒 `NO_INST` | `whatsapp_connector_crm` | - |
+| 🔒 `NO_INST` | `whatsapp_connector_pack` | - |
+| 🔒 `NO_INST` | `whatsapp_connector_sale` | - |
+| 🔒 `NO_INST` | `wk_odoo_directly_print_reports` | andrp92 |
 
 </details>
+
+---
+
+*Generado automáticamente por `run_tests.sh` · Odoo Pro v19 · 13/05/2026 13:45:15*

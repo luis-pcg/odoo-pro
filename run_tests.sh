@@ -82,6 +82,7 @@ _drop_db() {
 echo "[1/4] Descubriendo módulos en odoo-pro..."
 
 MODULES_RAW=$(docker exec -i "$CONTAINER" python3 - <<'PYEOF'
+import ast
 import os
 
 scan_paths = [
@@ -90,6 +91,7 @@ scan_paths = [
 ]
 skip_names = {'OCA', 'store-addons', '.git', '__pycache__', 'Dockerfile'}
 modules_all = []
+modules_not_installable = []
 modules_with_tests = []
 seen = set()
 
@@ -102,11 +104,24 @@ for base_path in scan_paths:
         mod_path = os.path.join(base_path, name)
         if not os.path.isdir(mod_path):
             continue
-        if not os.path.isfile(os.path.join(mod_path, '__manifest__.py')):
+        manifest_path = os.path.join(mod_path, '__manifest__.py')
+        if not os.path.isfile(manifest_path):
             continue
         if name in seen:
             continue
         seen.add(name)
+
+        # Parse manifest to check installable flag
+        try:
+            with open(manifest_path, encoding='utf-8') as f:
+                manifest = ast.literal_eval(f.read())
+        except Exception:
+            manifest = {}
+
+        if not manifest.get('installable', True):
+            modules_not_installable.append(name)
+            continue
+
         modules_all.append(name)
         tests_dir = os.path.join(mod_path, 'tests')
         if os.path.isdir(tests_dir) and os.path.isfile(os.path.join(tests_dir, '__init__.py')):
@@ -114,11 +129,13 @@ for base_path in scan_paths:
 
 print('ALL=' + ','.join(modules_all))
 print('WITH_TESTS=' + ','.join(modules_with_tests))
+print('NOT_INSTALLABLE=' + ','.join(modules_not_installable))
 PYEOF
 )
 
-ALL_MODULES=$(echo "$MODULES_RAW" | grep '^ALL='        | cut -d= -f2-)
-TEST_MODULES=$(echo "$MODULES_RAW" | grep '^WITH_TESTS=' | cut -d= -f2-)
+ALL_MODULES=$(echo "$MODULES_RAW"     | grep '^ALL='             | cut -d= -f2-)
+TEST_MODULES=$(echo "$MODULES_RAW"    | grep '^WITH_TESTS='      | cut -d= -f2-)
+NOT_INSTALLABLE=$(echo "$MODULES_RAW" | grep '^NOT_INSTALLABLE=' | cut -d= -f2-)
 
 if [[ -n "$ONLY_MODULE" ]]; then
   if ! echo "$TEST_MODULES" | tr ',' '\n' | grep -q "^${ONLY_MODULE}$"; then
@@ -127,16 +144,19 @@ if [[ -n "$ONLY_MODULE" ]]; then
   TEST_MODULES="$ONLY_MODULE"
 fi
 
-ALL_COUNT=$(echo "$ALL_MODULES"  | tr ',' '\n' | grep -c .)
-TEST_COUNT=$(echo "$TEST_MODULES" | tr ',' '\n' | grep -c .)
+ALL_COUNT=$(echo "$ALL_MODULES"     | tr ',' '\n' | grep -c .)
+TEST_COUNT=$(echo "$TEST_MODULES"   | tr ',' '\n' | grep -c .)
+SKIP_COUNT=$(echo "$NOT_INSTALLABLE" | tr ',' '\n' | grep -c . 2>/dev/null || echo 0)
 
-echo "   Módulos total : $ALL_COUNT"
-echo "   Con tests     : $TEST_COUNT"
-[[ -n "$ONLY_MODULE" ]] && echo "   Filtrado a    : $ONLY_MODULE"
+echo "   Módulos instalables : $ALL_COUNT"
+echo "   Con tests            : $TEST_COUNT"
+echo "   No instalables (v17) : $SKIP_COUNT  (excluidos)"
+[[ -n "$ONLY_MODULE" ]] && echo "   Filtrado a           : $ONLY_MODULE"
 echo ""
 
-echo "ALL_MODULES=$ALL_MODULES"   > "$MODULES_FILE"
-echo "TEST_MODULES=$TEST_MODULES" >> "$MODULES_FILE"
+echo "ALL_MODULES=$ALL_MODULES"           > "$MODULES_FILE"
+echo "TEST_MODULES=$TEST_MODULES"         >> "$MODULES_FILE"
+echo "NOT_INSTALLABLE=$NOT_INSTALLABLE"   >> "$MODULES_FILE"
 
 [[ -z "$ALL_MODULES" ]] && { echo "ERROR: No se encontraron módulos." >&2; exit 1; }
 
@@ -166,6 +186,23 @@ docker exec "$CONTAINER" odoo \
 INSTALL_DURATION=$(( $(date +%s) - INSTALL_START ))
 echo ""
 echo "   Instalación completada en ${INSTALL_DURATION}s"
+echo ""
+
+# ─── 2b. Segunda pasada — instala módulos que fallaron en el bulk install ─────
+# La primera pasada puede fallar por orden de dependencias. La segunda pasada
+# resuelve esto porque las dependencias ya están instaladas.
+echo "[2b/4] Segunda pasada de instalación (resuelve orden de dependencias)..."
+docker exec "$CONTAINER" odoo \
+  -d "$TEST_DB" \
+  --db_host="$DB_HOST" --db_port="$DB_PORT" \
+  --db_user="$DB_USER" --db_password="$DB_PASS" \
+  --http-port="$HTTP_PORT" \
+  --log-level=warn --stop-after-init --no-http \
+  $DEMO_FLAG \
+  -i "$ALL_MODULES" \
+  >> "$INSTALL_LOG" 2>&1 | grep --line-buffered \
+    -E "loading module|modules loaded|Module.*failed|ERROR" || true
+echo "   Segunda pasada completada."
 echo ""
 
 # ─── Configurar país ─────────────────────────────────────────────────────────
@@ -200,6 +237,24 @@ for MODULE in "${MOD_ARRAY[@]}"; do
   MOD_NUM=$((MOD_NUM + 1))
   MOD_LOG="$MODULES_LOG_DIR/${MODULE}.log"
 
+  # Autor del último commit (git repo en odoo-pro/)
+  MOD_AUTHOR=$(git -C "$SCRIPT_DIR/odoo-pro" log -1 --format="%an" \
+    -- "$MODULE/" "store-addons/$MODULE/" \
+    2>/dev/null | head -1)
+  [[ -z "$MOD_AUTHOR" ]] && MOD_AUTHOR="-"
+
+  # Verificar si el módulo está instalado en la DB → -u (update) o -i (install)
+  MOD_STATE=$(docker exec "$CONTAINER" bash -c \
+    "PGPASSWORD='$DB_PASS' psql -h '$DB_HOST' -p '$DB_PORT' -U '$DB_USER' \
+     -d '$TEST_DB' -tAq \
+     -c \"SELECT state FROM ir_module_module WHERE name='$MODULE'\" 2>/dev/null" \
+    | tr -d '[:space:]')
+  if [[ "$MOD_STATE" == "installed" ]]; then
+    INSTALL_FLAG="-u"
+  else
+    INSTALL_FLAG="-i"
+  fi
+
   printf '  [%3d/%3d] %-52s' "$MOD_NUM" "$TEST_COUNT" "$MODULE"
 
   T0=$(date +%s)
@@ -212,7 +267,7 @@ for MODULE in "${MOD_ARRAY[@]}"; do
     --log-level=info \
     --test-enable --stop-after-init --no-http \
     --test-tags "/$MODULE" \
-    -u "$MODULE" \
+    "$INSTALL_FLAG" "$MODULE" \
     > "$MOD_LOG" 2>&1 || true
 
   DUR=$(( $(date +%s) - T0 ))
@@ -233,9 +288,9 @@ for MODULE in "${MOD_ARRAY[@]}"; do
   echo "$STATUS $DUR" > "$RESULTS_DIR/${MODULE}.result"
 
   case "$STATUS" in
-    PASS) printf ' ✅ PASS  (%ds)\n' "$DUR" ;;
-    FAIL) printf ' ❌ FAIL  (%ds)\n' "$DUR" ;;
-    SKIP) printf ' ⚠️  SKIP  (%ds)\n' "$DUR" ;;
+    PASS) printf ' ✅ PASS  - %-18s (%ds)\n' "$MOD_AUTHOR" "$DUR" ;;
+    FAIL) printf ' ❌ FAIL  - %-18s (%ds)\n' "$MOD_AUTHOR" "$DUR" ;;
+    SKIP) printf ' ⚠️  SKIP  - %-18s (%ds)\n' "$MOD_AUTHOR" "$DUR" ;;
   esac
 done
 
@@ -246,6 +301,25 @@ echo "   ═══════════════════════�
 echo "   ✅ $PASS_COUNT pasaron  ❌ $FAIL_COUNT fallaron  ⚠️  $SKIP_COUNT sin tests"
 echo "   Tiempo tests : ${TEST_DURATION}s ($(( TEST_DURATION / 60 ))m $(( TEST_DURATION % 60 ))s)"
 echo "   ═══════════════════════════════════════════════════════"
+echo ""
+
+# ─── Obtener autores git por módulo ─────────────────────────────────────────
+echo "Obteniendo autores git..."
+MODULE_AUTHORS=""
+ALL_MODS_COMBINED="$ALL_MODULES"
+[[ -n "$NOT_INSTALLABLE" ]] && ALL_MODS_COMBINED="$ALL_MODS_COMBINED,$NOT_INSTALLABLE"
+
+IFS=',' read -ra ALL_MOD_ARRAY <<< "$ALL_MODS_COMBINED"
+for MOD in "${ALL_MOD_ARRAY[@]}"; do
+  [[ -z "$MOD" ]] && continue
+  AUTHOR=$(git -C "$SCRIPT_DIR/odoo-pro" log -1 --format="%an" \
+    -- "$MOD/" "store-addons/$MOD/" \
+    2>/dev/null | head -1 | tr ',' ';')
+  [[ -z "$AUTHOR" ]] && AUTHOR="-"
+  MODULE_AUTHORS="${MODULE_AUTHORS}${MOD}:${AUTHOR},"
+done
+echo "MODULE_AUTHORS=$MODULE_AUTHORS" >> "$MODULES_FILE"
+echo "   Listo."
 echo ""
 
 # ─── 4. Limpiar DB ───────────────────────────────────────────────────────────
@@ -259,43 +333,39 @@ else
 fi
 echo ""
 
-# ─── 5. Generar reporte ──────────────────────────────────────────────────────
-echo "Generando reporte..."
+# ─── 5. Generar reporte (Markdown + PDF) ────────────────────────────────────
+echo "[5/5] Generando reporte..."
+
+PDF_REPORT="${REPORT%.md}.pdf"
 
 if python3 "$SCRIPT_DIR/parse_test_log.py" \
-  --install-log     "$INSTALL_LOG" \
-  --modules-log-dir "$MODULES_LOG_DIR" \
-  --modules-file    "$MODULES_FILE" \
-  --output          "$REPORT" \
-  --timestamp       "$TIMESTAMP" \
+  --install-log      "$INSTALL_LOG" \
+  --modules-log-dir  "$MODULES_LOG_DIR" \
+  --modules-file     "$MODULES_FILE" \
+  --output           "$REPORT" \
+  --timestamp        "$TIMESTAMP" \
   --install-duration "$INSTALL_DURATION" \
-  --test-duration   "$TEST_DURATION"; then
+  --test-duration    "$TEST_DURATION"; then
 
   echo ""
-  echo "================================================================"
-  echo " Reporte: $REPORT"
-  echo "================================================================"
-  echo ""
-  echo " CÓMO CORRER"
-  echo " ─────────────────────────────────────────────────────────────"
-  echo " Todos los módulos:"
-  echo "   ./run_tests.sh"
-  echo "   ./run_tests.sh --keep-db      # conservar DB al finalizar"
-  echo ""
-  echo " Módulo específico (debug):"
-  echo "   ./run_tests.sh --module=l10n_do_sale"
-  echo "   ./run_tests.sh --module=l10n_do_sale --keep-db"
-  echo " ─────────────────────────────────────────────────────────────"
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║                   REPORTE GENERADO ✅                        ║"
+  echo "╠══════════════════════════════════════════════════════════════╣"
+  printf  "║  Markdown : %-48s ║\n" "$REPORT"
+  [[ -f "$PDF_REPORT" ]] && printf "║  PDF      : %-48s ║\n" "$PDF_REPORT"
+  echo "╠══════════════════════════════════════════════════════════════╣"
+  echo "║  COMANDOS                                                    ║"
+  echo "║  ./run_tests.sh                  # todos los módulos         ║"
+  echo "║  ./run_tests.sh --keep-db        # conservar DB              ║"
+  echo "║  ./run_tests.sh --demo --keep-db # con demo data             ║"
+  echo "║  ./run_tests.sh --module=NOMBRE  # módulo específico         ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
 else
   echo ""
-  echo "ERROR: parse_test_log.py falló. Logs en $LOG_DIR"
-  echo "Reprocesar manualmente:"
-  echo "  python3 $SCRIPT_DIR/parse_test_log.py \\"
-  echo "    --install-log     $INSTALL_LOG \\"
-  echo "    --modules-log-dir $MODULES_LOG_DIR \\"
-  echo "    --modules-file    $MODULES_FILE \\"
-  echo "    --output          $REPORT \\"
-  echo "    --timestamp       $TIMESTAMP \\"
-  echo "    --install-duration $INSTALL_DURATION \\"
-  echo "    --test-duration   $TEST_DURATION"
+  echo "❌ ERROR: parse_test_log.py falló. Logs en $LOG_DIR"
+  echo "   Reprocesar: python3 $SCRIPT_DIR/parse_test_log.py \\"
+  echo "     --install-log $INSTALL_LOG --modules-log-dir $MODULES_LOG_DIR \\"
+  echo "     --modules-file $MODULES_FILE --output $REPORT \\"
+  echo "     --timestamp $TIMESTAMP --install-duration $INSTALL_DURATION \\"
+  echo "     --test-duration $TEST_DURATION"
 fi
