@@ -6,6 +6,11 @@ USER root
 COPY ./requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
+# pyazul se instala desde el source local para que pip genere metadata
+RUN pip3 install --upgrade setuptools pip
+COPY ./pyazul /tmp/pyazul
+RUN pip3 install /tmp/pyazul --ignore-installed
+
 # 2. Copiamos tu nuevo entrypoint personalizado
 COPY ./entrypoint.sh /usr/bin/my_entrypoint.sh
 RUN chmod +x /usr/bin/my_entrypoint.sh

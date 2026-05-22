@@ -10,7 +10,6 @@ pysftp==0.2.8
 cryptography<37
 paramiko>=2.10.1
 pyOpenSSL>=19.0.0
-pyazul==3.2.0
 google_auth
 gtts
 pandas
