@@ -33,7 +33,6 @@ LANG = "es_DO"
 MODULES_TO_INSTALL = [
     "l10n_do_accounting",
     "l10n_do_document_pools",
-    "l10n_do_report_invoices",
 ]
 
 # NCF pools to create per document type ncf_type
