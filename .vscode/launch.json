@@ -7,12 +7,16 @@
            "request": "attach",
            "connect": {
                "host": "localhost",
-               "port": 8091
+               "port": 8093
            },
            "pathMappings": [
                {
-                   "localRoot": "${workspaceFolder}/addons",
-                   "remoteRoot": "/mnt/extra-addons"
+                   "localRoot": "${workspaceFolder}/odoo-pro",
+                   "remoteRoot": "/mnt/extra-addons-pro"
+               },
+               {
+                   "localRoot": "${workspaceFolder}/enterprise",
+                   "remoteRoot": "/mnt/extra-addons-enterprise"
                },
                {
                    "localRoot": "${workspaceFolder}/pyazul/pyazul",

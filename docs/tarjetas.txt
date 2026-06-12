@@ -1,0 +1,21 @@
+💳 Tarjetas de Prueba (Entorno de Sandbox)
+🛡️ Flujos con 3D Secure (3DS)
+Ideal para probar los diferentes flujos de autenticación de dos factores.
+Tarjeta	Exp	CVV	Comportamiento esperado	Límite / Notas
+4005 5200 0000 0129	12/28	123	Challenge + Method
+
+(La de uso principal: ejercita ambos callbacks)	Máx. RD$ 50
+4147 4630 1111 0059	12/28	123	Challenge sin Method
+
+(Solo ejecuta el callback del CRes)	Sin límite
+4265 8800 0000 0007	12/28	123	Frictionless con Method
+
+(Ejecuta el Method, pero no requiere reto)	Sin límite
+4147 4630 1111 0117	12/28	123	Frictionless sin Method
+
+(Aprueba el pago de forma directa)	Sin límite
+⚡ Sin 3DS (Pagos Directos)
+Ideal para pruebas de transacciones recurrentes, cobros directos por API o flujos sin autenticación reforzada.
+Tarjeta	Exp	CVV	Tipo / Nota	Límite
+4012 0000 3333 0026	12/28	123	Visa Estándar	Sin límite
+4005 5200 0000 0129	12/28	977	Visa (Mismo número que la 3DS, pero cambia el CVV)	Máx. RD$ 75
