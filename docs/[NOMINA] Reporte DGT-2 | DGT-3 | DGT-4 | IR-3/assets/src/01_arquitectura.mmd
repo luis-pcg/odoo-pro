@@ -1,0 +1,20 @@
+graph TD
+  classDef nuevo fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000
+  classDef mod fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000
+  classDef base fill:#eceff1,stroke:#90a4ae,color:#000
+  hr_skills["hr_skills (base Odoo)"]:::base
+  acc["l10n_do_accounting (base)"]:::base
+  pay["l10n_do_hr_payroll (base)"]:::base
+  dgii["dgii_reports (base)"]:::base
+  hr["l10n_do_hr -- MODIFICADO"]:::mod
+  tss["tss_report -- MODIFICADO"]:::mod
+  sirla["l10n_do_hr_sirla -- NUEVO (DGT-2/3/4)"]:::nuevo
+  ir3["tss_dgii_report -- NUEVO (IR-3)"]:::nuevo
+  hr -->|depende de| hr_skills
+  pay -->|depende de| hr
+  tss -->|depende de| pay
+  sirla -->|depende de| hr
+  sirla -->|depende de| pay
+  dgii -->|depende de| acc
+  ir3 -->|depende de| tss
+  ir3 -->|depende de| dgii

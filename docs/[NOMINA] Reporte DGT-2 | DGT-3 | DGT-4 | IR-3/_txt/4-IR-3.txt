@@ -1,0 +1,236 @@
+Instructivo
+Envío de Declaración Jurada Mensual
+de Retenciones de Asalariados (IR-3)
+Instructivo Envío de Declaración Jurada Mensual de
+Retenciones de Asalariados (IR-3)
+
+Los agentes de retención son personas o entidades públicas y privadas, que tienen la
+obligación de efectuar la retención correspondiente cuando paguen salarios y/o
+cualquier otra remuneración en efectivo a sus asalariados.
+
+Los asalariados son aquellos que obtienen sus ingresos o salarios como pago por su
+trabajo en relación de dependencia para un empleador. A estos se les retendrá
+mensualmente sobre el excedente de su salario que sobrepase la exención
+contributiva anual del Impuesto Sobre la Renta (ISR), que desde el 2017 es
+RD$416,220.00.
+
+Antes de realizar el cálculo de la retención a los asalariados, se debe excluir el monto
+cotizable a la Tesorería de la Seguridad Social (TSS) que incluye Administradora de
+Fondos de Pensiones (AFP) y Seguro Familiar de Salud (SFS).
+
+
+
+               ESCALA ANUAL                                     TASA
+         Rentas hasta RD$416,220.00               Exento
+
+         Rentas desde RD$416,220.01               15% del excedente de
+         hasta RD$624,329.00                      RD$416,220.01
+
+         Rentas desde RD$624,329.01               RD$31,216.00 más el 20% del
+         hasta RD$867,123.00                      excedente de RD$624,329.01
+
+         Rentas desde RD$867,123.01 en            RD$79,776.00 más el 25% del
+         adelante                                 excedente de RD$867,123.01
+
+
+
+  Nota: Esta escala salarial podrá ser ajustada anualmente en base a la inflación acumulada
+  correspondiente al año anterior, según las cifras publicadas por el Banco Central de la
+  República Dominicana.
+
+
+
+Las retenciones de asalariados deben ser presentadas y pagadas mensualmente por el
+empleador, a más tardar el día diez (10) del mes siguiente al período declarado.
+
+En los casos en que el Agente de Retención no realice la retención establecida por ley,
+este hecho no exime a los contribuyentes de la obligación del pago del impuesto.
+
+                                             1
+De no efectuarse la retención, son deudores solidarios del impuesto tanto el
+contribuyente como el Agente de Retención. Cuando el Agente de Retención efectúe la
+misma correctamente, será el único responsable del pago del impuesto retenido ante
+la Administración.
+
+Para realizar el pago, los contribuyentes tienen tres opciones:
+
+ •Vía Internet Banking: Banco Popular, Citigroup, Lafise, Banesco, Asociación
+  Popular de Ahorros y Préstamos (APAP), Banco Unión.
+
+ •Ventanilla e Internet Banking: Banco BDI, Banco BHD, Banco de Reservas, Banco
+  Caribe, Banco López de Haro, Banco Santa Cruz, Banco Ademi, Asociación Cibao de
+  Ahorros y Préstamos, Asociación la Nacional de Ahorros y Préstamos, Asociación La
+  Vega Real (ALAVER), Asociación Mocana (ASOMAP), Scotiabank, Promérica.
+
+ •Vía Ventanilla: Banco Vimenca, Asociación La Romana (ARAP), Asociación Bonao de
+  Ahorros y Préstamos (ABONAP), Asociación Duarte.
+
+ •A través de la Administración Local: En caso de que el pago se realice en las
+  Administraciones Locales y el monto a pagar supere los quince mil pesos
+  (RD$15,000.00) debe realizarse con cheque certificado o de administración a
+  nombre de: Colector de Impuestos Internos.
+
+Para presentar la Declaración Jurada de Retenciones de Asalariados (IR-3) debe preparar
+y cargar su nómina a través de la Tesorería de la Seguridad Social (TSS) y luego enviar la
+presentación a través de la Oficina Virtual de Impuestos Internos.
+Pasos a seguir para enviar la Declaración Jurada Mensual de
+Retenciones de Asalariados (IR-3) a través de la Oficina
+Virtual
+
+1 Ingrese a la página web www.dgii.gov.do y haga clic en la sección “Oficina Virtual”.
+
+
+
+
+2 En “Usuario” y “Clave” digite su RNC o Cédula, su clave o contraseña y luego pulse
+   el botón “Entrar”.
+
+
+
+
+                                          3
+3 El sistema le pedirá que digite su número de código, Token o Soft-Token (en caso
+   de que aplique).
+
+
+
+
+4 En el menú “Declaraciones Juradas”, seleccione “Declaración IR-3”.
+
+
+
+
+                                          4
+5 Digite el año y elija el mes correspondiente al periodo a presentar. Luego de
+   completados estos datos, pulse el botón "Consultar".
+
+
+
+
+  Nota: Al consultar un período con declaración registrada, el sistema mostrará el mensaje:
+  Este período tiene una declaración presentada.
+  En caso contrario, indicará: "No existe declaración presentada para el período
+  seleccionado".
+
+
+
+6 El sistema le presentará tres (3) opciones a elegir. Se recomienda pulsar el botón
+   “Descargar IR-4” para visualizar y confirmar que los datos de los asalariados
+   reportados en la TSS estén correctos.
+
+
+
+
+                                             5
+7 Pulse el botón “Open (Abrir)”. El sistema le presentará los datos del personal
+   asalariado en un archivo de Excel. Si detecta algún dato erróneo, deberá realizar
+   las correcciones correspondientes en la nómina remitida a la TSS y luego verificar
+   el archivo nuevamente.
+
+
+
+
+8 Una vez validadas las informaciones de la nómina, pulse el botón “Presentar IR-3”.
+
+
+
+
+                                          6
+9 El sistema le solicitará que digite el código desplegado en el Token Digital o en la
+nnnTarjeta de Códigos (según aplique). Luego pulse el botón "Continuar".
+
+
+
+
+10 El sistema le presentará la declaración ya completada, de acuerdo a la información
+    verificada en el IR-4. Pulse el botón “Enviar Documento”.
+
+
+
+
+                                                            6
+
+
+
+
+                                           7
+11 Le aparecerá un cuadro con la siguiente pregunta: “¿Está seguro de enviar el
+    documento?”, si está seguro pulse “OK” y vuelva a presionar “Enviar Documento”.
+
+
+
+
+                                          8
+12 Por último, el sistema le muestra el número de autorización de la declaración
+    presentada. Pulse "Aceptar". Puede imprimir la constancia del envío, pulsando
+    "Imprimir Constancia".
+
+
+
+
+Consideraciones importantes:
+
+   Cuando los contribuyentes deban realizar correcciones a sus declaraciones IR-3 ya
+   aceptadas, tendrán la opción para anular las referidas declaraciones, siempre que
+   no se haya realizado el pago, o la fecha límite de presentación no haya vencido.
+
+   Si el contribuyente no realiza el proceso de aceptación de la declaración propuesta,
+   al vencimiento de la fecha límite, la misma se considerará como presentada, y podrá
+   visualizarse, en la cuenta corriente con los recargos e intereses que corresponda.
+
+   Pasada la fecha límite o después de realizar pagos a declaraciones ya aceptadas, los
+   cambios se procesarán como una declaración rectificativa, para lo cual el
+   contribuyente deberá realizar el proceso de presentar la nómina rectificada a través
+   de la TSS.
+
+
+
+
+                                          9
+PASOS PARA REALIZAR LA DECLARACIÓN JURADA
+MENSUAL DE RETENCIONES DE ASALARIADOS (IR-3)
+CON VALOR CERO
+La Declaración Jurada con Valor Cero o Informativa permite a los contribuyentes
+realizar las declaraciones obligatorias de las Retenciones de Asalariados (IR-3), cuando
+éstas no tienen ningún monto o valor a presentar. Las mismas deben ser presentadas
+mensualmente, a más tardar el día 10.
+
+1 En la sección “Declaraciones Juradas”, seleccione la opción “Declaraciones en Cero”.
+
+
+
+
+2 En la opción “Formato o Impuestos” seleccione el IR-3.
+
+
+
+
+                                           10
+3 Una vez seleccionado el impuesto deberá indicar el período a declarar y luego
+   pulsar “Presentar Declaración”.
+
+
+
+
+4 El sistema generará un mensaje confirmando que la declaración ha sido
+  presentada satisfactoriamente y de manera automática le asignará un número a
+  dicha declaración.
+
+
+
+
+                                         11
+                       dgii.gov.do
+(809) 689-3444 desde cualquier parte del país.
+
+                      informacion@dgii.gov.do
+
+
+                          IMPUESTOS INTERNOS
+                                  Marzo 2026
+
+         Publicación informativa sin validez legal
+
+
+    @DGIIRD
+

@@ -1,0 +1,21 @@
+flowchart TD
+  classDef data fill:#e3f2fd,stroke:#1565c0,color:#000
+  classDef proc fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef out fill:#c8e6c9,stroke:#2e7d32,color:#000
+  CAT["Catálogos SIRLA<br/>ocupación / nacionalidad /<br/>nivel / discapacidad / turno"]:::data
+  EST["Establecimiento (RNL)"]:::data
+  E["Ficha empleado<br/>+ campos SIRLA"]:::data
+  OT["l10n.do.hr.overtime<br/>(horas por día)"]:::data
+  W["Wizard DGT<br/>(espejo de TSS)"]:::proc
+  M["mixin fixedwidth"]:::proc
+  T2["DGT-2 TXT"]:::out
+  T3["DGT-3 TXT"]:::out
+  T4["DGT-4 TXT"]:::out
+  CAT --> E
+  EST --> E
+  E --> W
+  OT --> W
+  M -.formato.-> W
+  W --> T2
+  W --> T3
+  W --> T4

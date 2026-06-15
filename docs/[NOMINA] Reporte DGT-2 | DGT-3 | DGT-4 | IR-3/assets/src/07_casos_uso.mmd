@@ -1,0 +1,18 @@
+flowchart LR
+  classDef actor fill:#d1c4e9,stroke:#4527a0,color:#000
+  classDef uc fill:#e8f5e9,stroke:#2e7d32,color:#000
+  RH["Usuario RH"]:::actor
+  CON["Contabilidad / Fiscal"]:::actor
+  U1["Completar ficha empleado + SIRLA"]:::uc
+  U2["Registrar horas extra por día"]:::uc
+  U3["Generar DGT-2 / DGT-3 / DGT-4"]:::uc
+  U4["Generar TSS (AM)"]:::uc
+  U5["Generar y ajustar IR-3"]:::uc
+  U6["Enviar declaración DGII"]:::uc
+  RH --- U1
+  RH --- U2
+  RH --- U3
+  RH --- U4
+  CON --- U5
+  CON --- U6
+  U2 -.alimenta.-> U3

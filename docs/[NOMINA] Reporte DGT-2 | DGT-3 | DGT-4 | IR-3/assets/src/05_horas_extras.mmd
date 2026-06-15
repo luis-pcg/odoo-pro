@@ -1,0 +1,28 @@
+flowchart TB
+  classDef bad fill:#ffcdd2,stroke:#c62828,color:#000
+  classDef need fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef good fill:#c8e6c9,stroke:#2e7d32,color:#000
+  classDef ui fill:#d1c4e9,stroke:#4527a0,color:#000
+  subgraph HOY["Hoy en Odoo (solo TOTAL del período)"]
+    H1["Input HEL = total horas 35%"]:::bad
+    H2["Input HEF = total horas 100%"]:::bad
+    HP["Volante mensual:<br/>solo el TOTAL, sin día"]:::bad
+    H1 --> HP
+    H2 --> HP
+  end
+  subgraph SOL["Solución: modelo l10n.do.hr.overtime"]
+    IMP["Captura: import masivo (Excel/CSV)<br/>+ vistas propias lista / calendario por fecha"]:::ui
+    S1["Registro por DÍA:<br/>fecha, horas, %, causa, establecimiento"]:::good
+    S2["Agrega → inputs nómina HEL/HEF (totales)"]:::good
+    S3["Detalla → DGT-2 día a día"]:::good
+    IMP -->|carga masiva| S1
+    S1 -->|agrega| S2
+    S1 -->|detalla| S3
+  end
+  subgraph DGT["Lo que DGT-2 EXIGE (día a día)"]
+    D1["Día 1: horas, %"]:::need
+    D2["Día 2: horas, %"]:::need
+    D3["... Día 31: horas, %"]:::need
+  end
+  HOY -.no alcanza.-> DGT
+  SOL ==>|resuelve| DGT

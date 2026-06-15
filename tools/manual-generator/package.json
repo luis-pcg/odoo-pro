@@ -1,0 +1,10 @@
+{
+  "name": "odoo-manual-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generate Odoo Pro v19 user manuals (screenshots + README) per module.",
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

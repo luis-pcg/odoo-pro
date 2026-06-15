@@ -1,0 +1,52 @@
+                       SISTEMA INTEGRADO DE REGISTROS LABORALES (SIRLA)                                                   DGT-12
+                              ESPECIFICACIONES DEL ARCHIVO PARA LA CARGA DE TRABAJADORES
+
+
+
+ENCABEZADO:
+
+Concepto                             Tipo    Req.      Longitud         Desde        Hasta      Observación
+
+Control (E)                          AN      SI                     1            1            2 E = Encabezado (constante)
+
+Tipo(G2)                             AN      SI                     2            2            4 Tipo de formulario
+
+Documento                            AN      SI                   11             4           15 RNC o cedula
+
+Mes                                  AN      SI                     2           15           17 Formato = MM
+
+Año                                  N       SI                     4           17           21 Formato = YYYY
+
+
+DETALLE:
+
+Concepto                             Tipo    Req.      Longitud         Desde                   Observación
+
+Control(D)                           AN      SI                     1            1            2 D = Detalle (Constante)
+
+                                                                                                Tipos de documento:
+                                                                                                C = Cedula
+                                                                                                P = Pasaporte
+                                                                                                N = Número de Seguridad
+Tipo de documento                    AN      SI                     1            2            3
+                                                                                                Social
+                                                                                                M = Carnet de migración
+                                                                                                I = interior y policía
+
+
+Documento                            AN      SI                   25             3           28 Documento del trabajador
+
+Localidad                            N       SI                     6           28           34 Id establecimiento
+
+Fecha Salida                         N       SI                     8           34           42 Formato = DDMMYYYY
+
+PIE:
+Concepto                             Tipo    Req.      Longitud                              Observación
+Control (S)                          AN      SI                     1 S = Sumario
+Lineas                               AN      SI                   ¨--- Cantidad de lineas con información
+
+
+Nota: los campos alfanuméricos (AN) deben ir alineados a la izquierda y rellenados con espacios en blanco a la derecha, si
+ fuere necesario, hasta completar la longitud especificada. Los campos numéricos (N) deben ir alineados a la derecha y
+             rellenados con ceros a la izquierda, si fuere necesario, hasta completar la longitud especificada.
+

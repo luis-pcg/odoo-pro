@@ -1,0 +1,107 @@
+{
+  "module": "report_zpl_direct_print",
+  "title": "Report ZPL Direct Print — Manual de usuario",
+  "intro": "**Report ZPL Direct Print** envía reportes de Odoo directamente a una impresora (típicamente una Zebra / ZPL) a través de [QZ Tray](https://qz.io/), en lugar de descargar un PDF. Está pensado para impresión de etiquetas (productos, envíos, códigos de barras) en almacenes y puntos de venta.\n\nEste manual cubre la **instalación y configuración dentro de Odoo**. La impresión física se ejecuta en el navegador del usuario contra la app de escritorio QZ Tray; ese paso se describe en texto al final.",
+  "requirements": [
+    "La librería Python `zplgrf` instalada en el servidor (`pip install zplgrf`), solo necesaria para la ruta PDF→ZPL.",
+    "La aplicación de escritorio QZ Tray instalada y corriendo en la PC del usuario que imprime.",
+    "La impresora dada de alta en QZ Tray, con el mismo nombre que se usará en Odoo.",
+    "Modo desarrollador activado en Odoo para ver los menús de Impresoras y Plantillas (Ajustes → Activar modo desarrollador)."
+  ],
+  "flows": [
+    {
+      "id": "01-install",
+      "title": "1. Instalación del módulo",
+      "description": "En **Aplicaciones**, busca «ZPL Direct» y pulsa **Activar/Instalar** en *Report ZPL Direct Print*. Si la lista no muestra el módulo, pulsa primero *Actualizar lista de aplicaciones* (requiere modo desarrollador).",
+      "steps": [
+        { "goto": "/odoo/apps" },
+        { "waitFor": ".o_searchview_input", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "ZPL Direct" },
+        { "press": "Enter" },
+        { "waitForHidden": ".o_searchview_autocomplete", "timeout": 10000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-printers-list",
+      "title": "2. Catálogo de impresoras",
+      "description": "Ve a **Ajustes → Técnico → Informes → Printers**. Aquí se listan las impresoras disponibles para impresión directa. Cada registro representa una impresora física conocida por QZ Tray.",
+      "steps": [
+        { "goto": "/odoo/action-report_zpl_direct_print.report_zpl_printer_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "03-printer-form",
+      "title": "3. Crear una impresora",
+      "description": "Pulsa **Nuevo** y captura el **Nombre** exactamente igual al nombre con el que la impresora aparece en QZ Tray / el sistema operativo. Deja el **Tipo** en *Zebra Printer (ZPL)*. Guarda.",
+      "steps": [
+        { "goto": "/odoo/action-report_zpl_direct_print.report_zpl_printer_action" },
+        { "waitFor": ".o_data_row", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "04-templates-list",
+      "title": "4. Plantillas de etiqueta",
+      "description": "Ve a **Ajustes → Técnico → Informes → Report Templates**. Las plantillas contienen el código de la etiqueta (ZPL) con marcadores que se rellenan con los datos de cada registro al imprimir.",
+      "steps": [
+        { "goto": "/odoo/action-report_zpl_direct_print.report_zpl_template_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "05-template-form",
+      "title": "5. Crear una plantilla",
+      "description": "Pulsa **Nuevo**, dale un **Nombre**, elige el **Modelo** sobre el que aplica (por ejemplo *Contacto* o *Producto*) y escribe el código ZPL en la pestaña **Template**. Envuelve las expresiones entre llaves para inyectar datos del registro, por ejemplo `{object.name}`.",
+      "steps": [
+        { "goto": "/odoo/action-report_zpl_direct_print.report_zpl_template_action" },
+        { "waitFor": ".o_data_row", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "06-template-help",
+      "title": "6. Ayuda de sintaxis de plantilla",
+      "description": "La pestaña **Help** del formulario de plantilla documenta los marcadores disponibles: `object`/`record`/`self` para el registro actual y `template`/`template_id` para la propia plantilla, además de un ejemplo ZPL y un enlace a labelary.com para previsualizar diseños.",
+      "steps": [
+        { "goto": "/odoo/action-report_zpl_direct_print.report_zpl_template_action" },
+        { "waitFor": ".o_data_row", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Help\")" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "07-report-direct-printing",
+      "title": "7. Configurar un reporte para impresión directa",
+      "description": "Ve a **Ajustes → Técnico → Informes → Informes**, abre el reporte deseado y entra en la pestaña **Direct Printing**. Cambia *Report Action* a **Send to Printer**, elige la **Impresora** y, opcionalmente, marca **Use Template** + la **Plantilla**, o **Print Multiple Copies** + el número de copias por defecto.",
+      "steps": [
+        { "goto": "/odoo/action-base.ir_action_report" },
+        { "waitFor": ".o_searchview_input", "timeout": 30000 },
+        { "fill": ".o_searchview_input", "value": "Etiqueta de contacto (ZPL Direct)" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Direct Printing\")" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "08-print",
+      "title": "8. Imprimir",
+      "description": "Con el reporte configurado como *Send to Printer*, al pulsar **Imprimir** sobre uno o varios registros (botón Imprimir del formulario/lista) Odoo no descarga el PDF: se conecta a QZ Tray en la PC del usuario y envía la etiqueta a la impresora.\n\n- Si la impresora configurada está disponible y no hay multi-copia, imprime directo.\n- Si no, aparece un diálogo para elegir impresora y/o número de copias.\n- Si QZ Tray no está corriendo, Odoo muestra una notificación de error.\n\n> Este paso depende de QZ Tray (app de escritorio) y no se captura en este manual automatizado; valida la configuración previa dentro de Odoo y prueba la impresión en una estación con QZ Tray instalado.",
+      "image": false
+    }
+  ],
+  "notes": "Permisos: los usuarios internos pueden **leer** impresoras y plantillas; solo los administradores (Ajustes) pueden crearlas o editarlas. Las expresiones de plantilla se evalúan con `safe_eval`."
+}

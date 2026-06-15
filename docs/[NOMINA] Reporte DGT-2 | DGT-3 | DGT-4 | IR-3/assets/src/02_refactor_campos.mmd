@@ -1,0 +1,27 @@
+graph LR
+  classDef mov fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef dest fill:#c8e6c9,stroke:#2e7d32,color:#000
+  classDef stay fill:#e3f2fd,stroke:#1565c0,color:#000
+  subgraph ANTES["tss_report (ANTES)"]
+    a1["first_name"]:::mov
+    a2["first_last_name"]:::mov
+    a3["second_last_name"]:::mov
+    a4["helpers formato + deducción C/P/N:<br/>doc / gender / name / birthday"]:::mov
+    a5["getters cómputo:<br/>salario / ISR / remuneración"]:::mov
+  end
+  subgraph HR["l10n_do_hr (DESTINO)"]
+    b1["first_name"]:::dest
+    b2["first_last_name"]:::dest
+    b3["second_last_name"]:::dest
+    bm["mixin fixedwidth<br/>(identidad + formato + deducción C/P/N)"]:::dest
+  end
+  subgraph TSSNEW["tss_report (DESPUÉS)"]
+    c1["mixin tss.computation<br/>(getters cómputo)"]:::dest
+    c2["payroll_key + income_type<br/>SE QUEDAN"]:::stay
+    c3["wizard AM<br/>SE QUEDA"]:::stay
+  end
+  a1 -->|movido| b1
+  a2 -->|movido| b2
+  a3 -->|movido| b3
+  a4 -->|movido| bm
+  a5 -->|movido| c1

@@ -1,0 +1,19 @@
+flowchart TD
+  classDef data fill:#e3f2fd,stroke:#1565c0,color:#000
+  classDef proc fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef out fill:#c8e6c9,stroke:#2e7d32,color:#000
+  A["hr.payslip (ya calculado)"]:::data
+  B["mixin tss.computation<br/>(cómputo compartido)"]:::proc
+  C["l10n.do.ir3.report<br/>PERSISTE: casillas + líneas"]:::out
+  D["Casillas precargadas y editables<br/>(estilo IT-1)"]:::out
+  E["Genera TXT IR-3"]:::out
+  F["Menú Declaraciones DGII<br/>(vista persistente)"]:::out
+  G["Wizard generar IR-3"]:::proc
+  T["tss_report:<br/>income_type, payroll_key"]:::data
+  A -->|lee, NO recalcula| B
+  B --> C
+  C --> D
+  D --> E
+  C -.muestra.-> F
+  B -.mismo cálculo.-> G
+  T -.muestra campos.-> C

@@ -1,0 +1,69 @@
+                  SISTEMA INTEGRADO DE REGISTROS LABORALES (SIRLA)
+            ESPECIFICACIONES DEL ARCHIVO PARA LA CARGA DE TRABAJADORES
+                                       DGT-5
+Encabezado:
+
+
+        Concepto      Tipo   Req.   Longitud   Desde   Hasta                  Observación
+
+
+Tipo de registro      AN      SI       1         1      1      E = Encabezado (constante)
+
+Proceso               AN      SI       2         2      3      T5 = Envío de archivo DGT5(Constante)
+
+RNC                    N      SI      11         4      14     RNC o Cedula de la empresa
+
+Periodo                N      SI       6        15      20     Formato = MMYYYY
+
+Detalle:
+        Concepto      Tipo   Req.   Longitud   Desde   Hasta                  Observación
+
+Tipo de registro       AN     SI       1         1       1     D = Detalle (constante)
+
+Tipo de novedad        AN     SI       3         2       4     NI = Novedad Ingreso
+
+Tipo de documento      AN     SI       1         5       5     Tipo de documento del trabajador:
+                                                               C = Cedula
+                                                               P = Pasaporte
+                                                               N = Número de Seguridad Social
+                                                               M = Carnet de migración
+                                                               I = interior y policía
+Número de documento    AN     SI       25        6      30     Número de documento del trabajador
+
+Salario mensual        N      SI       16       31      46     Salario Mens. = días trabajados x salario
+                                                               por día. Ej: 20 x 1000 = 20000.00
+Fecha de ingreso       F      SI       8        47      54     Formato = DDMMYYYY
+
+Ocupación              N      SI       6        55      60     Código de la ocupación. Viene del
+                                                               catálogo
+Cargo                  AN     SI      150       61      210    Descripción del puesto
+
+Turno                  N      SI       6        211     216    Código del turno. Viene del catálogo de
+                                                               turnos de la empresa. (SIRLA)
+
+Localidad              N      SI       6        217     222    Código Establecimiento. (Últimos 4
+                                                               dígitos del RNL).
+Días trabajados        N      SI       2        223     224    Formato = DD
+
+Salario por día        N      SI       8        225     233    Salario pagado por día. Ej: 00100.00
+ Nivel Educación              N         SI         5       233         237       Solo el código del nivel educativo.
+
+ Discapacidad                AN         SI        50       238         287       Puede tener más de una discapacidad,
+                                                                                 solo se obtiene el/los código separado
+                                                                                 por comas.
+
+ Sumario:
+
+       Concepto             Tipo      Req.     Longitud     Desde      Hasta                  Observación
+
+Tipo de Registro             AN        SI         1           1          1      S = Sumario
+
+Número de Registros           N        SI         6           2          7      Cantidad de registros, incluye el
+                                                                                encabezado y el sumario.
+                                                                                Relleno de ceros a la izquierda.
+
+
+Nota: los campos alfanuméricos (AN) deben ir alineados a la izquierda y rellenados con espacios en blanco a la derecha, si
+fuere necesario, hasta completar la longitud especificada. Los campos numéricos (N) deben ir alineados a la derecha y
+rellenados con ceros a la izquierda, si fuere necesario, hasta completar la longitud especificada.
+

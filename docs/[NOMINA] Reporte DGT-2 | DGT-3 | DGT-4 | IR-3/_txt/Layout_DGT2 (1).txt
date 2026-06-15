@@ -1,0 +1,90 @@
+                     SISTEMA INTEGRADO DE REGISTROS LABORALES (SIRLA)
+                ESPECIFICACIONES DEL ARCHIVO PARA LA CARGA DE TRABAJADORES
+                                            DGT-2
+Encabezado:
+
+
+       Concepto            Tipo      Req.       Longitud       Desde       Hasta                       Observación
+
+
+ Tipo de registro          AN         SI           1             1           1        E = Encabezado (constante)
+
+ Proceso                   AN         SI           2             2           3        T2 = Envío de archivo DGT2 (constante)
+
+ RNC                        N         SI          11             4          14        RNC o Cedula de la empresa
+
+ Periodo                    N         SI           6            15          20        Formato = MMYYYY
+
+
+
+Detalle:
+           Concepto          Tipo      Req.       Longitud      Desde       Hasta                       Observación
+
+ Tipo de registro               AN         SI           1            1           1     D = Detalle (constante)
+
+ Tipo de novedad                AN         SI           3            2           4     NC=Novedad de Cambio
+
+ Tipo de documento              AN         SI           1            5           5     Tipo de documento del trabajador:
+                                                                                       C = Cedula,
+                                                                                       P = Pasaporte,
+                                                                                       N=Número de Seguridad Social
+                                                                                       M = Carnet de migración
+                                                                                       I = interior y policía
+ Número de documento            AN         SI          25            6           30    Número de documento del trabajador
+
+ ID Establecimiento             N          NO           6            31          36    Código Establecimiento. (Últimos 4
+                                                                                       dígitos del RNL).
+
+ Valor de la hora normal        N          SI           8            37          44    Salario pagado por hora (RD$).
+                                                                                       Ej: 100.00
+
+                                N          Si          H 1:5         45      385       Cantidad de Horas extras por día H.
+            Día {n}                                    % 1:6                           Porcentaje    pagado     por     horas
+             H, %                                                                      trabajadas %.
+                                                                                       Formato: 35.00, 100.00, u otro
+                                                                                       porcentaje.
+ Causa de Prolongación          AN         Si          15            386     405       a, b, c, d, e
+Nota 1: Detalles de las columna horas extras trabajadas en el día y porcentaje por hora extras en el
+día (Día {n} H, %).
+
+  En este campo se debe llenar las horas extras laboradas con el porcentaje pagado por hora.
+    •    n = número del día del mes que se trabajó horas extras (las horas extras trabajadas del día 1 al 31 del mes).
+    •    H = Horas trabajadas en ese día.
+    •    % = Porcentaje pagado por horas.
+
+Ejemplo del resultado final del archivo generado:
+
+
+
+
+        Representa las Horas extras trabajadas del día. (Ocupa 5 caracteres incluyendo el punto decimal).
+
+        Representa el porcentaje pagado por las horas extras del día. ( Ocupa 6 caracteres incluyendo el punto decimal).
+        Representa los días que el empleado no trabajo horas extras. ( Deben ser llenados con 0 y sus respectivos
+        puntos decimales, tal como muestra la imagen).
+
+ Nota 2: Causas de prolongación según el artículo 153, código de trabajo:
+
+a) Accidentes ocurridos o inminentes.
+b) Trabajos imprescindibles que deben realizarse en las maquinarias o en las herramientas, cuya paralización pueda
+   causar perjuicios graves.
+c) Trabajos cuya interrupción pueda alterar la materia prima.
+d) En caso fortuito o de fuerza mayor.
+e) Para permitir que la empresa haga frente a aumentos extraordinarios de trabajo.
+
+
+Sumario:
+         Concepto            Tipo     Req.    Longitud     Desde      Hasta                  Observación
+ Tipo de Registro            AN        SI         1           1         1      S = Sumario
+ Número de Registros          N        SI         6           2         7      Cantidad de registros, incluye        el
+                                                                               encabezado y el sumario.
+                                                                               Relleno de ceros a la izquierda.
+
+
+Nota 3: los campos alfanuméricos (AN) deben ir alineados a la izquierda y rellenados con espacios en blanco a la
+derecha, si fuere necesario, hasta completar la longitud especificada. Los campos numéricos (N) deben ir alineados a
+la derecha y rellenados con ceros a la izquierda, si fuere necesario, hasta completar la longitud especificada.
+
+Nota 4: Para tener una visión más exacta del resultado final del archivo puede descargar la plantilla_General de Excel
+y probar generando un archivo y observando su formato.
+

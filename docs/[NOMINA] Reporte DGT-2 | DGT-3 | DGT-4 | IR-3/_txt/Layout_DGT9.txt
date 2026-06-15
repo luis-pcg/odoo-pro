@@ -1,0 +1,63 @@
+                       SISTEMA INTEGRADO DE REGISTROS LABORALES (SIRLA)                                                 DGT-9
+                              ESPECIFICACIONES DEL ARCHIVO PARA LA CARGA DE TRABAJADORES
+
+
+
+ENCABEZADOS:
+
+Concepto                             Tipo    Req.      Longitud         Desde         Observación
+
+Control (E)                          AN      SI                     1             1 E = Encabezado (constante)
+
+Tipo                                                                2             2 Tipo de formulario
+
+RNC ó Cédula                         AN      SI                    11             4 RNC o Cédula de la empresa
+
+Período                              AN      SI                     6            15 Formato = MMYYYY
+
+Fecha Inicio                         AN      SI                     8            21 Formato = DDMMYYYY
+
+Duración (Días)                      N       SI                     2            29 Cantidad de días de suspensión
+
+Causa de suspensión                  N       SI                    15            31
+
+
+
+DETALLE:
+
+Concepto                             Tipo    Req.      Longitud         Desde         Observación
+
+Control(D)                           AN      SI                     1             1 D = Detalle (constante)
+
+                                                                                    Tipo de documento del trabajador:
+                                                                                    C = Cedula
+                                                                                    P = Pasaporte
+Tipo de documento                    AN      SI                     1             2 N = Número de Seguridad Social
+                                                                                    M = Carnet de migración
+                                                                                    I = interior y policía
+
+
+Documento                            AN      SI                    25             3 Documento del trabajador
+
+Id establecimiento                   N       SI                     6            28
+
+Provincia/Municipio                  N       SI                     4            34
+
+Dirección                            AN      SI                   300            38
+
+Teléfono                             AN      SI                    10           338
+
+
+
+PIE:
+Concepto                             Tipo    Req.      Longitud                            Observación
+Control (S)                          AN      SI                     1 S = sumario (Constante)
+Líneas                               AN      SI                   ---- Cantidad de lineas con información
+
+
+
+  Nota: los campos alfanuméricos (AN) deben ir alineados a la izquierda y rellenados con espacios en blanco a la
+    derecha, si fuere necesario, hasta completar la longitud especificada. Los campos numéricos (N) deben ir
+   alineados a la derecha y rellenados con ceros a la izquierda, si fuere necesario, hasta completar la longitud
+                                                  especificada.
+

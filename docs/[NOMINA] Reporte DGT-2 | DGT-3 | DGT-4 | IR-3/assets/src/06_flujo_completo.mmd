@@ -1,0 +1,27 @@
+flowchart LR
+  classDef data fill:#e3f2fd,stroke:#1565c0,color:#000
+  classDef proc fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef out fill:#c8e6c9,stroke:#2e7d32,color:#000
+  subgraph ENTRADA["1. Datos"]
+    EMP["Ficha empleado<br/>nombre / doc / SIRLA"]:::data
+    OVT["Horas extra por día"]:::data
+    NOM["Proceso de nómina"]:::data
+  end
+  subgraph COMPUTO["2. Cómputo compartido"]
+    MIX["Mixins:<br/>identidad + cómputo TSS"]:::proc
+  end
+  subgraph REPORTES["3. Reportes"]
+    TSSR["TSS AM"]:::out
+    IR3["IR-3 (DGII)"]:::out
+    DGT2["DGT-2"]:::out
+    DGT3["DGT-3"]:::out
+    DGT4["DGT-4"]:::out
+  end
+  EMP --> MIX
+  NOM --> MIX
+  MIX --> TSSR
+  MIX --> IR3
+  EMP --> DGT3
+  EMP --> DGT4
+  OVT --> DGT2
+  OVT --> MIX

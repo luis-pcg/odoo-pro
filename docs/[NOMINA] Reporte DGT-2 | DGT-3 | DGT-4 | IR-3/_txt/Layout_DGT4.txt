@@ -1,0 +1,67 @@
+                     SISTEMA INTEGRADO DE REGISTROS LABORALES (SIRLA)
+               ESPECIFICACIONES DEL ARCHIVO PARA LA CARGA DE TRABAJADORES
+                                          DGT-4
+Encabezado:
+
+       Concepto        Tipo   Req.   Longitud   Desde   Hasta                 Observación
+
+Tipo de registro       AN      SI       1         1       1     E = Encabezado (constante)
+Proceso                AN      SI       2         2       3     T4 = Envío de archivo DGT4 (constante)
+RNC                     N      SI      11         4      14     RNC o Cedula de la empresa
+Periodo                 N      SI       6        15      20     Formato = MMYYYY
+
+
+
+Detalle:
+          Concepto     Tipo   Req.   Longitud   Desde   Hasta                 Observación
+Tipo de registro        AN     SI       1         1       1     D = Detalle (constante)
+Tipo de novedad         AN     SI       3         2       4     NI=Novedad Ingreso,
+                                                                NS=Novedad de Salida,
+                                                                NC=Novedad de Cambio
+Tipo de documento       AN     SI       1         5       5     Tipo de documento del trabajador:
+                                                                C = Cedula,
+                                                                P = Pasaporte,
+                                                                N=Número de Seguridad Social
+                                                                M = Carnet de migración
+                                                                I = interior y policía
+Número de documento     AN     SI       25        6      30     Número de documento del trabajador
+Nombres                 AN     NO       50       31      80     Nombres del trabajador
+Primer apellido         AN     NO       40       81      120    Primer apellido del trabajador
+Segundo apellido        AN     NO       40       121     160    Segundo apellido del trabajador
+Fecha nacimiento        F      NO       8        161     168    Formato = DDMMYYYY
+Sexo                    AN     SI       1        169     169    Sexo del trabajador
+Salario                 N      SI       16       170     185    Salario aplicable para el MT
+Fecha de ingreso        F      SI       8        186     193    Formato = DDMMYYYY
+Fecha de salida         F      SI       8        194     201    Formato = DDMMYYYY
+Ocupación               N      SI       6        202     207    Código de la ocupación. Viene del
+                                                                catálogo
+Ocupación desc.         AN     SI      150       208     357    Descripción del puesto
+Inicio de vacaciones    F      SI       8        358     365    Formato = DDMMYYYY
+Fin de vacaciones       F      SI       8        366     373    Formato = DDMMYYYY
+Turno                        N         SI         6          374        379     Código del turno. Viene del catálogo de
+                                                                                turnos de la empresa (SIRLA)
+Localidad                    N         SI         6          380        385     Código Establecimiento. (Últimos 4
+                                                                                dígitos del RNL).
+Nacionalidad                 AN       NO          3          386        388     Código de la Nacionalidad.
+                                                                                Solo para los extranjeros
+Fecha del cambio              F        SI         8          389        397     Formato = DDMMYYYY
+ Nivel Educación              N        SI         5          397        401      Solo el código del nivel educativo.
+ Discapacidad                AN        SI         50         402        451      Puede tener más de una discapacidad,
+                                                                                 solo se obtiene el/los código separado
+                                                                                 por comas.
+
+
+
+
+Sumario:
+        Concepto            Tipo     Req.     Longitud      Desde      Hasta                  Observación
+Tipo de Registro             AN        SI         1           1          1      S = Sumario
+Número de Registros          N         SI         6           2          7      Cantidad de registros, incluye el
+                                                                                encabezado y el sumario.
+                                                                                Relleno de ceros a la izquierda.
+
+
+Nota: los campos alfanuméricos (AN) deben ir alineados a la izquierda y rellenados con espacios en blanco a la derecha, si
+fuere necesario, hasta completar la longitud especificada. Los campos numéricos (N) deben ir alineados a la derecha y
+rellenados con ceros a la izquierda, si fuere necesario, hasta completar la longitud especificada.
+
