@@ -1,0 +1,31 @@
+graph LR
+  classDef mov fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef dest fill:#c8e6c9,stroke:#2e7d32,color:#000
+  classDef stay fill:#e3f2fd,stroke:#1565c0,color:#000
+
+  subgraph SRC["Origen"]
+    s1["tss_report:<br/>campos nombre + cómputo TSS<br/>+ payroll_key / income_type"]:::mov
+    s2["SIRLA (planeado v2 en l10n_do_hr):<br/>catálogos + campos empleado/puesto"]:::mov
+    s3["horas extra:<br/>causa art.153 + ruleset RD"]:::mov
+    s4["novedades DGT-4"]:::mov
+  end
+
+  subgraph BASE["l10n_do_hr_report_base (HUB PERSISTIDO)"]
+    b1["mixins: identidad/formato + tss.computation"]:::dest
+    b5["campos nombre en hr.employee"]:::dest
+    b2["catálogos SIRLA + campos empleado/puesto<br/>+ l10n_do_sirla_document_type"]:::dest
+    b3["l10n.do.hr.overtime.cause<br/>+ campo en overtime.line + ruleset RD"]:::dest
+    b4["l10n.do.hr.movement (DGT-4)"]:::dest
+  end
+
+  subgraph CORE["hr_attendance (core)"]
+    d1["hr.attendance.overtime.line<br/>fecha + duración + amount_rate"]:::stay
+  end
+
+  s1 -->|movido| b1
+  s1 -->|movido| b5
+  s2 -->|nace en| b2
+  s3 -->|nace en| b3
+  s4 -->|nace en| b4
+  b3 -.extiende/configura.-> d1
+</content>

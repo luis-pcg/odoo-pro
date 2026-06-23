@@ -1,0 +1,36 @@
+{
+  "module": "dgii_ir3_descuadre",
+  "title": "IR-3 — Validación de casillas 3 y 4 (DESPUÉS del fix)",
+  "intro": "Mismo escenario tras aplicar el fix y recalcular el IR-3.",
+  "flows": [
+    {
+      "id": "06-ir3-despues",
+      "title": "IR-3 DESPUÉS del fix",
+      "description": "Casilla 4 sin HNI; casilla 3 sin cambios; casilla 8 (ISR) intacta.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "id": "06b-ir3-casillas-despues",
+      "title": "IR-3 DESPUÉS — casillas del formulario",
+      "description": "Casilla 4 sin el HNI doble contado; casillas 3 y 8 intactas.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2000 },
+        { "scrollTo": "div[name='l10n_do_ir3_tax_to_pay']" },
+        { "wait": 800 }
+      ]
+    }
+  ],
+  "notes": ""
+}

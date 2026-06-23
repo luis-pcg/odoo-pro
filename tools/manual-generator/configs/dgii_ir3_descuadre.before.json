@@ -1,0 +1,90 @@
+{
+  "module": "dgii_ir3_descuadre",
+  "title": "IR-3 — Validación de casillas 3 y 4 (ANTES del fix)",
+  "intro": "Capturas del escenario controlado con el código con doble conteo de HNI.",
+  "flows": [
+    {
+      "id": "01-lote-nomina",
+      "title": "Lote de nómina validado",
+      "description": "Lote del período con las 6 boletas validadas.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "02-boleta-ana-entradas",
+      "title": "Boleta de Ana — Entradas salariales",
+      "description": "Inputs COMV 15,000 + HNI 10 h + INC 8,000.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Féliz" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Entradas salariales\"), .o_notebook a.nav-link:has-text(\"Salary Inputs\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-boleta-ana-calculo",
+      "title": "Boleta de Ana — Cálculo del salario",
+      "description": "Líneas APAGAR / COM / HNI / INC / ISR de la boleta.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Féliz" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Cálculo del salario\"), .o_notebook a.nav-link:has-text(\"Salary Computation\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-regla-hni",
+      "title": "Regla salarial HNI — categoría",
+      "description": "Horas Nocturnas (15%) con categoría de asignación gravable (causa raíz del doble conteo).",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_salary_rule_form/39" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-ir3-antes",
+      "title": "IR-3 ANTES del fix (HNI doble contada)",
+      "description": "Casilla 4 inflada: HNI sumada en casilla 3 y otra vez en la 4.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "id": "05b-ir3-casillas-antes",
+      "title": "IR-3 ANTES — casillas del formulario",
+      "description": "Sección II. Asalariados y III. Liquidación con los totales con bug.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2000 },
+        { "scrollTo": "div[name='l10n_do_ir3_tax_to_pay']" },
+        { "wait": 800 }
+      ]
+    }
+  ],
+  "notes": ""
+}

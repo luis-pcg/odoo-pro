@@ -1,0 +1,95 @@
+{
+  "module": "l10n_do_payroll_bpd_file",
+  "title": "Archivo de pago Banco Popular (BPD) — Colaboradores extranjeros con pasaporte",
+  "intro": "Manual funcional del archivo de pago/banco de Banco Popular (BPD) para nómina dominicana.\n\nCubre el caso de un **colaborador extranjero sin cédula dominicana**: el archivo de pago ahora toma el **pasaporte (`passport_id`)** como documento válido cuando el empleado no tiene **identificación nacional (`identification_id`)**, sin obligar al usuario a copiar el pasaporte manualmente en el campo de cédula. El archivo de Autodeterminación/TSS sigue funcionando con el pasaporte, sin verse afectado.",
+  "requirements": [
+    "Módulo instalado: l10n_do_payroll_bpd_file (arrastra l10n_do_payroll_file_base, l10n_do_hr_payroll, l10n_do_banks).",
+    "Empresa con país República Dominicana, moneda DOP, RNC y «Número de banco BPD» (5 dígitos) configurado.",
+    "Un diario de tipo Banco asociado al banco Popular (BIC BPDODOSX).",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-empleado-extranjero",
+      "title": "1. Colaborador extranjero: pasaporte sin cédula",
+      "description": "Ficha del colaborador extranjero **Carlos Pérez Marval**, pestaña **Personal**, sección **Ciudadanía**. Tiene el **N.º de pasaporte** completado (`VEN1234567`) y el **N.º de identificación** (cédula) **vacío**. Antes del ajuste, esta configuración impedía generar el archivo de pago BPD.",
+      "steps": [
+        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Carlos" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Personal\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-empleado-dominicano",
+      "title": "2. Colaborador dominicano: cédula (control)",
+      "description": "Ficha del colaborador dominicano **Juan Domínguez Reyes**, con **N.º de identificación** (cédula `00112345678`) y sin pasaporte. Caso estándar que se incluye para contrastar el comportamiento del archivo de pago.",
+      "steps": [
+        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Juan" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"Personal\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-lote-nomina",
+      "title": "3. Lote de nómina en estado «Hecho»",
+      "description": "Lote de nómina (**Nómina** ▸ **Períodos de nómina**) con las nóminas calculadas y validadas. Al estar en estado **Listo/Hecho**, sobre la tarjeta del lote aparece el botón **Bank File** (Archivo de Banco).",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
+        { "waitFor": ".o_kanban_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-asistente-archivo-banco",
+      "title": "4. Asistente «Archivo de Banco» — diario BPD",
+      "description": "Con el botón **Bank File** de la tarjeta se abre el asistente. Se selecciona el diario del **Banco Popular (BPD Nómina)**. El siguiente paso es pulsar **Generar**.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
+        { "waitFor": ".o_kanban_view", "timeout": 30000 },
+        { "wait": 1200 },
+        { "click": "button:has-text(\"Bank File\")" },
+        { "waitFor": ".modal-content", "timeout": 15000 },
+        { "wait": 500 },
+        { "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler" },
+        { "wait": 800 },
+        { "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BPD Nómina\")" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "05-archivo-generado",
+      "title": "5. Archivo de pago generado con el pasaporte",
+      "description": "Al pulsar **Generar**, el archivo de pago BPD se crea correctamente **sin necesidad de copiar el pasaporte en el campo de cédula**. El registro del colaborador extranjero usa el tipo de documento **PS (pasaporte)** y el número del pasaporte. El asistente muestra el archivo `.txt` listo para descargar.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
+        { "waitFor": ".o_kanban_view", "timeout": 30000 },
+        { "wait": 1200 },
+        { "click": "button:has-text(\"Bank File\")" },
+        { "waitFor": ".modal-content", "timeout": 15000 },
+        { "wait": 500 },
+        { "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler" },
+        { "wait": 800 },
+        { "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BPD Nómina\")" },
+        { "wait": 800 },
+        { "click": ".modal-content button[name='action_generate_file']" },
+        { "waitFor": ".modal-content div[name='data'] a", "timeout": 20000 },
+        { "wait": 1200 }
+      ]
+    }
+  ],
+  "notes": "**Lógica aplicada (módulo `l10n_do_payroll_bpd_file`):**\n\n- Si el empleado tiene **identificación nacional** (`identification_id`): se usa esa. El tipo se deriva del campo: 11 dígitos → **CE** (cédula); en otro caso → **RN** (RNC).\n- Si **no** tiene identificación nacional pero **sí pasaporte** (`passport_id`): se usa el pasaporte con tipo **PS**.\n- El archivo de pago **no se bloquea** por tener la cédula vacía mientras exista pasaporte.\n- El tipo de documento se deriva del **campo de origen**, no de la cantidad de dígitos del valor.\n\n**Autodeterminación / TSS:** vive en otro módulo (`l10n_do_hr_report_base`, función `l10n.do.hr.fixedwidth.mixin._get_document_type`) y ya tomaba el pasaporte (tipo `P`). El ajuste del archivo de pago **no lo afecta**: el colaborador extranjero ya no requiere mover el pasaporte entre campos para generar uno u otro archivo."
+}

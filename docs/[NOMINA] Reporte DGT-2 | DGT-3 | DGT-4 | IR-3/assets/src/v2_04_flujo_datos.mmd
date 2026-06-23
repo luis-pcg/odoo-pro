@@ -1,0 +1,31 @@
+flowchart LR
+  classDef data fill:#e3f2fd,stroke:#1565c0,color:#000
+  classDef proc fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef out fill:#c8e6c9,stroke:#2e7d32,color:#000
+
+  subgraph ENTRADA["1. Datos (en l10n_do_hr + core)"]
+    EMP["ficha empleado<br/>nombre / doc / campos SIRLA"]:::data
+    OVT["hr.attendance.overtime.line<br/>horas extra por día (+causa/%)"]:::data
+    NOM["hr.payslip (nómina calculada)"]:::data
+  end
+
+  subgraph COMPUTO["2. Cómputo compartido (mixins)"]
+    MIX["identidad/formato + tss.computation"]:::proc
+  end
+
+  subgraph REPORTES["3. Reportes"]
+    TSSR["TSS AM (wizard)"]:::out
+    IR3["IR-3 (tss_dgii_report)"]:::out
+    DGT2["DGT-2 (sirla_report, futuro)"]:::out
+    DGT3["DGT-3 (sirla_report, futuro)"]:::out
+    DGT4["DGT-4 (sirla_report, futuro)"]:::out
+  end
+
+  EMP --> MIX
+  NOM --> MIX
+  MIX --> TSSR
+  MIX --> IR3
+  EMP --> DGT3
+  EMP --> DGT4
+  OVT ==>|detalle día a día| DGT2
+  OVT -.agrega vía bridge.-> NOM

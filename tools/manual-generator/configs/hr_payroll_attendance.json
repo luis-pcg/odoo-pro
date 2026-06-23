@@ -1,0 +1,62 @@
+{
+  "module": "hr_payroll_attendance",
+  "title": "Horas extra → nómina, 100% nativo en Odoo 19 — Manual funcional",
+  "intro": "Reemplazo nativo de los módulos custom de novedades por asistencia.",
+  "requirements": [
+    "Módulos: hr_attendance, hr_work_entry_attendance, hr_payroll_attendance (+ l10n_do_hr_payroll para el contexto RD).",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-regla-horas-extra",
+      "title": "Regla de horas extra (Overtime Ruleset)",
+      "description": "Configuración de la regla de horas extra.",
+      "steps": [
+        { "goto": "/odoo/action-hr_attendance.demo_ruleset_action" },
+        { "waitFor": ".o_list_view, .o_kanban_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell, .o_kanban_record:not(.o_kanban_ghost)" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-asistencias",
+      "title": "Horas extra detectadas",
+      "description": "Horas extra calculadas desde la asistencia.",
+      "steps": [
+        { "goto": "/odoo/action-hr_attendance.demo_ot_lines_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-recibo-worked-days",
+      "title": "Recibo de nómina: días trabajados + horas extra",
+      "description": "Horas extra en el recibo de nómina.",
+      "steps": [
+        { "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form" },
+        { "waitFor": ".o_list_view, .o_kanban_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell, .o_kanban_record:not(.o_kanban_ghost)" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1800 }
+      ]
+    },
+    {
+      "id": "04-empleado",
+      "title": "Empleado: contrato basado en asistencia",
+      "description": "Ficha del empleado.",
+      "steps": [
+        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Carlos" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    }
+  ],
+  "notes": "Reemplaza a l10n_do_hr_news_attendance y l10n_do_hr_payroll_news_attendance con el stack nativo."
+}

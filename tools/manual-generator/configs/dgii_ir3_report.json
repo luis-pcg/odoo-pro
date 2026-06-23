@@ -1,0 +1,114 @@
+{
+  "module": "dgii_ir3_report",
+  "title": "IR-3 (DGII) — Declaración de retenciones del ISR a asalariados — Manual funcional",
+  "intro": "El **IR-3** es la declaración jurada mensual con la que el empleador (agente de retención) reporta a la **DGII** las retenciones del ISR aplicadas a sus asalariados. El módulo **`dgii_ir3_report`** agrega la pestaña **IR-3** dentro del reporte DGII del período (el mismo formulario donde se generan el 606/607/608/609), reproduce el formulario oficial —Sección **II. Asalariados** (casillas 1 a 10) y Sección **III. Liquidación** (casilla 11)— y lo calcula **automáticamente** desde las nóminas validadas del mes. Desde la misma pestaña también se genera el **archivo TSS** (autodeterminación), garantizando que IR-3 y TSS del período siempre cuadren porque comparten el mismo cálculo.\n\nEste manual muestra el paso a paso completo para generar la declaración.",
+  "requirements": [
+    "Módulo **dgii_ir3_report** instalado (instala automáticamente **dgii_reports** y **l10n_do_hr_report_base**).",
+    "Empresa configurada como República Dominicana, con **RNC** y moneda **DOP**.",
+    "Nóminas del período **calculadas y validadas** (estado *Validado* o *Pagado*); el IR-3 solo toma nóminas en esos estados.",
+    "Empleados con **cédula/pasaporte** y datos TSS completos (documento, NSS).",
+    "Usuario con permisos de **Contabilidad** (el menú DGII pertenece a los informes contables)."
+  ],
+  "flows": [
+    {
+      "id": "01-acceso-menu",
+      "title": "1. Acceder a los reportes DGII",
+      "description": "Ir a **Contabilidad ▸ Informes ▸ DGII ▸ Envío de Datos ▸ Reportes**. Se abre la lista de declaraciones DGII: **una por período** (mes). El IR-3 vive dentro de esa misma declaración, por lo que no hay que crear un documento aparte: el reporte del mes sirve a la vez para el 606/607/608/609, el IR-3 y el archivo TSS.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-nuevo-reporte",
+      "title": "2. Crear el reporte del período",
+      "description": "Si el período aún no existe, pulsar **Nuevo**. En el campo del período escribir el mes a declarar en formato **MM/AAAA** (por ejemplo `06/2026`) y **guardar**. Al crear el reporte, el sistema calcula el IR-3 automáticamente con las nóminas validadas de ese mes; no hace falta ningún paso adicional.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action/new" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-abrir-reporte",
+      "title": "3. Abrir la declaración del período",
+      "description": "Desde la lista, abrir el reporte del mes a declarar. La primera pestaña (**Reportes**) muestra los formatos 606/607/608/609 de siempre; el estado del documento (Borrador → Generado → Enviado) se maneja igual que antes. El botón **Generar Reportes** del encabezado también recalcula el IR-3, de modo que al generar la declaración del período todo queda actualizado de una vez.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-pestana-ir3",
+      "title": "4. Ir a la pestaña IR-3",
+      "description": "Hacer clic en la pestaña **IR-3**. Arriba están los dos botones de la declaración — **Recalcular IR-3** y **Generar TSS** — seguidos del grupo **Archivo TSS** (donde queda el TXT generado) y del **Detalle por empleado**. Todos los valores son de **solo lectura**: se calculan desde la nómina y no se digitan a mano.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "05-detalle-empleados",
+      "title": "5. Revisar el detalle por empleado",
+      "description": "El **Detalle por empleado** lista, para cada asalariado del período: tipo y número de documento, **Sueldos pagados por el agente**, **Otras remuneraciones**, **Remuneraciones de otros agentes**, **Total pagado**, **Impuesto sobre la renta** (ISR retenido), **Saldo a compensar** y si estuvo **Sujeto a retención**. La fila de totales al pie de cada columna es exactamente lo que alimenta las casillas del formulario, así que este detalle es la herramienta de auditoría: si una casilla no cuadra, aquí se identifica al empleado responsable.",
+      "steps": [
+        { "scrollTo": "div[name='l10n_do_ir3_line_ids']" },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "06-casillas-formulario",
+      "title": "6. Leer las casillas del formulario oficial (Secciones II y III)",
+      "description": "Debajo del detalle está el formulario tal como lo pide la DGII.\n\n**Sección II. Asalariados:**\n\n| Casilla | Contenido |\n|---|---|\n| **1.- Total Asalariados** | Cantidad de asalariados reportados en el período. |\n| **2.- Asalariados Sujetos a Retención** | Cuántos tuvieron ISR retenido. |\n| **3.- Sueldos Pagados por el Agente** | Salario sujeto a ISR pagado por la empresa. |\n| **4.- Otras Remuneraciones** | Otras remuneraciones gravables del período. |\n| **5.- Remuneraciones de Otros Agentes** | Pagadas al empleado por otros agentes de retención. |\n| **6.- Total Pagado** | Suma de casillas 3 + 4 + 5. |\n| **7.- Pago Total Sujeto a Retención** | Total pagado a los asalariados con retención. |\n| **8.- Impuesto sobre la Renta** | Total del ISR retenido en el mes. |\n| **9.- Saldo Compensado Autorizado** | Saldo autorizado por la DGII; se resta de la casilla 8. |\n| **10.- Saldo por Compensar** | Saldo a favor pendiente de compensar. |\n\n**Sección III. Liquidación:**\n\n| Casilla | Contenido |\n|---|---|\n| **11.- Impuesto a Pagar** | Casilla 8 − casilla 9, cuando el resultado es positivo. Es el monto a pagar a la DGII. |",
+      "steps": [
+        { "scrollTo": "div[name='l10n_do_ir3_tax_to_pay']" },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "id": "07-recalcular",
+      "title": "7. Recalcular el IR-3 cuando cambie la nómina",
+      "description": "Si después de crear el reporte se valida, corrige o anula alguna nómina del mes, pulsar **Recalcular IR-3**. El sistema vuelve a leer todas las nóminas validadas/pagadas del período, reconstruye el detalle por empleado y actualiza las casillas 1 a 10 (la 11 se deriva sola de 8 − 9). Se puede recalcular tantas veces como haga falta antes de declarar.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 1500 },
+        { "click": "button[name='action_compute_ir3']" },
+        { "wait": 3000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "08-generar-tss",
+      "title": "8. Generar el archivo TSS del mismo período",
+      "description": "Pulsar **Generar TSS**. El sistema construye el TXT de autodeterminación de la TSS con las mismas nóminas del período y lo deja en el campo **Archivo TSS**. Como IR-3 y TSS comparten el cálculo, los montos de ambos siempre cuadran entre sí para el mismo mes.",
+      "steps": [
+        { "click": "button[name='action_generate_tss']" },
+        { "wait": 3000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 1500 },
+        { "scrollTo": "div[name='tss_binary']" },
+        { "wait": 800 }
+      ]
+    },
+    {
+      "id": "09-descargar-declarar",
+      "title": "9. Descargar y presentar",
+      "description": "Para descargar el TXT de la TSS, hacer clic sobre el nombre del archivo en el campo **Archivo TSS** y cargarlo en el portal **SUIR Plus** de la TSS. Los valores de las casillas 1 a 11 de la pestaña IR-3 se digitan en el formulario **IR-3** de la **Oficina Virtual de la DGII** tal como aparecen en pantalla. Al terminar el ciclo del período, usar **Marcar como enviado** en el encabezado del reporte para cerrar la declaración del mes.",
+      "image": false
+    }
+  ],
+  "notes": "- El IR-3 se calcula **solo con nóminas en estado Validado o Pagado** cuya fecha final cae dentro del mes del reporte; los borradores no cuentan.\n- El período del reporte debe tener el formato **MM/AAAA**; con un período inválido las casillas quedan en cero.\n- La **casilla 3** incluye el salario sujeto a ISR pagado por la empresa; la **casilla 4** recoge las demás remuneraciones gravables (horas extra, comisiones, etc.).\n- La **casilla 9** (Saldo Compensado Autorizado) corresponde a saldos autorizados por la DGII y se resta de la casilla 8 para obtener el impuesto a pagar (casilla 11).\n- El botón **Generar Reportes** del encabezado (el que genera 606/607/608/609) también recalcula el IR-3, por lo que la pestaña siempre queda alineada con la declaración del período.\n- Manual del flujo completo de nómina y reportes laborales (DGT-2/3/4, empleados, TSS): [`../l10n_do_hr_report_base/README.md`](../l10n_do_hr_report_base/README.md)."
+}

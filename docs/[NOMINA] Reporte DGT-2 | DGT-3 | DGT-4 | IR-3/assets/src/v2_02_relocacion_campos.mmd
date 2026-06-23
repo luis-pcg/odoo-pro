@@ -1,0 +1,40 @@
+graph LR
+  classDef mov fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef dest fill:#c8e6c9,stroke:#2e7d32,color:#000
+  classDef del fill:#ffcdd2,stroke:#c62828,color:#000
+  classDef stay fill:#e3f2fd,stroke:#1565c0,color:#000
+
+  subgraph ANTES["l10n_do_hr_sirla (diseño v1)"]
+    a1["catálogos SIRLA:<br/>ocupación / nacionalidad /<br/>nivel / discapacidad / turno"]:::mov
+    a2["establecimiento (RNL)"]:::mov
+    a3["campos SIRLA en<br/>hr.employee / hr.job"]:::mov
+    a4["causa horas extra<br/>(art. 153)"]:::mov
+    a5["l10n.do.hr.overtime<br/>(modelo horas por día)"]:::del
+    a6["wizards DGT-2/3/4"]:::mov
+  end
+
+  subgraph HR["l10n_do_hr (HUB DE DATOS)"]
+    b1["catálogos SIRLA"]:::dest
+    b2["establecimiento (RNL)"]:::dest
+    b3["campos SIRLA en empleado/puesto"]:::dest
+    b4["l10n.do.hr.overtime.cause<br/>+ campo en overtime.line"]:::dest
+    b5["ruleset RD 35% / 100%<br/>(data hr.attendance.overtime.ruleset)"]:::dest
+    bm["mixins: identidad/formato + cómputo"]:::dest
+  end
+
+  subgraph SIRLA["sirla_report (FUTURO, solo reportes)"]
+    c1["generadores DGT-2/3/4"]:::stay
+  end
+
+  subgraph CORE["hr_attendance (core)"]
+    d1["hr.attendance.overtime.line<br/>fecha + duración + amount_rate<br/>REEMPLAZA l10n.do.hr.overtime"]:::stay
+  end
+
+  a1 -->|movido| b1
+  a2 -->|movido| b2
+  a3 -->|movido| b3
+  a4 -->|movido| b4
+  a6 -->|movido| c1
+  a5 -.eliminado.-> d1
+  b4 -.extiende.-> d1
+  b5 -.configura.-> d1

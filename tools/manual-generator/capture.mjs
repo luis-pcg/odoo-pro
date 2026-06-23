@@ -66,6 +66,17 @@ async function runStep(step) {
         // Types character by character so live widgets (autocomplete) react.
         await page.locator(step.type).pressSequentially(step.value ?? "", { delay: 30 });
     }
+    if (step.scrollTo) {
+        // Scrolls the element into view (Odoo forms scroll inside .o_content,
+        // so fullPage screenshots don't reach content below the fold).
+        await page.locator(step.scrollTo).first().scrollIntoViewIfNeeded({ timeout });
+    }
+    if (step.selectOption) {
+        // Native <select> widgets (Odoo widget="selection"). Choose by visible
+        // label when given, otherwise by option value.
+        const opt = step.label !== undefined ? { label: step.label } : { value: step.value };
+        await page.selectOption(step.selectOption, opt, { timeout });
+    }
     if (step.click) {
         await page.click(step.click, { timeout });
     }

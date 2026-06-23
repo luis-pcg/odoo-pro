@@ -1,0 +1,29 @@
+graph TD
+  classDef nuevo fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000
+  classDef ext fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,stroke-dasharray:5 4,color:#000
+  classDef mod fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000
+  classDef base fill:#eceff1,stroke:#90a4ae,color:#000
+
+  hr["l10n_do_hr (base)"]:::base
+  pay["l10n_do_hr_payroll (base)"]:::base
+  att["hr_attendance (base Odoo)<br/>asistencia + horas extra por día"]:::base
+  acc["l10n_do_accounting (base)"]:::base
+  dgii["dgii_reports (base)"]:::base
+
+  baseM["l10n_do_hr_report_base -- NUEVO<br/>HUB DE DATOS PERSISTIDO:<br/>campos nombre + mixins +<br/>catálogos/campos SIRLA +<br/>causa horas extra + ruleset RD +<br/>novedades DGT-4"]:::nuevo
+  tss["tss_report -- MODIFICADO<br/>solo export TXT TSS"]:::mod
+  ir3["dgii_ir3_report -- NUEVO<br/>IR-3 persistente"]:::nuevo
+
+  sirla["SIRLA (sistema externo)<br/>genera DGT-2/3/4"]:::ext
+  fix["fixcalito (sistema externo)"]:::ext
+
+  pay -->|depende de| hr
+  baseM -->|depende de| pay
+  baseM -.usa.-> att
+  tss -->|depende de| baseM
+  ir3 -->|depende de| baseM
+  ir3 -->|depende de| dgii
+  dgii -->|depende de| acc
+  sirla -.conexión externa<br/>consulta data.-> baseM
+  fix -.conexión externa<br/>consulta data.-> baseM
+</content>

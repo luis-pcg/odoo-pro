@@ -1,0 +1,115 @@
+{
+  "module": "l10n_do_hr_report_base",
+  "title": "Reportes laborales y fiscales RD (DGT-2/3/4 · IR-3 · TSS) — Manual funcional",
+  "intro": "Manual funcional para implementadores y vendedores.",
+  "requirements": [
+    "Módulos instalados: l10n_do_hr_report_base, dgii_ir3_report, tss_report.",
+    "Empresa con país República Dominicana y moneda DOP.",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-empresa-rnc",
+      "title": "Empresa: RNC",
+      "description": "Empresa con RNC.",
+      "steps": [
+        { "goto": "/odoo/companies/1" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-establecimiento",
+      "title": "Establecimiento (RNL)",
+      "description": "Establecimiento multicompañía.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_report_base.l10n_do_hr_establishment_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "03-catalogos-ocupacion",
+      "title": "Catálogos SIRLA",
+      "description": "Catálogo de ocupaciones.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_report_base.l10n_do_hr_occupation_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-turnos",
+      "title": "Turnos de trabajo",
+      "description": "Catálogo de turnos.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_report_base.l10n_do_hr_work_shift_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "05-empleado-tss-dgt",
+      "title": "Empleado: pestaña TSS / DGT",
+      "description": "Datos SIRLA del empleado.",
+      "steps": [
+        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Juan" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"TSS\")" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "06-movimientos-dgt4",
+      "title": "Movimientos de personal (DGT-4)",
+      "description": "Movimientos DGT-4.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_report_base.l10n_do_hr_movement_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "07-horas-extra-dgt2",
+      "title": "Horas extra (DGT-2)",
+      "description": "Horas extra DGT-2.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_report_base.hr_attendance_overtime_line_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "08-tss-wizard",
+      "title": "Generar archivo TSS",
+      "description": "Asistente de autodeterminación TSS.",
+      "steps": [
+        { "goto": "/odoo/action-tss_report.tss_report_action_window" },
+        { "waitFor": ".modal-content, .o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "09-dgii-ir3",
+      "title": "Declaración IR-3 (DGII)",
+      "description": "Reporte IR-3 dentro de la declaración DGII.",
+      "steps": [
+        { "goto": "/odoo/action-dgii_reports.dgii_report_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "click": ".o_notebook a.nav-link:has-text(\"IR-3\")" },
+        { "wait": 2000 }
+      ]
+    }
+  ],
+  "notes": "DGT-2/3/4 se generan de forma externa; el módulo solo persiste los datos. IR-3 y TSS se calculan dentro de Odoo y comparten el mismo cómputo."
+}

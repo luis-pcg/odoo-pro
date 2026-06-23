@@ -1,0 +1,28 @@
+graph TD
+  classDef nuevo fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000
+  classDef futuro fill:#e8f5e9,stroke:#66bb6a,stroke-width:2px,stroke-dasharray:5 4,color:#000
+  classDef mod fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000
+  classDef base fill:#eceff1,stroke:#90a4ae,color:#000
+
+  skills["hr_skills (base Odoo)"]:::base
+  att["hr_attendance (base Odoo)<br/>asistencia + horas extra por día"]:::base
+  pay["l10n_do_hr_payroll (base)"]:::base
+  acc["l10n_do_accounting (base)"]:::base
+  dgii["dgii_reports (base)"]:::base
+
+  hr["l10n_do_hr -- MODIFICADO<br/>HUB DE DATOS:<br/>campos nombre + mixins +<br/>TODOS los catálogos/campos SIRLA +<br/>causa horas extra + ruleset RD"]:::mod
+  tss["tss_report -- MODIFICADO<br/>cede campos nombre + mixin cómputo"]:::mod
+
+  sirla["sirla_report -- NUEVO (FUTURO)<br/>SOLO generadores DGT-2/3/4<br/>no se desarrolla aún"]:::futuro
+  ir3["tss_dgii_report -- NUEVO<br/>IR-3 persistente"]:::nuevo
+
+  hr -->|depende de| skills
+  hr -->|depende de NUEVO| att
+  pay -->|depende de| hr
+  tss -->|depende de| pay
+  tss -->|depende de| hr
+  dgii -->|depende de| acc
+  sirla -.depende de.-> hr
+  sirla -.depende de.-> att
+  ir3 -->|depende de| tss
+  ir3 -->|depende de| dgii

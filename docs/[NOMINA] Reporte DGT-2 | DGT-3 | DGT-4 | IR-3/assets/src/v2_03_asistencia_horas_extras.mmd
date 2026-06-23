@@ -1,0 +1,39 @@
+flowchart TB
+  classDef core fill:#e3f2fd,stroke:#1565c0,color:#000
+  classDef ext fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef out fill:#c8e6c9,stroke:#2e7d32,color:#000
+  classDef cfg fill:#d1c4e9,stroke:#4527a0,color:#000
+
+  subgraph CAPTURA["Captura (core hr_attendance)"]
+    CI["check_in / check_out<br/>(kiosko / systray / manual / import)"]:::core
+    ATT["hr.attendance<br/>worked_hours, date"]:::core
+  end
+
+  subgraph REGLAS["Reglas RD (data en l10n_do_hr)"]
+    RS["hr.attendance.overtime.ruleset (RD)"]:::cfg
+    R1["regla 35%: cantidad semanal<br/>44h -> 68h  (amount_rate 1.35)"]:::cfg
+    R2["regla 100%: >68h / nocturno / feriado<br/>(timing, amount_rate 2.0)"]:::cfg
+    RS --> R1
+    RS --> R2
+  end
+
+  subgraph LINEA["hr.attendance.overtime.line (por DÍA)"]
+    OL["fecha + duration + amount_rate + rule_ids + status"]:::core
+    EXT["EXTENSIÓN l10n_do_hr:<br/>+ l10n_do_overtime_cause_id (art. 153)<br/>+ % RD derivado de amount_rate (35/100)"]:::ext
+    OL --- EXT
+  end
+
+  CI --> ATT
+  ATT -->|_update_overtime aplica reglas| OL
+  R1 -.clasifica.-> OL
+  R2 -.clasifica.-> OL
+
+  subgraph CONSUMO["Consumo"]
+    DGT2["DGT-2: detalle día 1..31<br/>horas + % + causa por empleado"]:::out
+    BRIDGE["hr_payroll_attendance ->" ]:::core
+    PAY["nómina: work entries OT<br/>-> totales HEL 35% / HEF 100%"]:::out
+  end
+
+  OL ==>|agrupa por dia| DGT2
+  OL --> BRIDGE
+  BRIDGE --> PAY

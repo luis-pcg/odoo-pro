@@ -1,0 +1,91 @@
+{
+  "module": "l10n_do_hr_payroll_news_attendance",
+  "title": "Horas extra de asistencia → input de nómina (HEL) — Manual de configuración y validación",
+  "intro": "Este manual muestra, **desde una base de datos limpia**, cómo dejar el flujo funcionando: el motor **nativo** de Odoo calcula las horas extra desde la asistencia y las pone en el recibo como línea de *Días Trabajados* (`OVERTIME`); el módulo **`l10n_do_hr_payroll_news_attendance`** lleva esas horas a la **entrada (input) de horas extra** dominicana (`HEL`), que es de donde la estructura RD paga el recargo del 35%.\n\n**Cómo se calcula el monto:** el input `HEL` lleva el **número de horas** extra; la regla salarial las multiplica por el salario/hora y el recargo: `HEL = (salario / DIAS_LAB_MES / HORAS_LAB_DIA) × EXTRA_DIURNA × horas`. En el ejemplo: salario RD$30,000, 6 h extra → `(30000/23.83/8)×1.35×6 = 1,274.65`.\n\n> **Replicar todo automáticamente** (crea base limpia, instala, siembra y captura):\n> ```bash\n> cd tools/manual-generator\n> ./generate-manual.sh --module=l10n_do_hr_payroll_news_attendance --extra-modules=hr_attendance,l10n_do_hr_payroll\n> ```\n> La base de ejemplo se siembra con `configs/l10n_do_hr_payroll_news_attendance.seed.py`.",
+  "requirements": [
+    "Instalar **`l10n_do_hr_payroll_news_attendance`** — arrastra `hr_payroll_attendance` (motor nativo de overtime), `hr_work_entry_attendance`, `hr_payroll`, `l10n_do_hr_payroll` y `l10n_do_hr_payroll_news`.",
+    "Compañía con localización RD: **país** República Dominicana, **moneda** DOP y **tipo de riesgo laboral**.",
+    "**Asistencias → Configuración → Ajustes → Validación de horas extra = Aprobación automática** (para la prueba; si es *por gerente*, hay que aprobar las horas extra antes de calcular).",
+    "Un **calendario laboral** que represente la jornada teórica (ej. RD 44h: L-V 8h, Sáb 4h). El exceso sobre esa jornada son las horas extra.",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-empleado",
+      "title": "1. Empleado",
+      "description": "**Empleados → Empleados.** Crear el empleado (en el ejemplo *Carlos Méndez*) con sus datos RD: cédula, NSS, sexo, fecha de nacimiento y salario mensual (RD$30,000).",
+      "steps": [
+        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "click": ".o_searchview_input" },
+        { "type": ".o_searchview_input", "value": "Carlos" },
+        { "press": "Enter" },
+        { "wait": 1500 },
+        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-contrato-nomina",
+      "title": "2. Contrato: origen Asistencias + Regla de horas extra",
+      "description": "En el **contrato / configuración de nómina** del empleado:\n\n- **Origen de entradas de trabajo = Asistencias** → la nómina toma las horas reales.\n- **Horario de trabajo** = la jornada teórica (RD 44h).\n- **Regla de horas extra** = el ruleset RD (activa *Horas extra desde asistencia*).",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_version_action" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-regla-horas-extra",
+      "title": "3. Regla de horas extra (Overtime Ruleset)",
+      "description": "**Asistencias → Configuración → Reglas de horas extra.** Regla *República Dominicana*: **Basado en = Cantidad**, **Período = Día**, **Horas esperadas del contrato = Sí**, **Pagar horas extra = Sí**, **Tasa = 1.35**, **Tipo de entrada de trabajo = Overtime Hours** (`OVERTIME`).\n\n> Para nocturno/feriado: agregar reglas *Timing* con su propio tipo de entrada de trabajo y mapearlas en `_l10n_do_overtime_input_map` (`HNI`/`HEF`/`HEN`).",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_ruleset_action" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-horas-extra-asistencia",
+      "title": "4. Horas extra detectadas desde la asistencia",
+      "description": "Al registrar la asistencia (**Asistencias → Gestión**), Odoo compara las horas reales contra la jornada y genera una **línea de horas extra** por día con exceso. En el ejemplo: 3 días de 08:00 a 18:00 (10 h) vs jornada de 8 h → **2 h extra/día = 6 h**. Con *Aprobación automática* quedan **Aprobadas** (solo las aprobadas pasan a la nómina).",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_ot_lines_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-recibo-dias-trabajados",
+      "title": "5. Recibo: Días Trabajados con la línea Overtime",
+      "description": "**Nómina → Recibos → Nuevo** para el empleado y el período, estructura **Dominican Republic - Base**, botón **Calcular**. En **Días Trabajados** aparece **Overtime Hours** (`OVERTIME`) con las 6 h, separada de la *Attendance* normal.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_payslip_action" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "06-recibo-input-hel",
+      "title": "6. Entrada de horas extra (HEL) — lo que agrega este módulo",
+      "description": "Al calcular, el módulo lee la línea `OVERTIME` de Días Trabajados y crea la **entrada `HEL` — Horas Extra (35%)** con las **6 horas** (respaldada por un `hr.salary.attachment` de un período con descripción `[HE-ASISTENCIA]`). Sin este módulo, las horas quedarían solo en Días Trabajados y **no** se pagarían en la estructura RD mensual.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_hel_input_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "07-recibo-pago-hel",
+      "title": "7. Líneas del recibo: HEL pagado + Neto",
+      "description": "La regla **HEL — Horas Extra Laborables (35%)** paga `(30000/23.83/8)×1.35×6 = 1,274.65`. El **Salario Neto** sube en ese monto respecto al mismo recibo sin horas extra.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_news_attendance.demo_hel_lines_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    }
+  ],
+  "notes": "### Criterios de aceptación\n\n1. Días Trabajados del recibo tiene la línea **Overtime Hours** (`OVERTIME`) con las horas extra.\n2. El recibo tiene la entrada **Horas Extra (35%)** (`HEL`) con cantidad = horas extra, respaldada por un `hr.salary.attachment` `[HE-ASISTENCIA]` en estado **open**.\n3. La regla **HEL** paga `(salario/DIAS_LAB_MES/HORAS_LAB_DIA)×EXTRA_DIURNA×horas` (ej. 1,274.65) y el **Neto** sube en ese monto.\n4. **Idempotencia:** recalcular varias veces no duplica el attachment ni las horas.\n\n### Troubleshooting\n\n- **\"Al Computar desaparecen las horas extra (HEL en 0).\"** El input `HEL` se respalda en un `hr.salary.attachment`; `_compute_input_line_ids` solo toma los que están en estado **open**. El bridge es **auto-reparable**: en cada *Calcular* reabre/actualiza (o crea) el attachment del overtime y reconstruye los inputs. Basta volver a pulsar **Calcular**.\n- ⚠️ Tras editar el `.py` del módulo hay que **reiniciar el servidor Odoo** (`docker restart <contenedor>_v19`): el proceso web cachea el Python en memoria; `odoo shell` sí carga el código fresco en cada invocación.\n- **Nocturno/feriado:** definir reglas *Timing* mutuamente excluyentes en el ruleset, cada una con su tipo de entrada de trabajo, y mapearlas en `_l10n_do_overtime_input_map`."
+}
