@@ -1,0 +1,66 @@
+{
+  "module": "l10n_do_hr_payroll",
+  "title": "Retención ISR configurable por escalas — Nómina Dominicana (l10n_do_hr_payroll)",
+  "intro": "Este manual muestra, **desde una base de datos limpia**, el flujo completo de la nómina dominicana con la retención del **Impuesto sobre la Renta (ISR)** calculada desde las **escalas configurables** (`l10n.do.hr.retention.scale`), en lugar de valores fijos en el código de la regla salarial.\n\n**Qué cambió:** la regla `hr_rule_isr_employee` (código `ISR`) ya no tiene los montos de la escala DGII escritos en el código Python. Ahora:\n\n- La **condición** toma el umbral exento anual de la escala marcada como *Exento* (`_get_annual_exempt_amount()`).\n- El **monto** se calcula con `_compute_annual_retention(salario_anual)`: busca la escala cuyo *Monto base* cubre el salario anual cotizable y aplica `Monto fijo + %(excedente sobre el monto base)`.\n- Las 4 escalas DGII 2026 se cargan por **data** (`data/l10n_do_hr_retention_scale.xml`, `noupdate=\"1\"`): al publicar la DGII una nueva escala (ajuste anual por inflación), se edita desde la interfaz **sin tocar código** y sin que un upgrade del módulo la sobreescriba.\n\n**Escala retención asalariados 2026 (DGII):**\n\n| Escala anual | Tasa |\n|---|---|\n| Hasta RD$416,220.00 | Exento |\n| RD$416,220.01 – RD$624,329.00 | 15% del excedente de RD$416,220.01 |\n| RD$624,329.01 – RD$867,123.00 | RD$31,216.00 + 20% del excedente de RD$624,329.01 |\n| RD$867,123.01 en adelante | RD$79,776.00 + 25% del excedente de RD$867,123.01 |\n\n> **Replicar todo automáticamente** (crea base limpia, instala, siembra y captura):\n> ```bash\n> cd tools/manual-generator\n> ./generate-manual.sh --module=l10n_do_hr_payroll\n> ```\n> La base de ejemplo se siembra con `configs/l10n_do_hr_payroll.seed.py`.",
+  "requirements": [
+    "Módulo **`l10n_do_hr_payroll`** actualizado (v `19.0.1.0.7` o superior): regla ISR leyendo de las escalas + data de escalas 2026.",
+    "Compañía con localización RD: **país** República Dominicana, **moneda** DOP y **tipo de riesgo laboral**.",
+    "Empleados con contrato en la estructura **Dominican Republic - Base** y salario mensual configurado.",
+    "Interfaz en español (es_DO) — los campos de la escala están traducidos (*Monto fijo*, *Monto base*, *Monto tope*, *Exento*)."
+  ],
+  "flows": [
+    {
+      "id": "01-escalas-config",
+      "title": "1. Configuración: escalas de retención ISR",
+      "description": "**Nómina → Configuración → Retention Scale.** Las 4 escalas DGII 2026 vienen precargadas por data del módulo. Cada escala define:\n\n- **Exento**: marca la escala libre de impuesto; su *Monto tope* es el umbral anual (RD$416,220.00) bajo el cual **no se retiene ISR**.\n- **Monto base**: límite inferior de la escala — el excedente se calcula sobre este valor.\n- **Monto tope**: límite superior (la última escala queda en 0 = abierta).\n- **Porcentaje**: tasa aplicada al excedente.\n- **Monto fijo**: cuota fija DGII de la escala (RD$31,216.00 / RD$79,776.00).\n\nLa lista es **editable en línea**: cuando la DGII publique la escala de un nuevo año, solo hay que actualizar estos montos.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_retention_scale_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-empleados",
+      "title": "2. Empleados de prueba (una por escala)",
+      "description": "**Empleados → Empleados.** Cuatro empleados con salarios mensuales que caen uno en cada escala:\n\n| Empleado | Salario mensual | Salario anual cotizable (SALDGII×12) | Escala |\n|---|---|---|---|\n| Pedro Sánchez | RD$30,000 | RD$338,724.00 | Exento — sin ISR |\n| María Gómez | RD$45,000 | RD$508,086.00 | 15% |\n| Luisa Herrera | RD$60,000 | RD$677,448.00 | 20% + RD$31,216 |\n| José Rodríguez | RD$100,000 | RD$1,129,080.00 | 25% + RD$79,776 |\n\nEl salario cotizable DGII descuenta primero TSS (SFS 3.04% + AFP 2.87%).",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll.demo_employees_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-recibo-isr",
+      "title": "3. Recibo de nómina: línea ISR calculada desde la escala",
+      "description": "**Nómina → Recibos** → recibo de *José Rodríguez* (RD$100,000/mes), pestaña **Cálculo del salario**. La línea **Retención - Impuesto sobre la Renta (ISR)** muestra **-RD$12,105.44**:\n\n```\nSALDGII = 100,000 − 3,040 (SFS) − 2,870 (AFP) = 94,090\nAnual   = 94,090 × 12 = 1,129,080  → escala \"desde RD$867,123.01\"\nISR     = 79,776 + 25% × (1,129,080 − 867,123.01) = 145,265.25 anual\nMensual = 145,265.25 / 12 = 12,105.44\n```\n\nExactamente la fórmula DGII, pero tomando **monto fijo, base y porcentaje desde la escala configurada**.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll.demo_payslip_action" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 },
+        { "click": "a[name=\"salary_computation\"], a.nav-link:has-text(\"Cálculo\")", "timeout": 10000 },
+        { "wait": 1500 },
+        { "scrollTo": ".o_data_row:has-text(\"Salario Neto\")", "timeout": 10000 },
+        { "hover": ".o_breadcrumb", "timeout": 5000 },
+        { "wait": 800 }
+      ]
+    },
+    {
+      "id": "04-comparativa-isr",
+      "title": "4. Comparativa: ISR por empleado (todas las escalas)",
+      "description": "Líneas `SALDGII`, `ISR` y `NET` de los cuatro recibos del período. Se ve cada escala aplicada:\n\n- **Pedro** (exento): **no aparece línea ISR** — su salario anual cotizable queda bajo el umbral y la condición de la regla no se cumple.\n- **María** (15%): ISR mensual **-1,148.32** = `15% × (508,086 − 416,220.01) / 12`.\n- **Luisa** (20%): ISR mensual **-3,486.65** = `(31,216 + 20% × (677,448 − 624,329.01)) / 12`.\n- **José** (25%): ISR mensual **-12,105.44** = `(79,776 + 25% × (1,129,080 − 867,123.01)) / 12`.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll.demo_isr_lines_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "hover": ".o_breadcrumb", "timeout": 5000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-cambio-escala",
+      "title": "5. Cambio de escala (ajuste anual DGII) — sin tocar código",
+      "description": "Cuando la DGII publique la escala de un nuevo año, basta editar los montos en **Nómina → Configuración → Retention Scale** y **recalcular** los recibos abiertos. Validación automática incluida en la siembra de esta base:\n\n1. Se elevó temporalmente el umbral exento a **RD$500,000** (y el monto base de la escala del 15% a RD$500,000.01).\n2. Se recalculó el recibo de María (anual RD$508,086): el ISR bajó de **-1,148.32** a **-101.07** = `15% × (508,086 − 500,000.01) / 12` — la regla siguió la nueva configuración al instante.\n3. Se restauró la escala 2026 y se recalculó: el ISR volvió a **-1,148.32**.\n\n> Editar *Nombre* y *Secuencia* de una escala requiere permisos de **Administrador** (grupo Sistema); los montos y porcentajes los puede mantener el gestor de nómina con permisos de configuración.",
+      "image": false
+    }
+  ],
+  "notes": "### Criterios de aceptación\n\n1. **Configuración por data:** al instalar/actualizar el módulo existen las 4 escalas DGII 2026 en `Nómina → Configuración → Retention Scale` (data `noupdate=\"1\"`: un upgrade no pisa los valores editados por el usuario).\n2. **Regla sin hardcode:** `hr_rule_isr_employee` no contiene montos de la escala; usa `_get_annual_exempt_amount()` (condición) y `_compute_annual_retention()` (monto).\n3. **Cálculo correcto por escala:** exento sin línea ISR; 15% / 20% / 25% con los montos de la sección 4 — idénticos a la fórmula DGII y al comportamiento anterior de la regla (verificado borde por borde: 416,220.01, 624,329.00/.01, 867,123.00/.01).\n4. **Reactividad a cambios:** editar la escala y recalcular el recibo produce el nuevo ISR sin reiniciar ni actualizar el módulo (sección 5).\n5. **Traducciones:** los campos nuevos (*Monto fijo*) y las ayudas de campo están en `i18n/es_DO.po`.\n\n### Notas técnicas\n\n- La escala se evalúa sobre el **salario anual cotizable DGII** (`SALDGII × 12`), después de descontar TSS.\n- La retención mensual descuenta lo ya retenido en el período (`payslip._sum('ISR', ...)`), igual que antes.\n- El **Monto fijo** existe como campo porque la DGII publica cuotas fijas redondeadas (RD$31,216 / RD$79,776) que no coinciden exactamente con la acumulación matemática de las escalas anteriores (31,216.35 / 79,775.15); usar el monto publicado garantiza cuadre con la tabla oficial.\n- La última escala se deja con **Monto tope = 0** (abierta, \"en adelante\").\n- ⚠️ Los cambios de escala aplican al **próximo cálculo** de cada recibo: recibos ya validados no se recalculan solos."
+}

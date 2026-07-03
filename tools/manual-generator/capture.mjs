@@ -80,6 +80,11 @@ async function runStep(step) {
     if (step.click) {
         await page.click(step.click, { timeout });
     }
+    if (step.hover) {
+        // Parks the mouse on a neutral element (e.g. the breadcrumb) so no
+        // row/cell tooltip is open when the screenshot is taken.
+        await page.locator(step.hover).first().hover({ timeout });
+    }
     if (step.press) {
         await page.keyboard.press(step.press);
     }
