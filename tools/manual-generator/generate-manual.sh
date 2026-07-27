@@ -54,6 +54,12 @@ CONFIG="$SCRIPT_DIR/configs/${MODULE}.json"
 SEED="$SCRIPT_DIR/configs/${MODULE}.seed.py"
 [[ ! -f "$CONFIG" ]] && { echo "ERROR: no existe $CONFIG" >&2; exit 1; }
 
+# Optional extra modules to install alongside the documented one (e.g. Dominican
+# accounting for a full flow). Read from the config's "extra_modules" list.
+EXTRA_MODULES="$(python3 -c "import json;print(','.join(json.load(open('$CONFIG')).get('extra_modules',[])))" 2>/dev/null || true)"
+INSTALL_LIST="$MODULE"
+[[ -n "$EXTRA_MODULES" ]] && INSTALL_LIST="$MODULE,$EXTRA_MODULES"
+
 DB="test_v19_${MODULE}"
 OUT_DIR="$ROOT_DIR/docs/manuals/${MODULE}"
 IMG_DIR="$OUT_DIR/img"
@@ -102,14 +108,14 @@ _drop_db() {
 }
 
 # ─── 1+2. Crear base e instalar modulo ───────────────────────────────────────
-echo "[1/4] Creando base limpia e instalando '$MODULE'..."
+echo "[1/4] Creando base limpia e instalando '$INSTALL_LIST'..."
 _drop_db "$DB"
 docker exec "$CONTAINER" odoo \
   -d "$DB" \
   --db_host="$DB_HOST" --db_port="$DB_PORT" \
   --db_user="$DB_USER" --db_password="$DB_PASS" \
   --without-demo=all --log-level=warn --stop-after-init --no-http \
-  -i "$MODULE" \
+  -i "$INSTALL_LIST" \
   2>&1 | grep -E "loading module|modules loaded|ERROR|Module.*failed" || true
 
 # ─── 3. Sembrar datos de ejemplo ─────────────────────────────────────────────
@@ -130,8 +136,18 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
   IMAGE="$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')"
   NETWORK="$(docker inspect "$CONTAINER" \
     --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' | awk '{print $1}')"
+  # Share the main container's /var/lib/odoo volume: the test DB's filestore
+  # (incl. generated web assets) lives there; without it every asset 404s/500s
+  # and the web client renders an empty page.
+  DATA_VOL="$(docker inspect "$CONTAINER" \
+    --format '{{range .Mounts}}{{if eq .Destination "/var/lib/odoo"}}{{.Name}}{{end}}{{end}}')"
+  DATA_MOUNT=()
+  [[ -n "$DATA_VOL" ]] && DATA_MOUNT=(-v "$DATA_VOL:/var/lib/odoo")
   docker rm -f "$EPHEMERAL_NAME" >/dev/null 2>&1 || true
+  # --user root: the shared filestore is written by root (docker exec installs),
+  # the image's default 'odoo' user cannot create asset files there.
   docker run -d --rm --name "$EPHEMERAL_NAME" \
+    --user root \
     --network "$NETWORK" \
     -p "${CAPTURE_PORT}:8069" \
     -e DB_PORT_5432_TCP_ADDR="$DB_HOST" \
@@ -141,6 +157,7 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
     -v "$ROOT_DIR/enterprise:/mnt/extra-addons-enterprise:delegated" \
     -v "$ROOT_DIR/odoo-pro:/mnt/extra-addons-pro:delegated" \
     -v "$ROOT_DIR/conf:/etc/odoo:delegated" \
+    "${DATA_MOUNT[@]}" \
     --entrypoint odoo \
     "$IMAGE" \
     -d "$DB" \

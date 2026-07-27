@@ -6,7 +6,7 @@
 //        --db=<db> --login=admin --password=admin --out=<imgDir> [--headed]
 import { chromium } from "playwright";
 import { readFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname, isAbsolute } from "node:path";
 
 function arg(name, def = undefined) {
     const prefix = `--${name}=`;
@@ -71,6 +71,11 @@ async function runStep(step) {
         // so fullPage screenshots don't reach content below the fold).
         await page.locator(step.scrollTo).first().scrollIntoViewIfNeeded({ timeout });
     }
+    if (step.scrollToLast) {
+        // Same as scrollTo but targets the LAST match — e.g. the last payment
+        // line of an invoice, so everything above it ends up in view.
+        await page.locator(step.scrollToLast).last().scrollIntoViewIfNeeded({ timeout });
+    }
     if (step.selectOption) {
         // Native <select> widgets (Odoo widget="selection"). Choose by visible
         // label when given, otherwise by option value.
@@ -79,6 +84,12 @@ async function runStep(step) {
     }
     if (step.click) {
         await page.click(step.click, { timeout });
+    }
+    if (step.setFile) {
+        // Uploads a file into an <input type="file"> (works on hidden inputs,
+        // e.g. Odoo binary fields). `path` is resolved relative to the config.
+        const filePath = isAbsolute(step.path) ? step.path : join(dirname(configPath), step.path);
+        await page.setInputFiles(step.setFile, filePath, { timeout });
     }
     if (step.hover) {
         // Parks the mouse on a neutral element (e.g. the breadcrumb) so no
