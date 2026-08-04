@@ -201,7 +201,7 @@ El módulo `l10n_do_hr_payroll_liquidation` **depende de** `l10n_do_hr_payroll` 
 - Constantes del Código de Trabajo: `DIAS_LAB_MES`, `HORAS_LAB_DIA`, `LAST_DAY`, `VAC_DAYS` y `VAC_DAYS_60`.
 - Tasas del SDSS (porcentajes fijos, no montos indexados): `SFS_RET`, `SFS_CONT`, `AFP_RET`, `AFP_CONT`, `SRL_CONT` e `INFOTEP_CONT`.
 
-Los **topes** sobre los que se aplican esas tasas (`SFS_TOPE`, `AFP_TOPE`, `SRL_TOPE`) sí se indexan cada año y **no** se retrofechan: aplicar el tope vigente a un período anterior daría una retención errónea en silencio. Antes de generar el recibo, la liquidación comprueba los tres y, si falta alguno, los **lista todos de una vez** con la fecha y la ruta donde cargarlos, en vez de fallar uno por uno. Cargados los topes del año, una liquidación con fecha histórica se genera completa.
+Los montos **indexados cada año** —los topes de la TSS (`SFS_TOPE`, `AFP_TOPE`, `SRL_TOPE`) y la exención por dependiente de la DGII (`DEPENDIENTE_AD`, que la regla de ISR lee siempre)— **no** se retrofechan: aplicar el valor vigente a un período anterior daría una retención errónea en silencio. Antes de generar el recibo, la liquidación comprueba los cuatro y, si falta alguno, los **lista todos de una vez** con la fecha y la ruta donde cargarlos, en vez de fallar uno por uno. Cargados los valores del año, una liquidación con fecha histórica se genera completa.
 
 ## Notas
 
@@ -241,6 +241,7 @@ Los **topes** sobre los que se aplican esas tasas (`SFS_TOPE`, `AFP_TOPE`, `SRL_
    - `DLAB` lleva la **cantidad de días equivalentes**; `APAGAR` los convierte en monto.
 4. Vincula liquidación ↔ lote ↔ recibo (`payslip_run_id`, `payslip_id`) y deja la trazabilidad en el chatter.
 5. No crea un segundo recibo si la liquidación ya tiene uno vigente: reintentar el asistente lo rechaza en vez de duplicar la nómina.
+6. El recibo de liquidación **no** se marca como «recibo similar» de la nómina ordinaria del mes de salida. Ambos comparten versión, estructura y período por diseño —la salida se paga en un recibo extraordinario sobre las mismas fechas—, así que la comprobación nativa de duplicados los señalaba mutuamente. Cada recibo se compara solo contra otros de su misma naturaleza; la alerta sigue funcionando normalmente entre dos nóminas ordinarias o entre dos liquidaciones.
 
 ### Criterios de aceptación
 
@@ -251,11 +252,12 @@ Los **topes** sobre los que se aplican esas tasas (`SFS_TOPE`, `AFP_TOPE`, `SRL_
 5. **Vacaciones como salario ordinario**: la liquidación usa `VAC`, no genera `VACL`, y las vacaciones alimentan el salario cotizable de TSS y el cálculo de ISR.
 6. **Días laborados en el mismo recibo**: entrada `DLAB` con los días, `APAGAR` calcula el monto una sola vez, y **no** se crea un recibo ordinario separado.
 7. **Indemnizaciones exentas**: preaviso, cesantía y regalía no contribuyen al salario cotizable; un recibo que solo las pague no tiene líneas `SFSE`/`SVDSE`/`ISR`.
-8. **Fechas históricas**: una salida anterior al año de instalación resuelve las escalas legales; si falta un tope indexado, el mensaje nombra el código y la fecha.
+8. **Fechas históricas**: una salida anterior al año de instalación resuelve las escalas legales; si faltan los valores indexados, un solo mensaje nombra los cuatro códigos y la fecha.
 9. **Selector de empleado**: excluye archivados y personas sin contrato vigente, y el servidor lo revalida al calcular y confirmar.
 10. **Historial incompleto**: avisa sin bloquear y permite completar la grilla.
 11. **Una liquidación activa por empleado**; **autocarga** de historial validado; recalcular sustituye líneas sin duplicar.
 12. **Regresión de la nómina ordinaria**: instalar este módulo no cambia ningún importe de la nómina que no sea de liquidación (ver más abajo).
+13. **Sin falsos duplicados**: el recibo de liquidación y la nómina ordinaria del mes de salida no se marcan como recibos similares entre sí, y la alerta se conserva entre recibos de la misma naturaleza.
 
 ### Notas técnicas
 
