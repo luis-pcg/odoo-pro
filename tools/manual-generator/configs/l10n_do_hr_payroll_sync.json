@@ -1,0 +1,157 @@
+{
+  "module": "l10n_do_hr_payroll_sync",
+  "title": "Sincronización centralizada de parámetros de nómina — Manual",
+  "intro": "Módulo `l10n_do_hr_payroll_sync` (19.0.1.0.0). Distribuye los parámetros maestros de nómina RD desde una instancia **maestra** (PROGRESSA) hacia N instancias **cliente**, mediante una API REST versionada implementada como módulo Odoo 19.\n\nEl mismo módulo se instala en ambos extremos; el ajuste **Rol de sincronización** decide cómo se comporta cada instancia. Sin rol configurado el módulo queda completamente inerte.\n\n> Este manual tiene dos partes: **A) Guía de usuario final** (cómo operarlo desde la interfaz) y **B) Documentación técnica** (arquitectura, endpoints, seguridad, decisiones de diseño). Las capturas provienen de una base generada automáticamente con `tools/manual-generator`.",
+  "requirements": [
+    "Odoo 19 con `l10n_do_hr_payroll` 19.0.1.0.9 o superior instalado en ambos extremos",
+    "El módulo `l10n_do_hr_payroll_sync` instalado tanto en el maestro como en cada cliente",
+    "Conectividad HTTPS del maestro hacia cada cliente (modo push) o del cliente hacia el maestro (modo pull)",
+    "Un usuario con el grupo *Payroll Sync Administrator* (implícito para Administrador de ajustes)"
+  ],
+  "flows": [
+    {
+      "id": "00-parte-a",
+      "title": "Parte A — Guía de usuario final",
+      "description": "Esta sección describe la operación diaria: cómo activar el rol, registrar clientes, publicar un cambio de parámetro y diagnosticar una entrega fallida.",
+      "image": false
+    },
+    {
+      "id": "01-ajustes-rol",
+      "title": "A1. Elegir el rol de la instancia",
+      "description": "**Nómina → Configuración → Ajustes → Payroll Parameter Synchronization.**\n\nEl selector **Sync Role** define el comportamiento del módulo:\n\n| Rol | Qué hace | Endpoints que expone |\n|---|---|---|\n| *Not synchronized* | Nada. El módulo queda inerte: no encola eventos y no atiende llamadas. | ninguno |\n| *Master* | Detecta cambios en los parámetros y los distribuye a los clientes registrados. | `/pull`, `/ack` |\n| *Client* | Recibe y aplica los parámetros que envía el maestro. | `/push` |\n\nSeleccionar el rol es el **único paso obligatorio**: mientras esté en *Not synchronized*, instalar el módulo no cambia absolutamente nada del comportamiento de la nómina.\n\n**Push Immediately** (solo maestro) entrega el cambio justo después de guardarlo, en lugar de esperar al cron de 5 minutos. La entrega HTTP siempre corre **fuera** de la transacción del usuario, así que un cliente lento nunca bloquea el guardado.\n\n**Rate Limit** limita los requests entrantes por minuto y por credencial; `0` desactiva el límite.",
+      "steps": [
+        { "goto": "/odoo/settings#hr_payroll" },
+        { "waitFor": ".app_settings_block", "timeout": 40000 },
+        { "wait": 3000 },
+        { "scrollTo": "div[name='l10n_do_payroll_sync_role']" },
+        { "wait": 1200 },
+        { "hover": ".o_breadcrumb" },
+        { "wait": 600 }
+      ]
+    },
+    {
+      "id": "02-clientes-lista",
+      "title": "A2. Clientes registrados",
+      "description": "**Nómina → Configuración → Dominican legislation → Parameter Synchronization → Sync Clients.**\n\nCada línea es una base Odoo que recibe los parámetros. La lista es el tablero de salud de la distribución:\n\n- **Pending / Retrying / Dead**: cuántos eventos esperan, cuántos reintentan y cuántos agotaron sus reintentos. Una columna *Dead* distinta de cero es lo único que exige intervención humana.\n- **Last Seen**: último intercambio exitoso con ese cliente.\n- **Status**: verde *Online*, rojo *Error*.\n\nEn el ejemplo, *Ferretería Duarte SRL* está al día y *Transporte Cibao SA* lleva 26 horas sin responder: sus eventos siguen en cola, ninguno se perdió.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_client" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-cliente-form",
+      "title": "A3. Ficha de un cliente y sus credenciales",
+      "description": "Cada emparejamiento maestro↔cliente usa **dos secretos distintos**, y esa separación es deliberada:\n\n| Campo | Dirección | Cómo se guarda |\n|---|---|---|\n| **Inbound Key** | El cliente nos llama a `/pull` y `/ack` | Solo el hash (`pbkdf2_sha512`). No se puede recuperar: al generarla se muestra una sola vez. |\n| **Outbound Key** | Nosotros llamamos al `/push` del cliente | Recuperable, porque hay que enviarla en cada request. Restringida a usuarios de Ajustes. |\n\n**Puesta en marcha de un cliente nuevo:**\n\n1. En el **cliente**: Ajustes → *Generate inbound key*. Copiar la clave.\n2. En el **maestro**: crear el registro del cliente, pegar esa clave en **Outbound Key**.\n3. En el **maestro**: *Generate inbound key* en la ficha del cliente. Copiar.\n4. En el **cliente**: pegar esa clave en **Key for the Master** y llenar **Master URL**.\n5. **Test Connection** desde el maestro. Debe quedar en verde *Online*.\n6. **Full Resync** para la carga inicial: encola todos los parámetros de todos los modelos activos.\n\n**Target Company ID** indica en qué compañía del cliente aterrizan los parámetros con alcance por compañía. En `0`, el cliente usa su compañía por defecto.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_client" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 20000 },
+        { "wait": 2000 },
+        { "hover": ".o_breadcrumb" },
+        { "wait": 600 }
+      ]
+    },
+    {
+      "id": "04-escalas-origen",
+      "title": "A4. El parámetro que se distribuye",
+      "description": "**Nómina → Configuración → Dominican legislation → Retention Scale.**\n\nEste es el caso de uso que justifica todo el módulo: cuando la DGII publica la escala ISR de un año nuevo, se edita **una sola vez aquí**, en el maestro, y el cambio viaja solo a todas las bases cliente.\n\nGuardar cualquiera de estas líneas encola un evento por cada cliente con *Push Enabled*. No hay que hacer nada más.\n\nLos otros parámetros que viajan por defecto:\n\n| Modelo | Alcance | Cómo se emparejan las bases |\n|---|---|---|\n| `l10n.do.hr.retention.scale` | Global | External ID (`l10n_do_hr_payroll.l10n_do_hr_retention_scale_N`) |\n| `l10n.do.occupational.risk.type` | Global | External ID (`l10n_do_hr_payroll.risk_type_N`) |\n| `l10n.do.hr.payroll.payment.division` | Por compañía | Clave natural (`name`) dentro de la compañía destino |\n\n`hr.salary.rule` y `hr.salary.rule.category` vienen **registrados pero archivados**: ver A7.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_retention_scale_action" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-cola",
+      "title": "A5. La cola de sincronización",
+      "description": "**Parameter Synchronization → Sync Queue**, agrupada por estado.\n\nEsta tabla es la cola de mensajes del sistema: vive en Postgres, no en un broker externo. El evento se escribe **en la misma transacción** que el cambio del parámetro, así que una edición que se revierte nunca deja un evento huérfano.\n\n| Estado | Significado |\n|---|---|\n| **Pending** | Encolado, esperando entrega |\n| **Delivered** | El cliente confirmó que lo aplicó |\n| **Retrying** | Falló; hay un reintento programado con espera creciente |\n| **Dead letter** | Agotó los 5 reintentos. Requiere intervención |\n| **Cancelled** | Otra edición más nueva del mismo registro lo dejó obsoleto |\n\n**Retries** y **Next Retry At** muestran el backoff exponencial: 60s, 120s, 240s, 480s, 960s. Una ráfaga de ediciones sobre el mismo registro se colapsa en una sola entrega — los eventos viejos pasan a *Cancelled*.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_event" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "06-dead-letter",
+      "title": "A6. Cola de mensajes muertos (dead letter)",
+      "description": "**Parameter Synchronization → Dead Letter Queue.**\n\nLo único que exige atención humana. Un evento llega aquí tras agotar sus 5 reintentos; la columna **Error** dice por qué.\n\nDos causas típicas y su tratamiento:\n\n| Error | Qué pasó | Qué hacer |\n|---|---|---|\n| `HTTP 0 - connection refused` | El cliente estuvo caído más tiempo que la ventana de reintentos | Verificar que el cliente responde (*Test Connection*), luego **Retry** |\n| `HTTP 500 - unique constraint violated` | El cliente rechazó el dato: choca con un registro suyo | Corregir el conflicto en el cliente y luego **Retry** |\n\nEl botón **Retry** devuelve el evento a *Pending* y reinicia su presupuesto de reintentos. También se puede seleccionar varios y reintentarlos en lote.\n\nLos eventos muertos **no se purgan**: el cron de limpieza diaria borra los entregados y cancelados con más de 90 días, pero conserva los muertos como evidencia.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_event_dead" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "07-evento-detalle",
+      "title": "A7. Detalle de un evento y su payload",
+      "description": "Abrir un evento muestra exactamente qué se envió.\n\n- **Reference**: la clave con la que el cliente localiza su propio registro. Para los modelos globales es el External ID que ambas bases comparten porque vino del mismo archivo de datos del módulo — por eso el emparejamiento entre bases es exacto y no depende de IDs numéricos, que no significan nada fuera de su base.\n- **Payload**: el JSON literal enviado. Contiene solo los campos de la lista blanca del modelo; `company_id`, los campos de auditoría y los campos con código Python nunca aparecen.\n- **Acked At**: momento en que el cliente confirmó explícitamente.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_event_dead" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 20000 },
+        { "wait": 2000 },
+        { "hover": ".o_breadcrumb" },
+        { "wait": 600 }
+      ]
+    },
+    {
+      "id": "08-bitacora",
+      "title": "A8. Bitácora de sincronización",
+      "description": "**Parameter Synchronization → Sync Log.**\n\nRegistro bidireccional de **todo** intercambio HTTP, incluidos los rechazados. Es la pista de auditoría del sistema.\n\n| Direction | Qué es |\n|---|---|\n| **Outbound** | Llamadas que hicimos nosotros (push a un cliente, pull al maestro) |\n| **Inbound** | Llamadas que recibimos (un cliente hizo pull, envió un ack, o presentó una credencial inválida) |\n\nLa fila en naranja con estado **Denied** y HTTP 403 es un intento de acceso con una credencial desconocida: se registra la IP de origen. Un patrón de *Denied* desde una misma IP es la señal de que alguien está probando claves.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_log" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "09-bitacora-redaccion",
+      "title": "A9. Los secretos nunca llegan a la bitácora",
+      "description": "Al abrir la entrada *Denied* se ve el cuerpo del request que se intentó — con las credenciales **reemplazadas por `***` antes de guardarse**.\n\nLa redacción es recursiva y cubre las claves `api_key`, `x-api-key`, `password`, `remote_api_key` y `token` a cualquier nivel de anidación del JSON. Esto está verificado por prueba automatizada (`test_secrets_are_stripped_before_the_payload_is_stored`) y también por el escenario E2E, que consulta Postgres directamente para confirmar que la clave real no aparece en ninguna fila de la bitácora.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_log" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1200 },
+        { "click": ".o_data_row:has-text('Denied') .o_data_cell:first-child" },
+        { "waitFor": ".o_form_view", "timeout": 20000 },
+        { "wait": 1500 },
+        { "hover": ".o_breadcrumb" },
+        { "wait": 600 }
+      ]
+    },
+    {
+      "id": "10-modelos",
+      "title": "A10. Qué modelos se sincronizan",
+      "description": "**Parameter Synchronization → Synchronized Models.**\n\nEl alcance de la sincronización es **configuración, no código**: agregar un parámetro nuevo a la distribución es activar una línea aquí, no programar.\n\n| Columna | Qué controla |\n|---|---|\n| **Key Strategy** | Cómo el cliente encuentra su registro equivalente: por External ID o por clave natural |\n| **Company Scoped** | El registro lleva `company_id` y se resuelve dentro de la compañía destino del cliente |\n| **Allow Create** | El cliente puede crear el registro si no lo tiene |\n| **Allow Unlink** | Propagar borrados. **Apagado por defecto**: un borrado en el maestro eliminando parámetros de nómina en todas las bases rara vez es lo deseado |\n| **Allow Executable Fields** | Ver el aviso abajo |\n\n> ⚠️ **`hr.salary.rule` viene archivado a propósito.** Sus reglas contienen `amount_python_compute`: distribuirlas significa **ejecutar código del maestro dentro de la base de cada cliente**. El interruptor *Allow Executable Fields* existe, pero activarlo es una decisión de seguridad consciente que exige que cada cambio en el maestro sea revisado. Con el interruptor apagado esos campos se filtran del payload aunque el modelo esté activo.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_model" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "11-modelo-detalle",
+      "title": "A11. Configurar un modelo sincronizado",
+      "description": "En la ficha de cada modelo se define la lista blanca de campos y la política del cliente.\n\n**Synchronized Fields** vacío significa *todos los campos almacenados y no relacionales*. Independientemente de lo que se ponga aquí, nunca viajan:\n\n- `id`, `create_uid`, `create_date`, `write_uid`, `write_date`, `display_name` — carecen de sentido fuera de su base;\n- `company_id` — lo resuelve el cliente contra su propia compañía destino, jamás se acepta el del maestro;\n- `amount_python_compute`, `condition_python`, `code` — salvo que se active explícitamente *Allow Executable Fields*.\n\nLa lista blanca se aplica **en los dos extremos**: el cliente descarta cualquier campo que su propio registro no acepte, aunque el maestro lo haya enviado. Quien decide qué se guarda es el cliente, no el maestro.",
+      "steps": [
+        { "goto": "/odoo/action-l10n_do_hr_payroll_sync.action_payroll_sync_model" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell" },
+        { "waitFor": ".o_form_view", "timeout": 20000 },
+        { "wait": 2000 },
+        { "hover": ".o_breadcrumb" },
+        { "wait": 600 }
+      ]
+    },
+    {
+      "id": "12-parte-b",
+      "title": "Parte B — Documentación técnica",
+      "description": "Arquitectura, contrato de la API, modelo de seguridad y decisiones de diseño con su justificación.",
+      "image": false
+    }
+  ],
+  "notes": "## B1. Arquitectura\n\n```\n┌──────────────────────── MAESTRO (PROGRESSA, Odoo 19) ─────────────────────────┐\n│                                                                               │\n│  l10n_do_hr_payroll          l10n_do_hr_payroll_sync                          │\n│  ┌────────────────────┐      ┌──────────────────────────────────────────┐     │\n│  │ retention.scale    │──┐   │ trigger mixin  create/write/unlink       │     │\n│  │ occupational.risk  │──┼──▶│      ↓ (misma transacción)               │     │\n│  │ payment.division   │──┘   │ sync.event   COLA DURABLE (Postgres)     │     │\n│  └────────────────────┘      │      ↓ post-commit  |  ir.cron 5 min     │     │\n│                              │ sync.client  ──HTTP POST /push──────────┐│     │\n│                              │ sync.log     auditoría bidireccional    ││     │\n│                              └─────────────────────────────────────────┼┘     │\n│  Controllers: /pull  /ack  /ping  /manifest  ◀──────────────────────┐  │      │\n└─────────────────────────────────────────────────────────────────────┼──┼──────┘\n                                                                      │  │\n                     ┌────────────────────────────────────────────────┴──▼──────┐\n                     │ CLIENTE (Odoo 19, mismo módulo, rol=client)              │\n                     │ Controllers: /push  /ping  /manifest                     │\n                     │ sync.service  → resuelve ref → ORM create/write          │\n                     │ ir.cron 1 h   → /pull de reconciliación                  │\n                     └──────────────────────────────────────────────────────────┘\n```\n\nUn solo módulo en ambos extremos. El rol decide el comportamiento y qué endpoints existen. Esto evita el *version skew* entre maestro y cliente: el serializador y el aplicador son literalmente el mismo código.\n\n## B2. Contrato de la API\n\nPrefijo `/api/v1/payroll-sync`. Todas las rutas son `type='http'`, `auth='none'`, `csrf=False`, `readonly=False`, cuerpo y respuesta JSON crudo.\n\n| Método | Ruta | Rol | Función |\n|---|---|---|---|\n| `GET`/`POST` | `/ping` | ambos | Salud + validación de credencial |\n| `GET`/`POST` | `/manifest` | ambos | Versión de API y contrato de campos por modelo |\n| `POST` | `/push` | cliente | Recibe lote, aplica, devuelve veredicto por ítem |\n| `POST` | `/pull` | maestro | Devuelve cambios desde `since` + `checkpoint` |\n| `POST` | `/ack` | maestro | Confirmación explícita que cierra eventos |\n\nPedir un endpoint del rol contrario devuelve **404**, no 403: una instancia no revela qué rol *no* tiene.\n\n**Cuerpo de `/push`:**\n\n```json\n{\n  \"version\": \"1.0\",\n  \"target_company_id\": 1,\n  \"items\": [{\n    \"event_id\": 42,\n    \"model\": \"l10n.do.hr.retention.scale\",\n    \"ref\": \"l10n_do_hr_payroll.l10n_do_hr_retention_scale_2\",\n    \"operation\": \"upsert\",\n    \"values\": {\"percent\": 15.0, \"base_amount\": 416220.01}\n  }]\n}\n```\n\n**Respuesta** — un veredicto por ítem, que es lo que permite el reintento selectivo:\n\n```json\n{\"status\":\"ok\",\"applied\":1,\"rejected\":0,\n \"results\":[{\"event_id\":42,\"status\":\"ok\",\"message\":\"updated: percent\"}],\n \"version\":\"1.0\"}\n```\n\nUn ítem que el cliente no reporta **no** se da por entregado: se reintenta. El silencio no es éxito.\n\n**Códigos:** `200` procesado · `400` cuerpo inválido · `401` falta `X-API-Key` · `403` credencial inválida o cliente archivado · `404` endpoint no habilitado para el rol · `429` límite de tasa · `500` error interno (mensaje genérico, detalle solo en la bitácora).\n\n## B3. Seguridad\n\n| Control | Implementación |\n|---|---|\n| Autenticación | Header `X-API-Key`, verificado con `KEY_CRYPT_CONTEXT` (`pbkdf2_sha512`), el mismo contexto que Odoo usa para sus propias API keys |\n| Comparación | `passlib.verify`, tiempo constante. La búsqueda del cliente recorre todos los activos para no filtrar por tiempo de respuesta qué prefijo existe |\n| Almacenamiento | Clave entrante: solo hash, irrecuperable. Clave saliente: recuperable por necesidad, con `groups=\"base.group_system\"` |\n| Límite de tasa | Ventana deslizante por credencial, clave indexada por SHA-256 para no tener el secreto en memoria |\n| Tamaño de cuerpo | Rechazo por encima de 8 MiB antes de parsear |\n| Superficie de escritura | Lista blanca de modelos **y** de campos, aplicada en el cliente. Un `res.users` enviado por el maestro se rechaza |\n| Ejecución remota | Campos con código Python bloqueados salvo opt-in explícito y señalizado en la UI |\n| Auditoría | Toda llamada, aceptada o rechazada, en `sync.log` con IP de origen |\n| Redacción | Secretos sustituidos por `***` recursivamente antes de persistir el payload |\n| Aislamiento por compañía | `company_id` nunca viaja; lo fija el cliente contra su compañía destino |\n\nEl aplicador corre como `SUPERUSER_ID`. Es necesario: `l10n.do.hr.retention.scale.write()` exige `base.group_system` para tocar `name` y `sequence`. La contrapartida es que la superficie de escritura queda acotada por la lista blanca del registro, no por ACLs — de ahí que la lista blanca sea el control de seguridad central y se aplique del lado del cliente.\n\n## B4. Garantías de entrega\n\nEl diseño original proponía RabbitMQ o `queue_job` de la OCA. **`queue_job` no está vendorizado en este repositorio** (verificado en `odoo-pro/`, `odoo/`, `enterprise/`, `OCA/`, `store-addons/`), así que introducirlo significaba una dependencia y una infraestructura nuevas.\n\nEn su lugar, la cola es una tabla Postgres más `ir.cron`, lo que da las mismas garantías:\n\n| Garantía | Cómo |\n|---|---|\n| Durabilidad | El evento se inserta en la transacción del cambio. Un rollback se lleva el evento |\n| At-least-once | El evento solo pasa a `sent` con confirmación explícita del cliente |\n| Backoff exponencial | `60s · 2^n`, tope 3600s, 5 reintentos |\n| Dead letter | Estado `dead` tras agotar reintentos, con botón *Retry* y sin purga automática |\n| Reconciliación | Cron horario de `pull` en el cliente: se recupera solo tras estar caído |\n| Colapso de ráfagas | Un evento pendiente para el mismo destino se cancela al llegar uno más nuevo |\n| Idempotencia | El emparejamiento por External ID / clave natural hace que reaplicar sea un no-op |\n| No bloqueo | La entrega corre en `postcommit`, fuera de la transacción del usuario |\n\n### Ventana de solapamiento del checkpoint\n\nEl `checkpoint` que devuelve `/pull` está deliberadamente **atrasado 300 segundos** respecto al reloj de la base. Motivo: `write_date` lleva el instante de **inicio** de la transacción, no el del commit. Una transacción abierta antes del pull y confirmada después quedaría con un `write_date` anterior al checkpoint y sería invisible para todos los pulls siguientes — una pérdida silenciosa de datos. Reenviar unos registros de más es gratis, porque aplicar es idempotente; perder uno no lo es.\n\nEsto se detectó escribiendo la prueba `test_checkpoint_lags_the_clock_so_late_commits_are_not_lost`.\n\n## B5. Emparejamiento entre bases\n\nEl problema difícil de sincronizar no es el transporte, es la identidad: un `id` numérico no significa nada en otra base.\n\n| Estrategia | Cuándo | Cómo |\n|---|---|---|\n| **External ID** | El registro viene de un archivo de datos del módulo, así que ambas bases comparten el mismo XML ID | `env.ref('l10n_do_hr_payroll.l10n_do_hr_retention_scale_2')` |\n| **Clave natural** | El registro es por compañía y el XML ID solo apunta a una | Búsqueda por los campos clave dentro de la compañía destino |\n\nLos Many2one viajan como referencia, no como FK:\n\n```json\n\"category_id\": {\"__model__\": \"hr.salary.rule.category\",\n                \"__ref__\": \"hr_payroll.BASIC\",\n                \"__label__\": \"Basic\"}\n```\n\nSi la referencia no resuelve en el cliente, **ese ítem falla** y los demás del lote se aplican igual: cada ítem corre en su propio savepoint.\n\nUn registro sin External ID resoluble se omite con un warning en el log del servidor, en lugar de enviarse y crear un duplicado en el cliente.\n\n## B6. Cambio en `l10n_do_hr_payroll`\n\nSe modificó un archivo del módulo de nómina, y el motivo importa:\n\n`data/l10n_do_hr_payroll_payment_division.xml` no tenía `noupdate=\"1\"`. Sin esa marca, **cada upgrade del módulo restablecía las divisiones de pago a los valores semilla**, pisando tanto lo que una compañía hubiera ajustado a mano como lo que este módulo hubiera sincronizado.\n\n- Se añadió `<data noupdate=\"1\">`, que solo afecta a instalaciones nuevas.\n- Migración `migrations/19.0.1.0.9/post-migrate.py` que voltea el flag en las filas `ir_model_data` ya existentes.\n- Versión: `19.0.1.0.8` → `19.0.1.0.9`.\n\nVerificado por `tools/sync-e2e/regression.sh` §2: se recrea el estado previo, se ajusta un valor a mano, se corre el upgrade y se comprueba que el valor **sobrevive**.\n\n## B7. Validación ejecutada\n\n| Suite | Alcance | Resultado |\n|---|---|---|\n| `--test-tags=/l10n_do_hr_payroll_sync` | 61 tests: registro, serializador, aplicación, cola/backoff/dead-letter, controladores HTTP (401/403/404/429/400) | **61 pasan, 0 fallan, 0 omitidos** |\n| `tools/sync-e2e/run-tests.sh` | 35 aserciones E2E entre **dos instancias Odoo reales** sobre HTTP real, verificando contra Postgres del cliente | **35 pasan, 0 fallan** |\n| `tools/sync-e2e/regression.sh` | 23 aserciones: migración, ISR idéntico antes/después, los 5 dependientes instalan, corrida de nómina completa, upgrade idempotente | **23 pasan, 0 fallan** |\n\nLos escenarios E2E cubren, sobre HTTP real: entrega push, parámetro con alcance por compañía, **cliente apagado a mitad de la prueba** con backoff y dead letter, recuperación con *Retry*, modo pull aislado, y las propiedades de seguridad (modelo no registrado rechazado, `res.users` intacto, clave ausente de la bitácora, reenvío idempotente).\n\nLa no-regresión compara la huella ISR (`0.00, 0.00, 12567.00, 46350.20, 87995.25, 237995.25` para seis salarios anuales) antes de instalar el módulo, después de instalarlo y con los cinco dependientes instalados: **idéntica en los tres casos**. La corrida de nómina de cuatro empleados sigue dando los mismos importes que espera el escenario de referencia.\n\n## B8. Dos hallazgos de Odoo 19 que valen documentar\n\n1. **`auth='none'` implica `readonly=True`.** Desde 19.0, `odoo/http.py:974` hace `default_mode = routing.get('readonly', default_auth == 'none')`. Una ruta `auth='none'` recibe un cursor de solo lectura y cualquier `INSERT` revienta con `cannot execute INSERT in a read-only transaction`. Todas las rutas del módulo llevan `readonly=False` explícito. Lo detectó la suite de controladores.\n2. **`res.groups.category_id` ya no existe** y `<group expand=\"0\">` dentro de `<search>` dejó de validar contra el RNG: los filtros de agrupación van sueltos en el `<search>` con `context=\"{'group_by': ...}\"`.\n\n## B9. Desviaciones respecto al documento de diseño\n\n| Documento | Implementado | Por qué |\n|---|---|---|\n| Odoo 17 | Odoo 19 | La rama es 19.0; `type='json'` está deprecado a favor de `type='jsonrpc'`, y para REST crudo corresponde `type='http'` |\n| Dos módulos (maestro + cliente) | Uno con rol | Serializador y aplicador compartidos: imposible que las puntas discrepen en el formato de cable |\n| Message queue (`queue_job`/RabbitMQ) | Cola Postgres + `ir.cron` | `queue_job` no está en el repositorio; la tabla da durabilidad, backoff y dead-letter sin infraestructura nueva |\n| Sincronizar `l10n.do.hr.payroll.days.division` | Excluido | Modelo **eliminado** en 19.0 (`upgrades/19.0.1.0.2/post-migrate.py:6,76-78`) |\n| Sincronizar `hr.salary.rule.l10n_do_is_news` / `l10n_do_type_news` | Excluido | Campos inexistentes en 19.0; solo sobreviven en SQL de migración 14.0/15.0 |\n| Sincronizar `res.company.l10n_do_ngo`, `l10n_do_occupational_risk_type_id` | Excluido | Es configuración de cada cliente, no dato maestro; sincronizarla pisaría decisiones locales |\n| `hr.salary.rule` en el alcance base | Registrado pero archivado | Distribuir `amount_python_compute` es ejecución remota de código en la base del cliente |\n\n## B10. Operación\n\n**Crones** (`ir.cron`, todos cortocircuitan si el rol no corresponde):\n\n| Cron | Frecuencia | Rol | Qué hace |\n|---|---|---|---|\n| *deliver queued events* | 5 min | maestro | Drena la cola. Es la ruta de reintento; la ruta feliz es el flush post-commit |\n| *reconcile with master* | 1 h | cliente | `pull` de lo perdido mientras estuvo inalcanzable |\n| *purge old events and logs* | 1 día | ambos | Borra entregados/cancelados y bitácora con más de 90 días. **No toca los dead letter** |\n\n**Diagnóstico rápido:**\n\n| Síntoma | Dónde mirar |\n|---|---|\n| Un cliente no recibe nada | Ficha del cliente → *Test Connection*; revisar *Push Enabled* |\n| Eventos acumulados en *Pending* | ¿Está corriendo el cron? ¿`max_cron_threads > 0` en la conf? |\n| Eventos en *Retrying* | Columna *Error* del evento; suele ser red o TLS |\n| Eventos en *Dead letter* | *Error* dice la causa. Corregir en el cliente y **Retry** |\n| `403` en la bitácora del cliente | La *Outbound Key* del maestro no coincide con la *inbound* del cliente. Regenerar y volver a emparejar |\n| Un parámetro no viaja | *Synchronized Models*: ¿la línea está activa? ¿el campo está en la lista blanca? |\n\n**Entorno de pruebas reproducible** — levanta dos instancias reales y las empareja solo:\n\n```bash\ntools/sync-e2e/setup.sh       # dos BD + dos servidores + credenciales\ntools/sync-e2e/run-tests.sh   # 35 escenarios E2E sobre HTTP real\ntools/sync-e2e/regression.sh  # 23 aserciones de no-regresión\ntools/sync-e2e/teardown.sh --drop-db\n```\n\n## B11. Archivos\n\n```\nodoo-pro/l10n_do_hr_payroll_sync/\n├── models/\n│   ├── sync_model.py       registro: qué modelos/campos viajan y cómo se emparejan\n│   ├── sync_client.py      instancias destino, credenciales, HTTP saliente\n│   ├── sync_event.py       cola durable: estados, backoff, dead letter\n│   ├── sync_log.py         auditoría bidireccional con redacción de secretos\n│   ├── sync_service.py     serialización, resolución de referencias, aplicación, pull\n│   ├── sync_trigger.py     mixin create/write/unlink sobre los modelos maestros\n│   └── res_config_settings.py   rol y credenciales\n├── controllers/main.py     REST: auth, rate limit, auditoría, ping/manifest/push/pull/ack\n├── tests/                  61 tests\n├── security/  views/  data/\n\nodoo-pro/l10n_do_hr_payroll/\n├── data/l10n_do_hr_payroll_payment_division.xml   + noupdate=\"1\"\n├── migrations/19.0.1.0.9/post-migrate.py          voltea el flag en bases existentes\n└── __manifest__.py                                19.0.1.0.8 → 19.0.1.0.9\n\ntools/sync-e2e/             entorno de pruebas maestro↔cliente\n```\n"
+}
