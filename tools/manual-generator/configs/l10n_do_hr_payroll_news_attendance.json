@@ -1,0 +1,58 @@
+{
+  "module": "l10n_do_hr_payroll_news_attendance",
+  "title": "Horas extra → nómina (flujo con módulos custom, v17) — Manual funcional",
+  "intro": "Flujo de horas extra con los módulos custom de novedades por asistencia en Odoo 17.",
+  "requirements": [
+    "Módulos: l10n_do_hr_payroll_news_attendance (arrastra l10n_do_hr_news, l10n_do_hr_news_attendance, l10n_do_hr_payroll_news, l10n_do_hr_payroll, hr_attendance).",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-tipo-novedad",
+      "title": "Tipo de novedad (horas extra)",
+      "description": "Configuración del tipo de novedad para horas extra desde asistencia.",
+      "steps": [
+        { "goto": "/web#action=l10n_do_hr_news.demo_news_type_action" },
+        { "waitFor": ".o_list_view, .o_kanban_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell, .o_kanban_record:not(.o_kanban_ghost)" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-asistente",
+      "title": "Asistente: crear novedades desde asistencia",
+      "description": "Asistente que calcula las horas extra desde las asistencias.",
+      "steps": [
+        { "goto": "/web#action=l10n_do_hr_news_attendance.l10n_do_hr_employee_news_attendance_action" },
+        { "waitFor": ".modal-content, .o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-novedad",
+      "title": "Novedad de horas extra (aprobada)",
+      "description": "Novedad creada con las horas extra como monto de entrada.",
+      "steps": [
+        { "goto": "/web#action=l10n_do_hr_news.demo_news_action" },
+        { "waitFor": ".o_list_view, .o_kanban_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell, .o_kanban_record:not(.o_kanban_ghost)" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-recibo-input",
+      "title": "Recibo de nómina con el input de horas extra",
+      "description": "El monto de la novedad llega al recibo como entrada salarial.",
+      "steps": [
+        { "goto": "/web#action=l10n_do_hr_news.demo_payslip_action" },
+        { "waitFor": ".o_list_view, .o_kanban_view", "timeout": 30000 },
+        { "click": ".o_data_row:first-child .o_data_cell, .o_kanban_record:not(.o_kanban_ghost)" },
+        { "waitFor": ".o_form_view", "timeout": 15000 },
+        { "wait": 1800 }
+      ]
+    }
+  ],
+  "notes": "Este es el flujo ANTIGUO (con módulos custom). En v19 se reemplaza por el motor nativo de horas extra."
+}
