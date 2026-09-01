@@ -13,7 +13,7 @@
 #   6. A computed + validated payslip batch for last month.
 #   7. The DGII period report, which computes the IR-3 from the payslips + TSS file.
 #
-# Idempotent enough for a fresh `test_v19_*` DB. Ends with `env.cr.commit()`.
+# Idempotent enough for a fresh `test_v20_*` DB. Ends with `env.cr.commit()`.
 from datetime import date, datetime, timedelta
 
 today = date.today()

@@ -9,7 +9,7 @@ function arg(name, def) {
     const f = process.argv.find((a) => a.startsWith(p));
     return f ? f.slice(p.length) : def;
 }
-const baseUrl = (arg("base-url", "http://localhost:8092")).replace(/\/+$/, "");
+const baseUrl = (arg("base-url", "http://localhost:8094")).replace(/\/+$/, "");
 const db = arg("db");
 const out = arg("out");
 const tag = arg("tag", "report");

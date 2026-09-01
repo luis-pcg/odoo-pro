@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT_DIR/.env"
 
-CONTAINER="${ODOO_DEVELOPER}_v19"
+CONTAINER="${ODOO_DEVELOPER}_v20"
 DB_HOST="${DB_PORT_5432_TCP_ADDR:-odoo-db}"
 DB_PORT="${DB_PORT_5432_TCP_PORT:-5432}"
 DB_USER="${DB_ENV_POSTGRES_USER:-odoo}"

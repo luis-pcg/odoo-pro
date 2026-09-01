@@ -2,7 +2,7 @@
 // screenshots for each flow defined in a module's manual config.
 //
 // Usage:
-//   node capture.mjs --config=configs/<module>.json --base-url=http://localhost:8092 \
+//   node capture.mjs --config=configs/<module>.json --base-url=http://localhost:8094 \
 //        --db=<db> --login=admin --password=admin --out=<imgDir> [--headed]
 import { chromium } from "playwright";
 import { readFileSync, mkdirSync } from "node:fs";

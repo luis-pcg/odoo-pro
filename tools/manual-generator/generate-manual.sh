@@ -1,7 +1,7 @@
 #!/bin/bash
-# generate-manual.sh — Generador de manuales de usuario para Odoo Pro v19
+# generate-manual.sh — Generador de manuales de usuario para Odoo Pro v20
 #
-# 1. Crea una base limpia  test_v19_<modulo>
+# 1. Crea una base limpia  test_v20_<modulo>
 # 2. Instala el modulo (y sus dependencias)
 # 3. (opcional) Siembra datos de ejemplo con configs/<modulo>.seed.py
 # 4. Toma capturas de los flujos con Playwright (Chrome del sistema)
@@ -25,7 +25,7 @@ if [[ ! -f "$ROOT_DIR/.env" ]]; then
 fi
 source "$ROOT_DIR/.env"
 
-CONTAINER="${ODOO_DEVELOPER}_v19"
+CONTAINER="${ODOO_DEVELOPER}_v20"
 DB_HOST="${DB_PORT_5432_TCP_ADDR:-odoo-db}"
 DB_PORT="${DB_PORT_5432_TCP_PORT:-5432}"
 DB_USER="${DB_ENV_POSTGRES_USER:-odoo}"
@@ -60,7 +60,7 @@ EXTRA_MODULES="$(python3 -c "import json;print(','.join(json.load(open('$CONFIG'
 INSTALL_LIST="$MODULE"
 [[ -n "$EXTRA_MODULES" ]] && INSTALL_LIST="$MODULE,$EXTRA_MODULES"
 
-DB="test_v19_${MODULE}"
+DB="test_v20_${MODULE}"
 OUT_DIR="$ROOT_DIR/docs/manuals/${MODULE}"
 IMG_DIR="$OUT_DIR/img"
 
@@ -78,7 +78,7 @@ fi
 mkdir -p "$IMG_DIR"
 
 echo "======================================================"
-echo " Generador de manual — Odoo Pro v19"
+echo " Generador de manual — Odoo Pro v20"
 echo "======================================================"
 echo " Modulo     : $MODULE"
 echo " Base       : $DB"

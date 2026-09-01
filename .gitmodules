@@ -1,11 +1,11 @@
 [submodule "odoo-pro"]
 	path = odoo-pro
 	url = git@github.com:indexa-git/odoo-pro.git
-	branch = 19.0
+	branch = master
 [submodule "enterprise"]
 	path = enterprise
 	url = git@github.com:indexa-git/enterprise.git
-	branch = 19.0
+	branch = master
 [submodule "pyazul"]
 	path = pyazul
 	url = git@github.com:indexa-git/pyazul.git
@@ -15,4 +15,4 @@
 [submodule "odoo"]
 	path = odoo
 	url = git@github.com:odoo/odoo.git
-	branch = 19.0
+	branch = master
