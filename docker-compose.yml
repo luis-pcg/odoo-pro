@@ -1,6 +1,6 @@
 services:
   odoo:
-    container_name: "${ODOO_DEVELOPER}_v19"
+    container_name: "${ODOO_DEVELOPER}_v20"
     user: root
     build:
       context: .
