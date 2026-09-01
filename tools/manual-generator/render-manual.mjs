@@ -21,7 +21,7 @@ const lines = [];
 lines.push(`# ${config.title}`, "");
 lines.push(
     "> Manual generado con `tools/manual-generator`. Las capturas se regeneran " +
-        "ejecutando el generador contra una base `test_v19_<módulo>`.",
+        "ejecutando el generador contra una base `test_v20_<módulo>`.",
     ""
 );
 if (config.intro) {

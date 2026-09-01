@@ -1,7 +1,7 @@
-# Manual Generator — Odoo Pro v19
+# Manual Generator — Odoo Pro v20
 
 Genera manuales de usuario (capturas + `README.md`) para cualquier módulo de
-Odoo Pro v19, de forma reproducible. Crea una base limpia `test_v19_<módulo>`,
+Odoo Pro v20, de forma reproducible. Crea una base limpia `test_v20_<módulo>`,
 instala el módulo, opcionalmente siembra datos de ejemplo, navega la interfaz
 con Playwright (Chrome del sistema) y arma el manual en
 `docs/manuals/<módulo>/`.
@@ -10,7 +10,7 @@ con Playwright (Chrome del sistema) y arma el manual en
 
 - **Docker Desktop** corriendo y el contenedor de Odoo arriba:
   ```bash
-  docker-compose up -d        # contenedor ${ODOO_DEVELOPER}_v19
+  docker-compose up -d        # contenedor ${ODOO_DEVELOPER}_v20
   ```
 - **Node.js** (incluye `npm`). Playwright usa el **Google Chrome del sistema**
   (canal `chrome`), no descarga Chromium.

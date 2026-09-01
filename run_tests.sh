@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_tests.sh — Odoo Pro v19 Test Runner
+# run_tests.sh — Odoo Pro v20 Test Runner
 #
 # Instala todos los módulos en una DB y corre los tests módulo por módulo.
 #
@@ -19,8 +19,8 @@ if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
 fi
 source "$SCRIPT_DIR/.env"
 
-CONTAINER="${ODOO_DEVELOPER}_v19"
-TEST_DB="test_v19_report"
+CONTAINER="${ODOO_DEVELOPER}_v20"
+TEST_DB="test_v20_report"
 DB_HOST="${DB_PORT_5432_TCP_ADDR:-odoo-db}"
 DB_PORT="${DB_PORT_5432_TCP_PORT:-5432}"
 DB_USER="${DB_ENV_POSTGRES_USER:-odoo}"
@@ -50,7 +50,7 @@ mkdir -p "$LOG_DIR"
 
 # ─── Banner ──────────────────────────────────────────────────────────────────
 echo "======================================================"
-echo " Odoo Pro v19 — Test Runner"
+echo " Odoo Pro v20 — Test Runner"
 echo "======================================================"
 echo " Contenedor : $CONTAINER"
 echo " Test DB    : $TEST_DB"
