@@ -1,17 +1,29 @@
-# Odoo 20.0 development image.
+# Odoo 20.0 development image — tracks the `master` branch.
 #
-# Odoo has not branched 20.0 yet: the development series lives on `master`,
-# which currently reports itself as 19.5a1. There is therefore no `odoo:20.0`
-# image on Docker Hub, so this file reproduces the official odoo/docker 19.0
-# recipe (ubuntu:noble + wkhtmltopdf + postgresql-client + rtlcss) and installs
-# the master nightly .deb instead of a released one.
+# Odoo has not branched 20.0: the development series lives on `master`, and so
+# does every submodule of this environment (odoo, enterprise, odoo-pro and
+# odoo-pro/store-addons). There is no `odoo:20.0` image on Docker Hub, so this
+# file reproduces the official odoo/docker 19.0 recipe (ubuntu:noble +
+# wkhtmltopdf + postgresql-client + rtlcss) and installs the `master` nightly
+# .deb instead of a released one.
 #
-# To bump the core, pick a new build from
-#   http://nightly.odoo.com/master/nightly/deb/
-# and update ODOO_DEB_VERSION / ODOO_RELEASE / ODOO_SHA (the sha1 is published
-# in the `Packages` index of that same directory). Once Odoo cuts the real 20.0
-# branch, replace this whole file with `FROM odoo:20.0` plus the custom layers
-# at the bottom, matching dev_env_odoo_pro-19.
+# The .deb filename is NOT hardcoded: it is resolved from the `Packages` index
+# of http://nightly.odoo.com/master/nightly/deb/ at build time, together with
+# its sha1. That keeps the image on whatever master currently is without
+# pinning a version string that goes stale the moment master renames itself
+# from 19.5a1 to 20.0a1.
+#
+# Docker caches that layer, so a plain rebuild keeps the .deb it already has.
+# To move the core forward:
+#   docker compose build --no-cache-filter odoo   # take master's latest
+# To pin an exact nightly instead (both args required):
+#   docker compose build \
+#     --build-arg ODOO_DEB=odoo_19.5a1.20260901_all.deb \
+#     --build-arg ODOO_SHA=56598126bcde55865369743dad3190ac03665289
+#
+# Once Odoo publishes a real odoo:20.0 image, replace this whole file with
+# `FROM odoo:20.0` plus the Indexa layers at the bottom, matching
+# dev_env_odoo_pro-19.
 
 FROM ubuntu:noble
 LABEL maintainer="Odoo S.A. <info@odoo.com>"
@@ -85,13 +97,22 @@ RUN apt-get update && \
     && apt-get purge --autoremove -y npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Odoo (master == future 20.0, currently versioned 19.5a1)
+# Install Odoo from the master nightly build (master == the future 20.0)
 ENV ODOO_VERSION=master
-ARG ODOO_DEB_VERSION=19.5a1
-ARG ODOO_RELEASE=20260901
-ARG ODOO_SHA=56598126bcde55865369743dad3190ac03665289
-RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_DEB_VERSION}.${ODOO_RELEASE}_all.deb \
-    && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
+# Leave both empty to resolve master's current nightly; set both to pin one.
+ARG ODOO_DEB=
+ARG ODOO_SHA=
+RUN base="http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb" \
+    && deb="${ODOO_DEB}" && sha="${ODOO_SHA}" \
+    && if [ -z "${deb}" ]; then \
+        packages="$(curl -sSL "${base}/Packages")" \
+        && deb="$(printf '%s' "${packages}" | awk '/^Filename:/ {print $2}' | sed 's|^\./||' | tail -n1)" \
+        && sha="$(printf '%s' "${packages}" | awk '/^SHA1:/ {print $2}' | tail -n1)" \
+        && echo "resolved master nightly: ${deb} (sha1 ${sha})"; \
+    fi \
+    && [ -n "${deb}" ] && [ -n "${sha}" ] \
+    && curl -o odoo.deb -sSL "${base}/${deb}" \
+    && echo "${sha} odoo.deb" | sha1sum -c - \
     && apt-get update \
     && apt-get -y install --no-install-recommends ./odoo.deb \
     && rm -rf /var/lib/apt/lists/* odoo.deb
