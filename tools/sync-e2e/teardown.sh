@@ -1,15 +1,13 @@
 #!/bin/bash
-# Stop the two test servers. Add --drop-db to also delete the databases.
-
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 stop_servers
-echo "Servers stopped."
-
-for arg in "$@"; do
-  if [[ "$arg" == "--drop-db" ]]; then
-    drop_db "$MASTER_DB"
-    drop_db "$CLIENT_DB"
-    echo "Databases $MASTER_DB and $CLIENT_DB dropped."
-  fi
-done
+if [[ "${1:-}" == "--drop-db" ]]; then
+  drop_db "$MASTER_DB"
+  drop_db "$CLIENT_DB"
+  rm -f "$(dirname "${BASH_SOURCE[0]}")/creds.env"
+  echo "Databases dropped."
+else
+  echo "Servers stopped. Add --drop-db to remove the databases too."
+fi

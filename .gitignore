@@ -551,3 +551,5 @@ MigrationBackup/
 .ionide/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,vs,visualstudiocode
+# local e2e credentials (API keys)
+tools/sync-e2e/creds.env

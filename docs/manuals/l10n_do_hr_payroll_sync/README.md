@@ -1,430 +1,580 @@
 # Sincronización centralizada de parámetros de nómina — Manual
 
-> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v19_<módulo>`.
+> Manual generado con `tools/sync-manual`. Las capturas se rehacen levantando las tres instancias con `setup.sh` y ejecutando `generate.sh`.
 
-Módulo `l10n_do_hr_payroll_sync` (19.0.1.0.0). Distribuye los parámetros maestros de nómina RD desde una instancia **maestra** (PROGRESSA) hacia N instancias **cliente**, mediante una API REST versionada implementada como módulo Odoo 19.
+Este manual documenta **`l10n_do_hr_payroll_sync`** sobre tres bases Odoo 19 vivas hablando entre ellas por RPC:
 
-El mismo módulo se instala en ambos extremos; el ajuste **Rol de sincronización** decide cómo se comporta cada instancia. Sin rol configurado el módulo queda completamente inerte.
+| Instancia | Papel | Compañía | Qué tiene instalado | URL |
+|---|---|---|---|---|
+| **padre** | Maestra: distribuye | PROGRESSA (Casa Matriz) | `l10n_do_hr_payroll_sync` | `http://localhost:8101` |
+| **hija1** | Cliente: recibe | Distribuidora Acme, SRL | solo `l10n_do_hr_payroll` | `http://localhost:8102` |
+| **hija2** | Cliente: recibe | Ferretería Bella Vista, SRL | solo `l10n_do_hr_payroll` | `http://localhost:8103` |
 
-> Este manual tiene dos partes: **A) Guía de usuario final** (cómo operarlo desde la interfaz) y **B) Documentación técnica** (arquitectura, endpoints, seguridad, decisiones de diseño). Las capturas provienen de una base generada automáticamente con `tools/manual-generator`.
+**El problema.** Cuando la TSS sube un tope o la DGII publica una escala ISR nueva, hoy hay que entrar a cada base de cliente y editarlo a mano. Con veinte clientes son veinte oportunidades de equivocarse, y nadie sabe cuáles quedaron al día.
+
+**La solución.** Se edita una vez en el padre. Esa madrugada, un proceso central lee cada hija, compara y escribe solo lo que difiere.
+
+> **Lo que NO hace:** no sincroniza nómina. No viaja ningún dato de empleados, contratos, sueldos ni recibos. Solo parámetros legales. Y **nunca borra nada** en una hija.
+
+## Lo que hay que entender antes de seguir
+
+1. **Las hijas no instalan nada.** El módulo va solo en el padre, que escribe sobre los modelos de nómina que la hija ya tiene. No hay despliegue, ni versión que cuadrar, ni módulo que actualizar en veinte instancias.
+2. **No hay contraseñas nuevas.** Se reutilizan la URL, el usuario y la llave de API que el módulo `databases` ya guarda de cada instancia.
+3. **Un solo horario para toda la flota**, no uno por cliente: 2:30 de la madrugada, hora de República Dominicana.
+4. **El padre manda.** Lo que se edite a mano en una hija se sobrescribe en la siguiente ventana. No es retroactivo: hasta que corra, la hija usa lo que tenga.
+5. **Es una comparación, no un diario de cambios.** No hay cola ni eventos pendientes: cada noche se lee el estado de la hija y se corrige la diferencia. Por eso una hija que estuvo caída se pone al día sola, sin reintentar nada.
 
 ## Requisitos previos
 
-- Odoo 19 con `l10n_do_hr_payroll` 19.0.1.0.9 o superior instalado en ambos extremos
-- El módulo `l10n_do_hr_payroll_sync` instalado tanto en el maestro como en cada cliente
-- Conectividad HTTPS del maestro hacia cada cliente (modo push) o del cliente hacia el maestro (modo pull)
-- Un usuario con el grupo *Payroll Sync Administrator* (implícito para Administrador de ajustes)
+- El padre con `l10n_do_hr_payroll_sync` instalado, que arrastra `l10n_do_hr_payroll` y el módulo enterprise `databases`.
+- Cada hija dada de alta en **Bases de datos** con su URL, base, usuario y llave de API.
+- El usuario de esa llave, en la hija, con los grupos de administrador de nómina, configuración de nómina DO y ajustes técnicos.
+- La compañía de la hija con **República Dominicana** como país: los parámetros de reglas salariales están filtrados por el país de las compañías permitidas.
+- Conectividad del padre hacia cada hija. Al revés no hace falta: las hijas nunca llaman al padre.
+- HTTPS en producción: el módulo no lo exige por código, se garantiza en el proxy inverso.
 
-## Parte A — Guía de usuario final
+## Contenido
 
-Esta sección describe la operación diaria: cómo activar el rol, registrar clientes, publicar un cambio de parámetro y diagnosticar una entrega fallida.
+- Parte A — Puesta en marcha
+  - A1. El módulo, instalado en el padre
+  - A2. La hija no lo instala
+  - A3. Lo que sí hay que preparar en la hija
+  - A4. La flota de bases de datos en el padre
+  - A5. La ficha de una hija
+  - A6. Diagnosticar antes de encender nada
+  - A7. Qué se sincroniza: el registro de modelos
+  - A8. Una línea del registro por dentro
+  - A9. Ajustes de la flota
+- Parte B — El día a día
+  - B1. El tope actual en el padre
+  - B2. El mismo tope en la hija
+  - B3. Se edita en el padre y se previsualiza
+  - B4. Qué exactamente va a cambiar
+  - B5. La corrida de verdad
+  - B6. La hija 1, ya con el tope nuevo
+  - B7. Y la hija 2, igual
+  - B8. La escala del ISR
+  - B9. Lo que alguien tocó a mano en la hija se pierde
+- Parte C — Cuando algo sale mal
+  - C1. Una hija apagada
+  - C2. Vuelve, y a la noche siguiente se pone al día
+  - C3. Falta un permiso en la hija
+  - C4. Filas que solo existen en la hija
+  - C5. Un tramo nuevo que la hija deja actualizar pero no crear
+  - C6. La corrida deja constancia en su chatter
+  - C7. Y la ficha de la hija se entera también
+  - C8. Se otorga el permiso y el tramo entra solo
+  - C9. El historial completo
+- Parte D — Referencia
+  - D1. Cuánto cuesta una noche
+  - D2. Dónde se va el tiempo
+  - D3. Cómo se reconoce el mismo registro en dos bases
+  - D4. Seguridad
+  - D5. Cuatro cosas que conviene saber
+  - D6. Cómo se regenera este manual
+- Parte E — Por dentro
+  - E1. Las tres capas
+  - E2. `api.py` — el conector
+  - E3. `engine.py` — comparar y aplicar
+  - E4. Para qué sirve el corte
 
-## A1. Elegir el rol de la instancia
+## Parte A — Puesta en marcha
 
-**Nómina → Configuración → Ajustes → Payroll Parameter Synchronization.**
+El módulo se instala **solo en el padre**. Las hijas no reciben nada: se les escribe por RPC sobre sus modelos de nómina de siempre.
 
-El selector **Sync Role** define el comportamiento del módulo:
+Configurar una hija son tres cosas: una llave de API en la hija, la ficha de la base de datos en el padre, y un diagnóstico que confirme que el usuario remoto puede escribir.
 
-| Rol | Qué hace | Endpoints que expone |
-|---|---|---|
-| *Not synchronized* | Nada. El módulo queda inerte: no encola eventos y no atiende llamadas. | ninguno |
-| *Master* | Detecta cambios en los parámetros y los distribuye a los clientes registrados. | `/pull`, `/ack` |
-| *Client* | Recibe y aplica los parámetros que envía el maestro. | `/push` |
+## A1. El módulo, instalado en el padre
 
-Seleccionar el rol es el **único paso obligatorio**: mientras esté en *Not synchronized*, instalar el módulo no cambia absolutamente nada del comportamiento de la nómina.
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-**Push Immediately** (solo maestro) entrega el cambio justo después de guardarlo, en lugar de esperar al cron de 5 minutos. La entrega HTTP siempre corre **fuera** de la transacción del usuario, así que un cliente lento nunca bloquea el guardado.
+**Aplicaciones → buscar «Payroll Parameter Sync».**
 
-**Rate Limit** limita los requests entrantes por minuto y por credencial; `0` desactiva el límite.
+Arrastra dos dependencias: `l10n_do_hr_payroll` (de dónde salen los parámetros) y `databases` (de dónde salen las credenciales de cada instancia cliente).
 
-![A1. Elegir el rol de la instancia](img/01-ajustes-rol.png)
+![A1. El módulo, instalado en el padre](img/01-modulo-padre.png)
 
-## A2. Clientes registrados
+## A2. La hija no lo instala
 
-**Nómina → Configuración → Dominican legislation → Parameter Synchronization → Sync Clients.**
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
 
-Cada línea es una base Odoo que recibe los parámetros. La lista es el tablero de salud de la distribución:
+**Misma búsqueda en la hija.** El módulo aparece en el catálogo pero **no está instalado**, y así se queda.
 
-- **Pending / Retrying / Dead**: cuántos eventos esperan, cuántos reintentan y cuántos agotaron sus reintentos. Una columna *Dead* distinta de cero es lo único que exige intervención humana.
-- **Last Seen**: último intercambio exitoso con ese cliente.
-- **Status**: verde *Online*, rojo *Error*.
+Esto es lo que diferencia este diseño del anterior: no hay que desplegar, actualizar ni versionar nada en las instancias de los clientes. El padre escribe sobre `hr.rule.parameter`, `l10n.do.hr.retention.scale` y `l10n.do.occupational.risk.type`, que la hija ya tiene por `l10n_do_hr_payroll`.
 
-En el ejemplo, *Ferretería Duarte SRL* está al día y *Transporte Cibao SA* lleva 26 horas sin responder: sus eventos siguen en cola, ninguno se perdió.
+![A2. La hija no lo instala](img/02-hija-sin-modulo.png)
 
-![A2. Clientes registrados](img/02-clientes-lista.png)
+## A3. Lo que sí hay que preparar en la hija
 
-## A3. Ficha de un cliente y sus credenciales
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
 
-Cada emparejamiento maestro↔cliente usa **dos secretos distintos**, y esa separación es deliberada:
+**Ajustes → Usuarios → el usuario de la llave de API.**
 
-| Campo | Dirección | Cómo se guarda |
-|---|---|---|
-| **Inbound Key** | El cliente nos llama a `/pull` y `/ack` | Solo el hash (`pbkdf2_sha512`). No se puede recuperar: al generarla se muestra una sola vez. |
-| **Outbound Key** | Nosotros llamamos al `/push` del cliente | Recuperable, porque hay que enviarla en cada request. Restringida a usuarios de Ajustes. |
+El padre entra como un usuario cualquiera de la hija, así que ese usuario necesita permiso para escribir lo que se le va a enviar:
 
-**Puesta en marcha de un cliente nuevo:**
-
-1. En el **cliente**: Ajustes → *Generate inbound key*. Copiar la clave.
-2. En el **maestro**: crear el registro del cliente, pegar esa clave en **Outbound Key**.
-3. En el **maestro**: *Generate inbound key* en la ficha del cliente. Copiar.
-4. En el **cliente**: pegar esa clave en **Key for the Master** y llenar **Master URL**.
-5. **Test Connection** desde el maestro. Debe quedar en verde *Online*.
-6. **Full Resync** para la carga inicial: encola todos los parámetros de todos los modelos activos.
-
-**Target Company ID** indica en qué compañía del cliente aterrizan los parámetros con alcance por compañía. En `0`, el cliente usa su compañía por defecto.
-
-![A3. Ficha de un cliente y sus credenciales](img/03-cliente-form.png)
-
-## A4. El parámetro que se distribuye
-
-**Nómina → Configuración → Dominican legislation → Retention Scale.**
-
-Este es el caso de uso que justifica todo el módulo: cuando la DGII publica la escala ISR de un año nuevo, se edita **una sola vez aquí**, en el maestro, y el cambio viaja solo a todas las bases cliente.
-
-Guardar cualquiera de estas líneas encola un evento por cada cliente con *Push Enabled*. No hay que hacer nada más.
-
-Los otros parámetros que viajan por defecto:
-
-| Modelo | Alcance | Cómo se emparejan las bases |
-|---|---|---|
-| `l10n.do.hr.retention.scale` | Global | External ID (`l10n_do_hr_payroll.l10n_do_hr_retention_scale_N`) |
-| `l10n.do.occupational.risk.type` | Global | External ID (`l10n_do_hr_payroll.risk_type_N`) |
-| `l10n.do.hr.payroll.payment.division` | Por compañía | Clave natural (`name`) dentro de la compañía destino |
-
-`hr.salary.rule` y `hr.salary.rule.category` vienen **registrados pero archivados**: ver A7.
-
-![A4. El parámetro que se distribuye](img/04-escalas-origen.png)
-
-## A5. La cola de sincronización
-
-**Parameter Synchronization → Sync Queue**, agrupada por estado.
-
-Esta tabla es la cola de mensajes del sistema: vive en Postgres, no en un broker externo. El evento se escribe **en la misma transacción** que el cambio del parámetro, así que una edición que se revierte nunca deja un evento huérfano.
-
-| Estado | Significado |
+| Grupo | Para qué |
 |---|---|
-| **Pending** | Encolado, esperando entrega |
-| **Delivered** | El cliente confirmó que lo aplicó |
-| **Retrying** | Falló; hay un reintento programado con espera creciente |
-| **Dead letter** | Agotó los 5 reintentos. Requiere intervención |
-| **Cancelled** | Otra edición más nueva del mismo registro lo dejó obsoleto |
+| `hr_payroll.group_hr_payroll_manager` | Topes y tasas TSS |
+| `base.group_system` | La escala ISR rechaza cambiar su nombre y su secuencia a cualquier otro |
+| `l10n_do_hr_payroll.group_hr_payroll_manager_conf` | Riesgo laboral y divisiones de pago |
 
-**Retries** y **Next Retry At** muestran el backoff exponencial: 60s, 120s, 240s, 480s, 960s. Una ráfaga de ediciones sobre el mismo registro se colapsa en una sola entrega — los eventos viejos pasan a *Cancelled*.
+> El tercero **no** lo trae un administrador recién creado: hay que dárselo a mano.
 
-![A5. La cola de sincronización](img/05-cola.png)
+Además, la compañía de la hija debe tener **República Dominicana** como país. Los parámetros de reglas salariales están filtrados por el país de las compañías permitidas; sin país, el usuario remoto ve la tabla vacía y el padre intentaría crear todo de nuevo.
 
-## A6. Cola de mensajes muertos (dead letter)
+La llave de API se emite en *Preferencias → Seguridad de la cuenta → Nueva llave de API* y se muestra una sola vez.
 
-**Parameter Synchronization → Dead Letter Queue.**
+![A3. Lo que sí hay que preparar en la hija](img/03-permisos-hija.png)
 
-Lo único que exige atención humana. Un evento llega aquí tras agotar sus 5 reintentos; la columna **Error** dice por qué.
+## A4. La flota de bases de datos en el padre
 
-Dos causas típicas y su tratamiento:
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-| Error | Qué pasó | Qué hacer |
-|---|---|---|
-| `HTTP 0 - connection refused` | El cliente estuvo caído más tiempo que la ventana de reintentos | Verificar que el cliente responde (*Test Connection*), luego **Retry** |
-| `HTTP 500 - unique constraint violated` | El cliente rechazó el dato: choca con un registro suyo | Corregir el conflicto en el cliente y luego **Retry** |
+**Bases de datos → Bases de datos.**
 
-El botón **Retry** devuelve el evento a *Pending* y reinicia su presupuesto de reintentos. También se puede seleccionar varios y reintentarlos en lote.
+Cada instancia cliente es un registro aquí, con su URL, su base, su usuario y su llave de API. El módulo de sincronización no inventa credenciales: reutiliza estas.
 
-Los eventos muertos **no se purgan**: el cron de limpieza diaria borra los entregados y cancelados con más de 90 días, pero conserva los muertos como evidencia.
+![A4. La flota de bases de datos en el padre](img/04-flota.png)
 
-![A6. Cola de mensajes muertos (dead letter)](img/06-dead-letter.png)
+## A5. La ficha de una hija
 
-## A7. Detalle de un evento y su payload
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-Abrir un evento muestra exactamente qué se envió.
+**Abrir la base de datos → pestaña «Base de datos».**
 
-- **Reference**: la clave con la que el cliente localiza su propio registro. Para los modelos globales es el External ID que ambas bases comparten porque vino del mismo archivo de datos del módulo — por eso el emparejamiento entre bases es exacto y no depende de IDs numéricos, que no significan nada fuera de su base.
-- **Payload**: el JSON literal enviado. Contiene solo los campos de la lista blanca del modelo; `company_id`, los campos de auditoría y los campos con código Python nunca aparecen.
-- **Acked At**: momento en que el cliente confirmó explícitamente.
+Debajo de los campos que ya trae el módulo `databases` aparece el grupo **Parámetros de nómina**:
 
-![A7. Detalle de un evento y su payload](img/07-evento-detalle.png)
-
-## A8. Bitácora de sincronización
-
-**Parameter Synchronization → Sync Log.**
-
-Registro bidireccional de **todo** intercambio HTTP, incluidos los rechazados. Es la pista de auditoría del sistema.
-
-| Direction | Qué es |
+| Campo | Qué hace |
 |---|---|
-| **Outbound** | Llamadas que hicimos nosotros (push a un cliente, pull al maestro) |
-| **Inbound** | Llamadas que recibimos (un cliente hizo pull, envió un ack, o presentó una credencial inválida) |
+| **Sincronizar parámetros de nómina** | La casilla que mete esta base en la tarea nocturna. Apagada por defecto |
+| **Última sincronización de nómina** | Cuándo corrió por última vez |
+| **Estado de la última sincronización de nómina** | Éxito, parcial, error u omitida |
+| **Errores de sincronización de nómina** | Fallos consecutivos; a los 5 la tarea nocturna deja de tomarla |
 
-La fila en naranja con estado **Denied** y HTTP 403 es un intento de acceso con una credencial desconocida: se registra la IP de origen. Un patrón de *Denied* desde una misma IP es la señal de que alguien está probando claves.
+En la cabecera quedan **Sincronizar parámetros de nómina** y **Previsualizar diferencias de nómina** —junto al **Sincronizar** que ya trae el módulo `databases`—, y dentro del grupo, los botones **Diagnosticar** y **Registros**.
 
-![A8. Bitácora de sincronización](img/08-bitacora.png)
+![A5. La ficha de una hija](img/05-ficha-bd.png)
 
-## A9. Los secretos nunca llegan a la bitácora
+## A6. Diagnosticar antes de encender nada
 
-Al abrir la entrada *Denied* se ve el cuerpo del request que se intentó — con las credenciales **reemplazadas por `***` antes de guardarse**.
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-La redacción es recursiva y cubre las claves `api_key`, `x-api-key`, `password`, `remote_api_key` y `token` a cualquier nivel de anidación del JSON. Esto está verificado por prueba automatizada (`test_secrets_are_stripped_before_the_payload_is_stored`) y también por el escenario E2E, que consulta Postgres directamente para confirmar que la clave real no aparece en ninguna fila de la bitácora.
+**Botón «Diagnosticar».**
 
-> _(captura pendiente: ejecutar el generador)_
+Entra a la hija con la llave configurada y comprueba, modelo por modelo:
 
-## A10. Qué modelos se sincronizan
+- si el usuario remoto puede **escribir** y **crear**;
+- si a la hija le falta algún campo (versiones distintas del módulo de nómina);
+- si el usuario remoto **ve** los registros: compara las filas que ve contra las que el padre piensa enviar. Cero contra diecisiete significa que una regla de registro las está escondiendo, y sincronizar así crearía duplicados;
+- si tiene los grupos que hacen falta.
 
-**Parameter Synchronization → Synchronized Models.**
+El resultado queda guardado en el campo **Diagnóstico**, y los problemas salen además en un aviso. Es la forma segura de dar de alta una hija: no gasta llamadas todas las noches, se usa cuando se configura o cuando algo se rompe.
 
-El alcance de la sincronización es **configuración, no código**: agregar un parámetro nuevo a la distribución es activar una línea aquí, no programar.
+![A6. Diagnosticar antes de encender nada](img/06-diagnostico.png)
 
-| Columna | Qué controla |
-|---|---|
-| **Key Strategy** | Cómo el cliente encuentra su registro equivalente: por External ID o por clave natural |
-| **Company Scoped** | El registro lleva `company_id` y se resuelve dentro de la compañía destino del cliente |
-| **Allow Create** | El cliente puede crear el registro si no lo tiene |
-| **Allow Unlink** | Propagar borrados. **Apagado por defecto**: un borrado en el maestro eliminando parámetros de nómina en todas las bases rara vez es lo deseado |
-| **Allow Executable Fields** | Ver el aviso abajo |
+## A7. Qué se sincroniza: el registro de modelos
 
-> ⚠️ **`hr.salary.rule` viene archivado a propósito.** Sus reglas contienen `amount_python_compute`: distribuirlas significa **ejecutar código del maestro dentro de la base de cada cliente**. El interruptor *Allow Executable Fields* existe, pero activarlo es una decisión de seguridad consciente que exige que cada cambio en el maestro sea revisado. Con el interruptor apagado esos campos se filtran del payload aunque el modelo esté activo.
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-![A10. Qué modelos se sincronizan](img/10-modelos.png)
+**Bases de datos → Parámetros de nómina → Modelos sincronizados.**
 
-## A11. Configurar un modelo sincronizado
+Lo que viaja es **dato, no código**: se agregan modelos nuevos sin tocar el módulo.
 
-En la ficha de cada modelo se define la lista blanca de campos y la política del cliente.
-
-**Synchronized Fields** vacío significa *todos los campos almacenados y no relacionales*. Independientemente de lo que se ponga aquí, nunca viajan:
-
-- `id`, `create_uid`, `create_date`, `write_uid`, `write_date`, `display_name` — carecen de sentido fuera de su base;
-- `company_id` — lo resuelve el cliente contra su propia compañía destino, jamás se acepta el del maestro;
-- `amount_python_compute`, `condition_python`, `code` — salvo que se active explícitamente *Allow Executable Fields*.
-
-La lista blanca se aplica **en los dos extremos**: el cliente descarta cualquier campo que su propio registro no acepte, aunque el maestro lo haya enviado. Quien decide qué se guarda es el cliente, no el maestro.
-
-> _(captura pendiente: ejecutar el generador)_
-
-## Parte B — Documentación técnica
-
-Arquitectura, contrato de la API, modelo de seguridad y decisiones de diseño con su justificación.
-
-## Notas
-
-## B1. Arquitectura
-
-```
-┌──────────────────────── MAESTRO (PROGRESSA, Odoo 19) ─────────────────────────┐
-│                                                                               │
-│  l10n_do_hr_payroll          l10n_do_hr_payroll_sync                          │
-│  ┌────────────────────┐      ┌──────────────────────────────────────────┐     │
-│  │ retention.scale    │──┐   │ trigger mixin  create/write/unlink       │     │
-│  │ occupational.risk  │──┼──▶│      ↓ (misma transacción)               │     │
-│  │ payment.division   │──┘   │ sync.event   COLA DURABLE (Postgres)     │     │
-│  └────────────────────┘      │      ↓ post-commit  |  ir.cron 5 min     │     │
-│                              │ sync.client  ──HTTP POST /push──────────┐│     │
-│                              │ sync.log     auditoría bidireccional    ││     │
-│                              └─────────────────────────────────────────┼┘     │
-│  Controllers: /pull  /ack  /ping  /manifest  ◀──────────────────────┐  │      │
-└─────────────────────────────────────────────────────────────────────┼──┼──────┘
-                                                                      │  │
-                     ┌────────────────────────────────────────────────┴──▼──────┐
-                     │ CLIENTE (Odoo 19, mismo módulo, rol=client)              │
-                     │ Controllers: /push  /ping  /manifest                     │
-                     │ sync.service  → resuelve ref → ORM create/write          │
-                     │ ir.cron 1 h   → /pull de reconciliación                  │
-                     └──────────────────────────────────────────────────────────┘
-```
-
-Un solo módulo en ambos extremos. El rol decide el comportamiento y qué endpoints existen. Esto evita el *version skew* entre maestro y cliente: el serializador y el aplicador son literalmente el mismo código.
-
-## B2. Contrato de la API
-
-Prefijo `/api/v1/payroll-sync`. Todas las rutas son `type='http'`, `auth='none'`, `csrf=False`, `readonly=False`, cuerpo y respuesta JSON crudo.
-
-| Método | Ruta | Rol | Función |
+| Orden | Modelo | Se empareja por | Activo |
 |---|---|---|---|
-| `GET`/`POST` | `/ping` | ambos | Salud + validación de credencial |
-| `GET`/`POST` | `/manifest` | ambos | Versión de API y contrato de campos por modelo |
-| `POST` | `/push` | cliente | Recibe lote, aplica, devuelve veredicto por ítem |
-| `POST` | `/pull` | maestro | Devuelve cambios desde `since` + `checkpoint` |
-| `POST` | `/ack` | maestro | Confirmación explícita que cierra eventos |
+| 10 | Parámetros de reglas salariales | `code` | sí |
+| 20 | Valores de esos parámetros | `code` + fecha de inicio | sí |
+| 30 | Escala de retención ISR | `sequence` | sí |
+| 40 | Tipos de riesgo laboral | `name` | sí |
+| 50 | Divisiones de pago | `name`, por compañía | **no** |
 
-Pedir un endpoint del rol contrario devuelve **404**, no 403: una instancia no revela qué rol *no* tiene.
+Las divisiones de pago vienen registradas pero **archivadas** a propósito: su restricción única incluye el divisor, así que no impide dos filas para la misma frecuencia, y la compañía a la que pertenecen es dato del cliente. La nota de la línea explica los cuatro requisitos antes de encenderla.
 
-**Cuerpo de `/push`:**
+El orden importa: un valor no puede llegar antes que el parámetro del que cuelga.
 
-```json
-{
-  "version": "1.0",
-  "target_company_id": 1,
-  "items": [{
-    "event_id": 42,
-    "model": "l10n.do.hr.retention.scale",
-    "ref": "l10n_do_hr_payroll.l10n_do_hr_retention_scale_2",
-    "operation": "upsert",
-    "values": {"percent": 15.0, "base_amount": 416220.01}
-  }]
-}
-```
+![A7. Qué se sincroniza: el registro de modelos](img/07-modelos.png)
 
-**Respuesta** — un veredicto por ítem, que es lo que permite el reintento selectivo:
+## A8. Una línea del registro por dentro
 
-```json
-{"status":"ok","applied":1,"rejected":0,
- "results":[{"event_id":42,"status":"ok","message":"updated: percent"}],
- "version":"1.0"}
-```
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-Un ítem que el cliente no reporta **no** se da por entregado: se reintenta. El silencio no es éxito.
+**Abrir «Parámetros de reglas salariales».**
 
-**Códigos:** `200` procesado · `400` cuerpo inválido · `401` falta `X-API-Key` · `403` credencial inválida o cliente archivado · `404` endpoint no habilitado para el rol · `429` límite de tasa · `500` error interno (mensaje genérico, detalle solo en la bitácora).
-
-## B3. Seguridad
-
-| Control | Implementación |
+| Campo | Qué decide |
 |---|---|
-| Autenticación | Header `X-API-Key`, verificado con `KEY_CRYPT_CONTEXT` (`pbkdf2_sha512`), el mismo contexto que Odoo usa para sus propias API keys |
-| Comparación | `passlib.verify`, tiempo constante. La búsqueda del cliente recorre todos los activos para no filtrar por tiempo de respuesta qué prefijo existe |
-| Almacenamiento | Clave entrante: solo hash, irrecuperable. Clave saliente: recuperable por necesidad, con `groups="base.group_system"` |
-| Límite de tasa | Ventana deslizante por credencial, clave indexada por SHA-256 para no tener el secreto en memoria |
-| Tamaño de cuerpo | Rechazo por encima de 8 MiB antes de parsear |
-| Superficie de escritura | Lista blanca de modelos **y** de campos, aplicada en el cliente. Un `res.users` enviado por el maestro se rechaza |
-| Ejecución remota | Campos con código Python bloqueados salvo opt-in explícito y señalizado en la UI |
-| Auditoría | Toda llamada, aceptada o rechazada, en `sync.log` con IP de origen |
-| Redacción | Secretos sustituidos por `***` recursivamente antes de persistir el payload |
-| Aislamiento por compañía | `company_id` nunca viaja; lo fija el cliente contra su compañía destino |
+| **Campos sincronizados** | La lista blanca. Lo que no está aquí no sale de la maestra |
+| **Clave natural** | Cómo se encuentra el mismo registro en la otra base. Nunca por id |
+| **Claves de relación** | Cómo se resuelve un many2one: el país se busca por su código, no por su id |
+| **Dominio** | Filtro del lado del padre: aquí, solo los parámetros dominicanos |
+| **Dígitos de precisión** | Tolerancia al comparar decimales, para no reescribir por ruido de coma flotante |
+| **Permitir crear / actualizar** | Nunca hay «permitir borrar»: no existe |
+| **Permitir campos ejecutables** | Apagado. Los campos con código Python no viajan salvo que se pida |
 
-El aplicador corre como `SUPERUSER_ID`. Es necesario: `l10n.do.hr.retention.scale.write()` exige `base.group_system` para tocar `name` y `sequence`. La contrapartida es que la superficie de escritura queda acotada por la lista blanca del registro, no por ACLs — de ahí que la lista blanca sea el control de seguridad central y se aplique del lado del cliente.
+El emparejamiento es por **`code`**, no por ID externo, y es deliberado: un parámetro creado a mano en el padre no tiene ID externo, y nunca llegaría.
 
-## B4. Garantías de entrega
+![A8. Una línea del registro por dentro](img/08-modelo-detalle.png)
 
-El diseño original proponía RabbitMQ o `queue_job` de la OCA. **`queue_job` no está vendorizado en este repositorio** (verificado en `odoo-pro/`, `odoo/`, `enterprise/`, `OCA/`, `store-addons/`), así que introducirlo significaba una dependencia y una infraestructura nuevas.
+## A9. Ajustes de la flota
 
-En su lugar, la cola es una tabla Postgres más `ir.cron`, lo que da las mismas garantías:
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-| Garantía | Cómo |
+**Ajustes → Bases de datos.**
+
+| Ajuste | Para qué |
 |---|---|
-| Durabilidad | El evento se inserta en la transacción del cambio. Un rollback se lleva el evento |
-| At-least-once | El evento solo pasa a `sent` con confirmación explícita del cliente |
-| Backoff exponencial | `60s · 2^n`, tope 3600s, 5 reintentos |
-| Dead letter | Estado `dead` tras agotar reintentos, con botón *Retry* y sin purga automática |
-| Reconciliación | Cron horario de `pull` en el cliente: se recupera solo tras estar caído |
-| Colapso de ráfagas | Un evento pendiente para el mismo destino se cancela al llegar uno más nuevo |
-| Idempotencia | El emparejamiento por External ID / clave natural hace que reaplicar sea un no-op |
-| No bloqueo | La entrega corre en `postcommit`, fuera de la transacción del usuario |
+| **Modo simulación** | Deja la tarea nocturna corriendo e informando, pero sin escribir en ninguna hija. Red de seguridad después de un cambio delicado |
+| **Hilos en paralelo** | **Solo la tarea nocturna**: uno por servidor cliente, no por base, para que varias bases en un mismo servidor no lo inunden. Una sincronización lanzada a mano corre siempre en **un solo hilo**, porque ocurre en horario laboral sobre una instancia de producción |
+| **Límite de errores** | Fallos consecutivos antes de sacar una base de la tarea nocturna |
+| **Retención del historial** | Días de bitácora antes de la purga semanal |
 
-### Ventana de solapamiento del checkpoint
+El horario es **uno solo para toda la flota**, no por cliente: la tarea programada *Payroll Sync: distribute legal parameters* corre a las 06:30 UTC, o sea **2:30 de la madrugada** en República Dominicana.
 
-El `checkpoint` que devuelve `/pull` está deliberadamente **atrasado 300 segundos** respecto al reloj de la base. Motivo: `write_date` lleva el instante de **inicio** de la transacción, no el del commit. Una transacción abierta antes del pull y confirmada después quedaría con un `write_date` anterior al checkpoint y sería invisible para todos los pulls siguientes — una pérdida silenciosa de datos. Reenviar unos registros de más es gratis, porque aplicar es idempotente; perder uno no lo es.
+![A9. Ajustes de la flota](img/09-ajustes.png)
 
-Esto se detectó escribiendo la prueba `test_checkpoint_lags_the_clock_so_late_commits_are_not_lost`.
+## Parte B — El día a día
 
-## B5. Emparejamiento entre bases
+La TSS publica un tope nuevo. Se edita **una vez** en el padre y esa noche lo tienen las dos hijas.
 
-El problema difícil de sincronizar no es el transporte, es la identidad: un `id` numérico no significa nada en otra base.
+Lo que sigue está capturado en ese orden, sobre las tres bases vivas.
 
-| Estrategia | Cuándo | Cómo |
-|---|---|---|
-| **External ID** | El registro viene de un archivo de datos del módulo, así que ambas bases comparten el mismo XML ID | `env.ref('l10n_do_hr_payroll.l10n_do_hr_retention_scale_2')` |
-| **Clave natural** | El registro es por compañía y el XML ID solo apunta a una | Búsqueda por los campos clave dentro de la compañía destino |
+## B1. El tope actual en el padre
 
-Los Many2one viajan como referencia, no como FK:
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-```json
-"category_id": {"__model__": "hr.salary.rule.category",
-                "__ref__": "hr_payroll.BASIC",
-                "__label__": "Basic"}
-```
+**Nómina → Configuración → Parámetros de reglas salariales**, buscando `SFS_TOPE`.
 
-Si la referencia no resuelve en el cliente, **ese ítem falla** y los demás del lote se aplican igual: cada ítem corre en su propio savepoint.
+El tope de cotización del Seguro Familiar de Salud vigente desde el 1 de febrero de 2026.
 
-Un registro sin External ID resoluble se omite con un warning en el log del servidor, en lugar de enviarse y crear un duplicado en el cliente.
+![B1. El tope actual en el padre](img/11-parametro-antes-padre.png)
 
-## B6. Cambio en `l10n_do_hr_payroll`
+## B2. El mismo tope en la hija
 
-Se modificó un archivo del módulo de nómina, y el motivo importa:
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
 
-`data/l10n_do_hr_payroll_payment_division.xml` no tenía `noupdate="1"`. Sin esa marca, **cada upgrade del módulo restablecía las divisiones de pago a los valores semilla**, pisando tanto lo que una compañía hubiera ajustado a mano como lo que este módulo hubiera sincronizado.
+La hija tiene el mismo valor, pero porque lo trae el módulo de nómina que instaló, no porque nadie se lo haya enviado. Este es el punto de partida.
 
-- Se añadió `<data noupdate="1">`, que solo afecta a instalaciones nuevas.
-- Migración `migrations/19.0.1.0.9/post-migrate.py` que voltea el flag en las filas `ir_model_data` ya existentes.
-- Versión: `19.0.1.0.8` → `19.0.1.0.9`.
+![B2. El mismo tope en la hija](img/12-parametro-antes-hija.png)
 
-Verificado por `tools/sync-e2e/regression.sh` §2: se recrea el estado previo, se ajusta un valor a mano, se corre el upgrade y se comprueba que el valor **sobrevive**.
+## B3. Se edita en el padre y se previsualiza
 
-## B7. Validación ejecutada
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-| Suite | Alcance | Resultado |
-|---|---|---|
-| `--test-tags=/l10n_do_hr_payroll_sync` | 61 tests: registro, serializador, aplicación, cola/backoff/dead-letter, controladores HTTP (401/403/404/429/400) | **61 pasan, 0 fallan, 0 omitidos** |
-| `tools/sync-e2e/run-tests.sh` | 35 aserciones E2E entre **dos instancias Odoo reales** sobre HTTP real, verificando contra Postgres del cliente | **35 pasan, 0 fallan** |
-| `tools/sync-e2e/regression.sh` | 23 aserciones: migración, ISR idéntico antes/después, los 5 dependientes instalan, corrida de nómina completa, upgrade idempotente | **23 pasan, 0 fallan** |
+Se sube el tope a 240 000 en el padre y se pulsa **Previsualizar diferencias**.
 
-Los escenarios E2E cubren, sobre HTTP real: entrega push, parámetro con alcance por compañía, **cliente apagado a mitad de la prueba** con backoff y dead letter, recuperación con *Retry*, modo pull aislado, y las propiedades de seguridad (modelo no registrado rechazado, `res.users` intacto, clave ausente de la bitácora, reenvío idempotente).
+La simulación hace exactamente el mismo trabajo que la corrida real —lee cada hija, compara, arma el plan— y se detiene justo antes de escribir. La corrida queda marcada como **Simulación** y reporta un valor actualizado por hija.
 
-La no-regresión compara la huella ISR (`0.00, 0.00, 12567.00, 46350.20, 87995.25, 237995.25` para seis salarios anuales) antes de instalar el módulo, después de instalarlo y con los cinco dependientes instalados: **idéntica en los tres casos**. La corrida de nómina de cuatro empleados sigue dando los mismos importes que espera el escenario de referencia.
+![B3. Se edita en el padre y se previsualiza](img/13-previsualizacion.png)
 
-## B8. Dos hallazgos de Odoo 19 que valen documentar
+## B4. Qué exactamente va a cambiar
 
-1. **`auth='none'` implica `readonly=True`.** Desde 19.0, `odoo/http.py:974` hace `default_mode = routing.get('readonly', default_auth == 'none')`. Una ruta `auth='none'` recibe un cursor de solo lectura y cualquier `INSERT` revienta con `cannot execute INSERT in a read-only transaction`. Todas las rutas del módulo llevan `readonly=False` explícito. Lo detectó la suite de controladores.
-2. **`res.groups.category_id` ya no existe** y `<group expand="0">` dentro de `<search>` dejó de validar contra el RNG: los filtros de agrupación van sueltos en el `<search>` con `context="{'group_by': ...}"`.
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-## B9. Desviaciones respecto al documento de diseño
+**Abrir el registro de una hija dentro de la corrida.**
 
-| Documento | Implementado | Por qué |
-|---|---|---|
-| Odoo 17 | Odoo 19 | La rama es 19.0; `type='json'` está deprecado a favor de `type='jsonrpc'`, y para REST crudo corresponde `type='http'` |
-| Dos módulos (maestro + cliente) | Uno con rol | Serializador y aplicador compartidos: imposible que las puntas discrepen en el formato de cable |
-| Message queue (`queue_job`/RabbitMQ) | Cola Postgres + `ir.cron` | `queue_job` no está en el repositorio; la tabla da durabilidad, backoff y dead-letter sin infraestructura nueva |
-| Sincronizar `l10n.do.hr.payroll.days.division` | Excluido | Modelo **eliminado** en 19.0 (`upgrades/19.0.1.0.2/post-migrate.py:6,76-78`) |
-| Sincronizar `hr.salary.rule.l10n_do_is_news` / `l10n_do_type_news` | Excluido | Campos inexistentes en 19.0; solo sobreviven en SQL de migración 14.0/15.0 |
-| Sincronizar `res.company.l10n_do_ngo`, `l10n_do_occupational_risk_type_id` | Excluido | Es configuración de cada cliente, no dato maestro; sincronizarla pisaría decisiones locales |
-| `hr.salary.rule` en el alcance base | Registrado pero archivado | Distribuir `amount_python_compute` es ejecución remota de código en la base del cliente |
+El detalle es por registro: modelo, clave, operación y el cambio con **valor anterior y valor nuevo**. Solo se guardan las líneas que hacen algo —creado, actualizado, omitido, error, o presente solo en la hija—; los cuarenta y pico que ya coincidían se cuentan, no se listan.
 
-## B10. Operación
+Esta pantalla **es** la previsualización: no hace falta un asistente aparte.
 
-**Crones** (`ir.cron`, todos cortocircuitan si el rol no corresponde):
+![B4. Qué exactamente va a cambiar](img/14-detalle-previsualizacion.png)
 
-| Cron | Frecuencia | Rol | Qué hace |
-|---|---|---|---|
-| *deliver queued events* | 5 min | maestro | Drena la cola. Es la ruta de reintento; la ruta feliz es el flush post-commit |
-| *reconcile with master* | 1 h | cliente | `pull` de lo perdido mientras estuvo inalcanzable |
-| *purge old events and logs* | 1 día | ambos | Borra entregados/cancelados y bitácora con más de 90 días. **No toca los dead letter** |
+## B5. La corrida de verdad
 
-**Diagnóstico rápido:**
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
 
-| Síntoma | Dónde mirar |
+**Sincronizar parámetros de nómina** —o, sin que nadie haga nada, la tarea de las 2:30.
+
+Una corrida, dos hijas, un registro por hija. Cada una lleva su cuenta de creados, actualizados, sin cambios, solo en el cliente, errores, y **cuántas llamadas RPC costó**. Una noche en la que no cambió nada son cinco llamadas por hija.
+
+![B5. La corrida de verdad](img/15-sincronizar.png)
+
+## B6. La hija 1, ya con el tope nuevo
+
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
+
+Nadie entró a esta base. El valor cambió porque el padre lo escribió por RPC.
+
+![B6. La hija 1, ya con el tope nuevo](img/16-hija1-despues.png)
+
+## B7. Y la hija 2, igual
+
+**Instancia:** hija 2 · Ferretería Bella Vista, SRL — cliente, sin el módulo
+
+Misma edición, una sola vez, dos bases actualizadas. Con cincuenta clientes es la misma operación.
+
+![B7. Y la hija 2, igual](img/17-hija2-despues.png)
+
+## B8. La escala del ISR
+
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
+
+Cuando la DGII actualiza los tramos del ISR, cambian los montos **y el nombre del tramo**, que los lleva escritos. Se edita en el padre y llega igual.
+
+> Este es el modelo que exige `base.group_system` en el usuario remoto: la escala rechaza que cualquier otro le cambie el nombre o la secuencia. Si falta ese grupo, el diagnóstico lo dice y la corrida queda en *parcial*: el resto de los parámetros sí se aplican.
+
+![B8. La escala del ISR](img/18-escala-isr.png)
+
+## B9. Lo que alguien tocó a mano en la hija se pierde
+
+**Instancia:** hija 2 · Ferretería Bella Vista, SRL — cliente, sin el módulo
+
+Alguien en la hija 2 puso el riesgo laboral de la clase I en 9,99. En la siguiente ventana de sincronización el padre lo devuelve a 0,10.
+
+Es la regla acordada y no es retroactiva: mientras no corra la sincronización, el valor editado a mano es el que usa la nómina de esa hija. Cuando corre, gana el padre.
+
+![B9. Lo que alguien tocó a mano en la hija se pierde](img/19-sobrescribe.png)
+
+## Parte C — Cuando algo sale mal
+
+Cinco fallos que se ven en producción: una hija apagada, un permiso que falta, filas que solo existen en la hija, y el que más despista de todos —un registro **nuevo** que la hija deja actualizar pero no crear—. Ninguno detiene al resto de la flota, y todos quedan por escrito.
+
+## C1. Una hija apagada
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+Se apaga la hija 2 y se cambia otro tope. La corrida entrega a la hija 1 y marca la hija 2 en **error**, con el mensaje del fallo y el contador de errores en 1.
+
+El aislamiento es por hija y también por modelo: un modelo que falla no impide los demás, y la corrida queda en *parcial* en vez de en *error*.
+
+![C1. Una hija apagada](img/21-cliente-caido.png)
+
+## C2. Vuelve, y a la noche siguiente se pone al día
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+No hay nada que reintentar a mano: la sincronización no es un diario de cambios, es una comparación. La siguiente corrida lee lo que la hija tiene, ve que le falta el tope y lo escribe. El contador de errores vuelve a cero.
+
+Si una hija estuviera caída cinco noches seguidas, la tarea nocturna deja de tomarla hasta que alguien pulse **Reiniciar contador de errores**; así una base muerta no gasta la ventana de las demás.
+
+![C2. Vuelve, y a la noche siguiente se pone al día](img/22-recuperacion.png)
+
+## C3. Falta un permiso en la hija
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+Se le quita a la hija 1 el grupo de configuración de nómina y se cambia un porcentaje de riesgo laboral.
+
+La hija 1 queda en **parcial**: los parámetros de reglas salariales entraron, el riesgo laboral no. El detalle trae el error remoto tal cual, con el modelo y el registro que lo produjo, y el contador de errores sube. La hija 2, que sí tiene el grupo, queda en éxito.
+
+El campo **Mensaje** de la bitácora resume lo mismo sin abrir la pestaña de detalle, y cuando el modelo tiene un grupo remoto conocido añade una línea diciendo cuál otorgar.
+
+![C3. Falta un permiso en la hija](img/23-permisos-rotos.png)
+
+## C4. Filas que solo existen en la hija
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+Una hija puede tener, legítimamente, más filas que el padre: `l10n_do_hr_payroll_liquidation` siembra valores retro-datados de 2003 que el padre no conoce.
+
+Esas filas salen en el detalle como **Solo en el cliente** y **no se tocan nunca**. La sincronización crea y actualiza; no borra. Un parámetro que se elimine en el padre tampoco desaparece de las hijas: se queda y se reporta.
+
+![C4. Filas que solo existen en la hija](img/24-solo-en-cliente.png)
+
+## C5. Un tramo nuevo que la hija deja actualizar pero no crear
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+Este es el que cuesta ver, porque no parece un problema de permisos: la hija **sí** deja escribir la escala del ISR y **no** deja crearla.
+
+El padre pasa a hablarle a la hija 1 con un usuario de API realista —administrador de nómina y de configuración de nómina DO, sin ajustes técnicos— y se le agrega al padre un tramo nuevo, de los que publica la DGII cuando cambia la escala.
+
+La lista de control de acceso de `l10n_do_hr_payroll` le da a `hr_payroll.group_hr_payroll_manager` lectura y escritura sobre `l10n.do.hr.retention.scale`, pero **crear solo lo puede `base.group_system`**. El resultado: las correcciones de los tramos que ya existen entran sin problema y el tramo nuevo se rechaza.
+
+La bitácora lo dice en el **Mensaje**, con el error tal como lo redactó la hija y, debajo, el grupo que hay que otorgar. Antes esto solo quedaba en una línea del detalle y la hija volvía en *parcial* con el mensaje en blanco.
+
+![C5. Un tramo nuevo que la hija deja actualizar pero no crear](img/24b-escala-rechazada.png)
+
+## C6. La corrida deja constancia en su chatter
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+Cada corrida publica un mensaje en su propio chatter: cuántas hijas terminaron bien, a medias y mal, y para las que no terminaron bien, el error de cada una.
+
+Sirve para lo que se pidió en la reunión: enterarse de **qué cambios no se ejecutaron** sin ir a buscarlos base por base. Y como es un chatter de verdad, se le puede seguir, comentar y responder.
+
+![C6. La corrida deja constancia en su chatter](img/24c-chatter-corrida.png)
+
+## C7. Y la ficha de la hija se entera también
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+**Bases de datos → la ficha de la hija.**
+
+La misma entrega deja una nota en el chatter de la base cliente, así que el fallo queda sobre el registro del cliente y no solo dentro de una corrida que hay que ir a buscar.
+
+Solo se anota lo que hay que leer: una simulación no escribe nada, y una noche en la que la hija terminó en éxito tampoco. Si se anotara cada noche, la nota que importa quedaría enterrada.
+
+![C7. Y la ficha de la hija se entera también](img/24d-chatter-hija.png)
+
+## C8. Se otorga el permiso y el tramo entra solo
+
+**Instancia:** hija 1 · Distribuidora Acme, SRL — cliente, sin el módulo
+
+No hay nada que reintentar a mano ni ninguna cola que vaciar. Se le devuelve al padre un usuario remoto que sí puede crear, corre la siguiente entrega, y el tramo aparece en la hija.
+
+**Nómina → Configuración → Escala de retención**, en la hija: los cuatro tramos de siempre más el nuevo, escrito por RPC sin que nadie entre a esta base.
+
+![C8. Se otorga el permiso y el tramo entra solo](img/24e-escala-entra.png)
+
+## C9. El historial completo
+
+**Instancia:** padre · PROGRESSA (Casa Matriz) — maestra, con el módulo
+
+**Bases de datos → Parámetros de nómina → Corridas de sincronización.**
+
+Una fila por noche —o por botón—, con cuántas hijas terminaron bien, cuántas a medias y cuántas mal. Las simulaciones salen atenuadas. Una tarea semanal borra lo que pase de 90 días.
+
+![C9. El historial completo](img/25-corridas.png)
+
+## Parte D — Referencia
+
+El camino completo, de la edición en el padre a la escritura en la hija.
+
+![Parte D — Referencia](img/26-arquitectura.png)
+
+## D1. Cuánto cuesta una noche
+
+Con la semilla puesta, una hija que ya está al día cuesta **cinco llamadas**:
+
+| # | Llamada |
 |---|---|
-| Un cliente no recibe nada | Ficha del cliente → *Test Connection*; revisar *Push Enabled* |
-| Eventos acumulados en *Pending* | ¿Está corriendo el cron? ¿`max_cron_threads > 0` en la conf? |
-| Eventos en *Retrying* | Columna *Error* del evento; suele ser red o TLS |
-| Eventos en *Dead letter* | *Error* dice la causa. Corregir en el cliente y **Retry** |
-| `403` en la bitácora del cliente | La *Outbound Key* del maestro no coincide con la *inbound* del cliente. Regenerar y volver a emparejar |
-| Un parámetro no viaja | *Synchronized Models*: ¿la línea está activa? ¿el campo está en la lista blanca? |
+| 1 | Leer los parámetros de reglas salariales por su `code` |
+| 2 | Resolver el país (una vez por corrida, se reutiliza) |
+| 3 | Leer los valores de esos parámetros |
+| 4 | Leer la escala ISR completa |
+| 5 | Leer los tipos de riesgo laboral |
 
-**Entorno de pruebas reproducible** — levanta dos instancias reales y las empareja solo:
+Si hay cambios se suma **una** creación por modelo, con todas las filas nuevas juntas, y una escritura por grupo de registros que cambian igual. La actualización anual típica de la TSS —tres parámetros y tres valores— son seis llamadas.
+
+Por eso no se escribe registro a registro: cada llamada RPC es su propia transacción en la hija, y escribir de a uno multiplica los fallos parciales y limpia la caché del cliente una vez por fila, en plena madrugada.
+
+## D2. Dónde se va el tiempo
+
+Medido con `cProfile` sobre el banco de pruebas, con una hija ya al día, el registro de Odoo caliente y las dos bases en la misma red:
+
+| Fase | Por hija |
+|---|---|
+| **Las 5 llamadas RPC** | 18,6 ms — **73 %** |
+| Contabilidad ORM: bitácora, detalle, estado de la base | 6,7 ms |
+| **Total** | 25,4 ms |
+
+Armar el paquete de datos —leer los cuatro modelos del padre y serializarlos— cuesta **3 ms y se hace una sola vez por corrida**, no por hija: con cien clientes sigue costando 3 ms.
+
+O sea que el tiempo es **latencia de red, no cálculo**. En el banco cada llamada tarda 4 ms porque las dos bases se hablan por la red interna de Docker; contra un cliente real por HTTPS cada llamada cuesta un viaje de ida y vuelta, y **antes** de eso el saludo TCP y el de TLS. Ahí es donde se van los segundos que se ven al sincronizar una sola hija a mano.
+
+Por eso la conexión se abre **una sola vez por hija** y se reutiliza para las cinco llamadas, en vez de abrir una por llamada. Contra un cliente detrás de nginx o en odoo.sh son cuatro saludos TCP+TLS menos por hija y por corrida: a 40 ms de latencia, entre 320 y 480 ms menos por cliente, y más de medio minuto por noche con cien clientes. Contra un servidor de desarrollo, que responde `Connection: close`, no cambia nada y nada se rompe.
+
+Dos cosas que conviene tener presentes al crecer la flota:
+
+- **Un hilo por servidor cliente, no por base.** Si cincuenta bases viven en el mismo servidor, se entregan una detrás de otra en el mismo hilo. Es deliberado —no se inunda un servidor ajeno—, pero significa que esa noche dura la suma de las cincuenta, no la más lenta.
+- **La resolución de nombres es un prólogo en serie.** Antes de empezar se resuelve el DNS de cada cliente, uno por uno, para agruparlos por servidor. Con miles de bases ese prólogo se nota.
+
+Y la sincronización lanzada **a mano** corre siempre en **un solo hilo**: ocurre en horario laboral sobre una instancia de producción, y quien pulsó el botón espera la respuesta de todos modos. Los hilos en paralelo son de la tarea nocturna, que tiene la madrugada entera para repartirse.
+
+## D3. Cómo se reconoce el mismo registro en dos bases
+
+Nunca viaja un id de Postgres. Cada modelo declara su **clave natural**:
+
+| Modelo | Clave | Por qué esa |
+|---|---|---|
+| Parámetros de reglas salariales | `code` | Ya es único a nivel de base de datos en ambos lados |
+| Valores de parámetros | `code` + fecha de inicio | Es exactamente la restricción única del modelo |
+| Escala ISR | `sequence` | El número de tramo; los montos y el nombre son lo que cambia |
+| Riesgo laboral | `name` | Las clases I a IV |
+
+Si dos filas de la hija comparten la misma clave, esa fila se **salta** y se registra el conflicto con los ids remotos. Nunca se adivina.
+
+Los many2one se resuelven en destino: el país por su código, y el parámetro padre de un valor por el `code` que ya se resolvió en la pasada anterior —de ahí que el orden del registro importe.
+
+## D4. Seguridad
+
+- **Ninguna contraseña nueva.** Se usan las llaves de API que el módulo `databases` ya guarda, y que solo un administrador de la flota puede ver.
+- **Nada se escribe en el registro sin permiso de administrador de flota**: quien decide qué se escribe en bases de terceros es ese rol.
+- **Bitácoras filtradas**: un usuario de flota solo ve las bitácoras de las bases donde tiene cuenta.
+- **Secretos tachados en el punto de captura**, no al mostrarlos: un error de autenticación por XML-RPC puede traer la llave dentro del mensaje, así que se limpia antes de guardarla.
+- **Los campos con código Python no viajan** salvo que se marque explícitamente la casilla en la línea del registro.
+
+## D5. Cuatro cosas que conviene saber
+
+**1. Un `-u l10n_do_hr_payroll` en una hija revierte lo sincronizado.** Los archivos de datos de los parámetros de reglas salariales y de las divisiones de pago no llevan `noupdate`, así que actualizar el módulo reescribe los valores de la semilla. La noche siguiente lo corrige y queda en la bitácora, pero conviene sincronizar a mano después de una actualización.
+
+**2. Las divisiones de pago están apagadas.** Están registradas y a un clic, pero la nota de la línea lista los cuatro requisitos antes de encenderlas: dependen de la compañía, su restricción única no impide duplicados por frecuencia, no son un parámetro legal publicado por el Estado, y las revierte cualquier actualización del módulo de nómina en la hija.
+
+**3. La escala del ISR necesita ajustes técnicos en la hija para *crear*.** Escribir sobre los tramos que ya existen le basta con el grupo de administrador de nómina; crear un tramo nuevo lo exige `base.group_system`. Es la trampa de la sección C5: todo parece funcionar hasta que la DGII publica una escala con un tramo más. **Diagnosticar** lo detecta antes de la primera corrida.
+
+**4. Una hija cargada de addons de terceros puede rechazar las creaciones, y el módulo lo resuelve solo.** Un addon instalado en la hija que reescriba el método `create` con otro nombre de argumento deja ese modelo inalcanzable por el transporte moderno; en la bitácora se leía como `missing a required argument: 'vals'`. El conector lo reconoce y reintenta esa llamada por el transporte viejo, que no depende del nombre —ver E2—. No hay nada que configurar ni que tocar en la hija: solo aparece una llamada RPC de más la primera vez que ese modelo se crea.
+
+## D6. Cómo se regenera este manual
 
 ```bash
-tools/sync-e2e/setup.sh       # dos BD + dos servidores + credenciales
-tools/sync-e2e/run-tests.sh   # 35 escenarios E2E sobre HTTP real
-tools/sync-e2e/regression.sh  # 23 aserciones de no-regresión
-tools/sync-e2e/teardown.sh --drop-db
+tools/sync-manual/setup.sh      # crea las tres bases y las empareja
+tools/sync-manual/generate.sh   # captura las pantallas y arma este README
+tools/sync-manual/teardown.sh   # baja los tres contenedores
 ```
 
-## B11. Archivos
+Las pruebas del módulo van aparte:
 
-```
-odoo-pro/l10n_do_hr_payroll_sync/
-├── models/
-│   ├── sync_model.py       registro: qué modelos/campos viajan y cómo se emparejan
-│   ├── sync_client.py      instancias destino, credenciales, HTTP saliente
-│   ├── sync_event.py       cola durable: estados, backoff, dead letter
-│   ├── sync_log.py         auditoría bidireccional con redacción de secretos
-│   ├── sync_service.py     serialización, resolución de referencias, aplicación, pull
-│   ├── sync_trigger.py     mixin create/write/unlink sobre los modelos maestros
-│   └── res_config_settings.py   rol y credenciales
-├── controllers/main.py     REST: auth, rate limit, auditoría, ping/manifest/push/pull/ack
-├── tests/                  61 tests
-├── security/  views/  data/
-
-odoo-pro/l10n_do_hr_payroll/
-├── data/l10n_do_hr_payroll_payment_division.xml   + noupdate="1"
-├── migrations/19.0.1.0.9/post-migrate.py          voltea el flag en bases existentes
-└── __manifest__.py                                19.0.1.0.8 → 19.0.1.0.9
-
-tools/sync-e2e/             entorno de pruebas maestro↔cliente
+```bash
+odoo -d <base> --test-tags /l10n_do_hr_payroll_sync --stop-after-init   # 55 unitarias
+tools/sync-e2e/run-tests.sh                                            # 36 comprobaciones e2e
+tools/sync-e2e/regression.sh                                           # 27 de regresión de nómina
 ```
 
+## Parte E — Por dentro
+
+Esta parte es para quien va a mantener el módulo. El resto del manual se puede leer sin ella.
+
+Todo el módulo vive en la maestra y se reparte en tres capas: los **modelos**, que son la parte Odoo de siempre; el **motor** (`engine.py`), que decide qué escribir; y el **conector** (`api.py`), que sabe hablarle a otra base de datos.
+
+## E1. Las tres capas
+
+| Capa | Dónde corre | De qué sabe |
+|---|---|---|
+| `models/` | proceso principal, con ORM | qué se sincroniza, permisos, bitácora, estados de cada base |
+| `engine.py` | hilo trabajador, sin ORM | cómo comparar y en qué orden escribir |
+| `api.py` | hilo trabajador, sin ORM | cómo hablarle a la base cliente |
+
+El corte no es decorativo: la sincronización nocturna abre un hilo por servidor cliente, y dentro de un hilo **no se puede tocar el ORM** —el cursor pertenece al hilo principal—. Por eso el proceso principal serializa una sola vez todo lo que hay que enviar (`_build_payload`, datos planos: diccionarios, listas, strings) y los hilos trabajan sobre eso, sin volver a la base de la maestra.
+
+## E2. `api.py` — el conector
+
+Un cliente RPC por base de datos cliente. Hereda de `OdooDatabaseApi`, el conector del módulo enterprise `databases`, así que reutiliza las credenciales de la ficha, la autenticación y el mecanismo de reintento que ya venían probados. Solo agrega las seis operaciones que el motor necesita: `search_read`, `create`, `write`, `fields_get`, `has_access` y `has_group`. Ni una línea de nómina.
+
+Cinco cosas que aporta por encima del conector base:
+
+- **Dos transportes, uno solo visible.** Primero `POST /json/2/<modelo>/<método>` con la llave de API en la cabecera `Authorization: Bearer`. Si el cliente contesta una redirección o un 404 —un Odoo más viejo, que no tiene ese endpoint— la llamada se repite tal cual por XML-RPC. El resto del módulo no se enteró de cuál de los dos se usó.
+- **Y un segundo motivo para cambiar de transporte.** `/json/2` arma la llamada por nombre de argumento, contra la firma que el modelo declara *en el cliente*. Basta con que un addon instalado allá reescriba `create(self, vals)` —varios de tienda lo hacen, y alguno sobre el modelo `base`, o sea sobre todos los modelos a la vez— para que ningún nombre sirva: el declarado revienta la llamada y el real no pasa la validación. XML-RPC entrega el contenido por posición y no depende de cómo se llame el argumento, así que el conector reintenta esa llamada por ahí. Se acuerda del modelo y del método, de modo que el resto de la corrida va directo y no vuelve a gastar el intento fallido. Lo demás —leer, `fields_get`— sigue por `/json/2`.
+- **Tiempos de espera separados**: 30 segundos para leer, 120 para escribir. Una escritura grande sobre una hija lenta no debe morir con el mismo reloj que una lectura. XML-RPC no trae tiempo de espera propio, así que el módulo le pone uno a mano.
+- **Cuenta las llamadas**, sumando los dos transportes. De ahí sale el campo **Llamadas RPC** de la bitácora y el «cinco llamadas por noche sin cambios» de la sección D1.
+- **Una sola conexión por hija.** El conector base abre una conexión nueva en cada llamada; este mantiene una sesión HTTP viva mientras dura la entrega y la cierra al terminar. Contra un cliente por HTTPS eso son cuatro saludos TCP y TLS menos por hija y por corrida —ver D2—.
+
+## E3. `engine.py` — comparar y aplicar
+
+Python puro sobre diccionarios: entra el paquete de datos que armó la maestra más un conector, y sale un resultado plano con los contadores y el detalle. No importa nada de Odoo salvo la excepción `ApiError`.
+
+Por cada modelo del registro, en orden de secuencia:
+
+1. **Indexar la hija.** Se lee del cliente lo que hace falta y se indexa por clave natural. Si dos filas del cliente comparten la misma clave, esa clave queda marcada como ambigua y sus registros se reportan como error, con los ids remotos: nunca se adivina cuál de las dos era.
+2. **Resolver las relaciones.** Un many2one no puede viajar como id. El país se busca por su código; el parámetro del que cuelga un valor se busca por la clave que ya se resolvió en la pasada anterior —de ahí que el orden del registro importe—. Si no hay contraparte, ese registro sale con un error de resolución y los demás siguen.
+3. **Armar el plan.** Cada registro cae en una de cinco cajas: crear, escribir, omitir, error, o presente solo en el cliente. La comparación normaliza antes: los flotantes se redondean a los dígitos de precisión de la línea y los espacios en blanco se colapsan, para no reescribir por ruido.
+4. **Limpiar lo que la hija no entiende.** Si un campo de selección lleva un valor que en el cliente no existe, se quita ese campo y se reporta; la fila entra igual con el resto de sus valores.
+5. **Aplicar.** Una sola llamada `create` con todas las filas nuevas juntas, y una `write` por grupo de registros que cambian igual. Si el lote choca con un error de integridad —clave duplicada, restricción única— se reintenta fila por fila para aislar la culpable en vez de perder el lote entero.
+
+Dos decisiones que se notan al leer el código:
+
+- **Los errores viajan como códigos, no como frases.** El hilo no tiene entorno, así que no puede traducir: devuelve `module_missing`, `create_disabled`, `ambiguous`… y la capa ORM los convierte en una oración en el idioma de quien lee la bitácora. Lo que venga del cliente se pasa tal cual, porque ya viene redactado por él.
+- **Un modelo sin nada que enviar no cuesta una llamada.** Si el padre no tiene ni una fila de ese modelo, se salta: leer la tabla remota entera solo serviría para reportar cada una de sus filas como «solo en el cliente». La excepción es la casilla *Leer toda la tabla remota*, que es exactamente pedir lo contrario.
+- **No existe el borrado.** El plan tiene cajas para crear, escribir y omitir; ninguna para eliminar. Lo que solo está en la hija se cuenta y se reporta, y ahí se queda.
+
+## E4. Para qué sirve el corte
+
+Separar las tres capas es lo que permite probarlo casi todo sin una segunda instancia:
+
+- el **motor** se prueba con un conector falso en memoria, sin red y sin base cliente;
+- la **capa ORM** se prueba con el motor simulado, verificando estados, contadores y permisos;
+- el **conector** es lo único que necesita una base de verdad enfrente, y eso lo cubre el banco de pruebas de extremo a extremo.
+
+Y es lo que permite agregar un modelo nuevo al registro sin escribir código: el motor no conoce `hr.rule.parameter` ni la escala del ISR, solo especificaciones que le llegan como datos.
+
+---
+
+_Manual generado desde tres instancias reales con `tools/sync-manual/generate.sh`. Las capturas se rehacen levantando el entorno con `setup.sh` y volviendo a ejecutarlo._

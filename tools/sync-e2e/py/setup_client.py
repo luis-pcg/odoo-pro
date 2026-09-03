@@ -1,19 +1,20 @@
-"""Configure sync_client as a sync client and mint its inbound key.
+# Prepares the client database: no sync module, only the payroll localisation,
+# an admin holding the groups the remote writes need, and an API key.
+import json
 
-Run through `odoo shell`. Prints `KEY=<secret>` on stdout for the caller to
-capture; the master needs it to authenticate its push calls.
-"""
+args = json.load(open("/tmp/sync_e2e_args.json"))
+admin = env.ref("base.user_admin")
+groups = [
+    "base.group_system",
+    "hr_payroll.group_hr_payroll_manager",
+    "l10n_do_hr_payroll.group_hr_payroll_manager_conf",
+]
+admin.write({"group_ids": [(4, env.ref(xmlid).id) for xmlid in groups]})
 
-import secrets
-
-from odoo.addons.base.models.res_users import KEY_CRYPT_CONTEXT
-
-key = secrets.token_urlsafe(24)
-params = env["ir.config_parameter"].sudo()  # noqa: F821 - provided by odoo shell
-params.set_param("l10n_do_payroll_sync.role", "client")
-params.set_param("l10n_do_payroll_sync.inbound_api_key_hash", KEY_CRYPT_CONTEXT.hash(key))
-params.set_param("l10n_do_payroll_sync.rate_limit_per_minute", 1000)
-params.set_param("l10n_do_payroll_sync.target_company_id", str(env.company.id))  # noqa: F821
-env.cr.commit()  # noqa: F821
-
-print("KEY=" + key)
+# hr.rule.parameter is filtered by the country of the allowed companies
+# (hr_payroll ir_rule_hr_payroll_paramater_multi_company). Without this the
+# remote user sees an empty table and the sync would duplicate everything.
+env.company.country_id = env.ref("base.do")
+key = env["res.users.apikeys"].with_user(admin).sudo()._generate(None, args.get("name", "payroll sync e2e"), False)
+env.cr.commit()
+print("KEY=%s" % key)

@@ -1,257 +1,155 @@
 #!/bin/bash
-# End-to-end scenarios for the payroll parameter sync.
+# End to end scenarios. Every assertion reads the client database with psql,
+# never the response of the sync itself.
 #
-# Everything here goes over real HTTP between two live Odoo instances and is
-# verified by reading the client's Postgres rows directly -- never by trusting
-# the API's own success report.
-#
-# Requires tools/sync-e2e/setup.sh to have run first.
-
+# The scenarios mutate both databases, so the bench is rebuilt first. Pass
+# --no-setup to replay them against the bench as it currently stands.
+set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[[ "${1:-}" == "--no-setup" ]] || "$HERE/setup.sh" >/dev/null
 source "$HERE/lib.sh"
 source "$HERE/creds.env"
 
 PASS=0
 FAIL=0
-FAILED_NAMES=()
+ok() { echo "  ok   $1"; PASS=$((PASS + 1)); }
+ko() { echo "  FAIL $1"; echo "       $2"; FAIL=$((FAIL + 1)); }
+check() { if [[ "$2" == "$3" ]]; then ok "$1"; else ko "$1" "expected [$2] got [$3]"; fi; }
 
-ok()   { PASS=$((PASS+1)); printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
-ko()   { FAIL=$((FAIL+1)); FAILED_NAMES+=("$1"); printf '  \033[31mFAIL\033[0m  %s\n     %s\n' "$1" "$2"; }
-head2() { printf '\n\033[1m%s\033[0m\n' "$1"; }
-
-assert_eq() {
-  # assert_eq <name> <expected> <actual>
-  if [[ "$2" == "$3" ]]; then ok "$1"; else ko "$1" "expected '$2', got '$3'"; fi
+sync() {
+  put_args "$(printf '{"project_id": %s, "dry_run": %s}' "$PROJECT_ID" "${1:-false}")"
+  RESULT="$(run_py "$MASTER_DB" sync_now.py | sed -n 's/^RESULT=//p' | tail -1)"
 }
-assert_ne() {
-  if [[ "$2" != "$3" ]]; then ok "$1"; else ko "$1" "expected something other than '$2'"; fi
-}
-assert_contains() {
-  if [[ "$3" == *"$2"* ]]; then ok "$1"; else ko "$1" "'$2' not found in: $3"; fi
-}
+field() { python3 -c "import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]])" "$RESULT" "$1"; }
+master() { put_args "$1"; run_py "$MASTER_DB" edit_master.py >/dev/null; }
+client() { put_args "$1"; run_py "$CLIENT_DB" edit_client.py >/dev/null; }
+reset_errors() { put_args "$(printf '{"project_id": %s}' "$PROJECT_ID")"; run_py "$MASTER_DB" reset_errors.py >/dev/null; }
+restart_client() { docker restart "$CLIENT_NAME" >/dev/null; wait_http "$CLIENT_URL" >/dev/null; }
+param_value() { psql_q "$CLIENT_DB" "SELECT v.parameter_value FROM hr_rule_parameter_value v JOIN hr_rule_parameter p ON p.id = v.rule_parameter_id WHERE p.code = '$1' AND v.date_from = '$2'"; }
 
-api() {
-  # api <base-url> <path> <api-key> [json-body]  -> "<http_code>|<body>"
-  local url="$1" path="$2" key="$3" body="${4-}"
-  [[ -z "$body" ]] && body='{}'
-  curl -sS -m 30 -o /tmp/_sync_body -w '%{http_code}' \
-    -X POST "${url}/api/v1/payroll-sync${path}" \
-    -H 'Content-Type: application/json' \
-    -H "X-API-Key: ${key}" \
-    --data "$body" 2>/dev/null
-  printf '|'
-  cat /tmp/_sync_body
-}
+echo "== 1. A freshly installed client is already in sync =="
+sync
+check "state is success" "success" "$(field state)"
+check "nothing is created" "0" "$(field created)"
+check "nothing is written" "0" "$(field updated)"
+check "everything matched" "42" "$(field unchanged)"
+check "five RPC calls" "5" "$(field rpc_calls)"
+check "no duplicate parameter appeared" "17" "$(psql_q "$CLIENT_DB" "SELECT count(*) FROM hr_rule_parameter")"
 
-http_code() { printf '%s' "${1%%|*}"; }
-http_body() { printf '%s' "${1#*|}"; }
+echo "== 2. A record missing on the client is created =="
+client '{"action": "drop_risk_type", "name": "IV"}'
+sync
+check "one risk class created" "1" "$(field created)"
+check "the client has the four classes back" "4" "$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_occupational_risk_type")"
+check "with the legal rate" "0.30" "$(psql_q "$CLIENT_DB" "SELECT round(percentage::numeric, 2) FROM l10n_do_occupational_risk_type WHERE name = 'IV'")"
 
-# Values read straight out of each database, bypassing the API.
-client_scale_percent() {
-  psql_q "$CLIENT_DB" "SELECT round(percent::numeric, 4) FROM l10n_do_hr_retention_scale s
-    JOIN ir_model_data d ON d.res_id = s.id AND d.model = 'l10n.do.hr.retention.scale'
-    WHERE d.module = 'l10n_do_hr_payroll' AND d.name = '$1'"
-}
-master_scale_percent() {
-  psql_q "$MASTER_DB" "SELECT round(percent::numeric, 4) FROM l10n_do_hr_retention_scale s
-    JOIN ir_model_data d ON d.res_id = s.id AND d.model = 'l10n.do.hr.retention.scale'
-    WHERE d.module = 'l10n_do_hr_payroll' AND d.name = '$1'"
-}
-client_division() {
-  psql_q "$CLIENT_DB" "SELECT round(payment_division::numeric, 5)
-    FROM l10n_do_hr_payroll_payment_division WHERE name = '$1' ORDER BY company_id LIMIT 1"
-}
-event_state() {
-  psql_q "$MASTER_DB" "SELECT state FROM l10n_do_payroll_sync_event WHERE id = $1"
-}
-event_retries() {
-  psql_q "$MASTER_DB" "SELECT retry_count FROM l10n_do_payroll_sync_event WHERE id = $1"
-}
+echo "== 3. A TSS cap raised on the master reaches the client =="
+master '{"action": "set_parameter_value", "code": "SFS_TOPE", "date_from": "2026-02-01", "value": "240000.0"}'
+sync
+check "one value updated" "1" "$(field updated)"
+check "the client holds the new cap" "240000.0" "$(param_value SFS_TOPE 2026-02-01)"
 
-echo "=============================================="
-echo " Payroll sync — end-to-end scenarios"
-echo "  master $MASTER_URL   client $CLIENT_URL"
-echo "=============================================="
+echo "== 4. A parameter typed by hand, with no external id, still travels =="
+master '{"action": "new_parameter", "code": "REC_NOCT", "name": "Recargo nocturno", "date_from": "2026-01-01", "value": "1.15"}'
+sync
+check "the parameter and its value are created" "2" "$(field created)"
+check "the client knows REC_NOCT" "1" "$(psql_q "$CLIENT_DB" "SELECT count(*) FROM hr_rule_parameter WHERE code = 'REC_NOCT'")"
+check "its value hangs from the right parent" "1.15" "$(param_value REC_NOCT 2026-01-01)"
 
-# ---------------------------------------------------------------------------
-head2 "1. Connectivity and contract"
-# ---------------------------------------------------------------------------
-R="$(api "$CLIENT_URL" /ping "$CLIENT_INBOUND_KEY")"
-assert_eq "client answers /ping with a valid key" "200" "$(http_code "$R")"
-assert_contains "client reports its role" '"role": "client"' "$(http_body "$R")"
+echo "== 5. The ISR scale, which needs base.group_system on the client =="
+master '{"action": "edit_scale", "sequence": 2, "name": "Rentas desde RD$420,000.01 hasta RD$630,000.00", "top_amount": 630000.0}'
+sync
+check "one bracket updated" "1" "$(field updated)"
+check "the bracket name was rewritten" "Rentas desde RD\$420,000.01 hasta RD\$630,000.00" "$(psql_q "$CLIENT_DB" "SELECT name FROM l10n_do_hr_retention_scale WHERE sequence = 2")"
+check "and its ceiling too" "630000.00" "$(psql_q "$CLIENT_DB" "SELECT round(top_amount::numeric, 2) FROM l10n_do_hr_retention_scale WHERE sequence = 2")"
 
-R="$(api "$MASTER_URL" /ping "$MASTER_INBOUND_KEY")"
-assert_eq "master answers /ping with a valid key" "200" "$(http_code "$R")"
+echo "== 6. A manual edit on the client is overwritten =="
+client '{"action": "set_risk_percentage", "name": "I", "value": 9.99}'
+sync
+check "the master wins" "1" "$(field updated)"
+check "the legal value is back" "0.10" "$(psql_q "$CLIENT_DB" "SELECT round(percentage::numeric, 2) FROM l10n_do_occupational_risk_type WHERE name = 'I'")"
 
-R="$(api "$CLIENT_URL" /manifest "$CLIENT_INBOUND_KEY")"
-assert_eq "client publishes its manifest" "200" "$(http_code "$R")"
-assert_contains "manifest lists the retention scale" "l10n.do.hr.retention.scale" "$(http_body "$R")"
+echo "== 7. Rows the client owns are reported and left alone =="
+client '{"action": "add_retro_value", "code": "SFS_RET", "date_from": "2003-01-01", "value": "3.04"}'
+sync
+check "nothing was written" "0" "$(field updated)"
+check "the extra row is reported" "1" "$(field extras)"
+check "the extra row survives" "1" "$(psql_q "$CLIENT_DB" "SELECT count(*) FROM hr_rule_parameter_value WHERE date_from = '2003-01-01'")"
 
-# ---------------------------------------------------------------------------
-head2 "2. Authentication and authorization"
-# ---------------------------------------------------------------------------
-R="$(api "$CLIENT_URL" /push "wrong-key-entirely" '{"items":[]}')"
-assert_eq "a wrong key is rejected with 403" "403" "$(http_code "$R")"
+echo "== 8. A record deleted on the master is kept on the client =="
+master '{"action": "drop_risk_type", "name": "IV"}'
+sync
+check "the client still has four classes" "4" "$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_occupational_risk_type")"
+check "both orphans are reported" "2" "$(field extras)"
 
-R="$(curl -sS -m 30 -o /tmp/_sync_body -w '%{http_code}' -X POST \
-      "${CLIENT_URL}/api/v1/payroll-sync/push" -H 'Content-Type: application/json' \
-      --data '{"items":[]}' 2>/dev/null)"
-assert_eq "a missing key is rejected with 401" "401" "$R"
+echo "== 9. Missing permissions: partial state, the rest still goes through =="
+reset_errors
+client '{"action": "revoke_group", "group": "l10n_do_hr_payroll.group_hr_payroll_manager_conf"}'
+restart_client
+master '{"action": "set_parameter_value", "code": "SFS_TOPE", "date_from": "2026-02-01", "value": "250000.0"}'
+client '{"action": "set_risk_percentage", "name": "II", "value": 8.88}'
+sync
+check "the client is only partially synchronized" "partial" "$(field state)"
+check "the risk class could not be written" "1" "$(field errors)"
+check "rule parameters went through anyway" "250000.0" "$(param_value SFS_TOPE 2026-02-01)"
+check "the error counter moved" "1" "$(field db_errors)"
+client '{"action": "grant_group", "group": "l10n_do_hr_payroll.group_hr_payroll_manager_conf"}'
+restart_client
+sync
+check "the counter clears once fixed" "0" "$(field db_errors)"
 
-R="$(api "$CLIENT_URL" /pull "$CLIENT_INBOUND_KEY")"
-assert_eq "the client does not expose the master's /pull" "404" "$(http_code "$R")"
+echo "== 10. A simulation reports without writing =="
+master '{"action": "set_parameter_value", "code": "AFP_TOPE", "date_from": "2026-02-01", "value": "999999.0"}'
+sync true
+check "the diff is reported" "1" "$(field updated)"
+check "the client was not touched" "464460.0" "$(param_value AFP_TOPE 2026-02-01)"
+sync
+check "the real run then applies it" "999999.0" "$(param_value AFP_TOPE 2026-02-01)"
 
-R="$(api "$MASTER_URL" /push "$MASTER_INBOUND_KEY" '{"items":[]}')"
-assert_eq "the master does not expose the client's /push" "404" "$(http_code "$R")"
-
-R="$(api "$CLIENT_URL" /push "$CLIENT_INBOUND_KEY" 'not-json-at-all')"
-assert_eq "a malformed body is rejected with 400" "400" "$(http_code "$R")"
-
-# ---------------------------------------------------------------------------
-head2 "3. Push: a master edit reaches the client database"
-# ---------------------------------------------------------------------------
-BEFORE_CLIENT="$(client_scale_percent l10n_do_hr_retention_scale_2)"
-NEW_PERCENT="17.7500"
-
-put_args_json="$(printf '{"percent": %s}' "${NEW_PERCENT%%0000}")"
-printf '%s' "$put_args_json" | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/edit_scale.py" >/dev/null 2>&1
-
-# The post-commit flush runs asynchronously; give it a moment, then fall back to
-# an explicit queue drain so a slow flush does not read as a functional failure.
-for _ in $(seq 1 10); do
-  AFTER_CLIENT="$(client_scale_percent l10n_do_hr_retention_scale_2)"
-  [[ "$AFTER_CLIENT" == "$NEW_PERCENT" ]] && break
-  sleep 1
-done
-
-assert_eq "master value changed" "$NEW_PERCENT" "$(master_scale_percent l10n_do_hr_retention_scale_2)"
-assert_ne "client value is no longer the old one" "$BEFORE_CLIENT" "$AFTER_CLIENT"
-assert_eq "client value equals the master value" "$NEW_PERCENT" "$AFTER_CLIENT"
-
-LAST_EVENT="$(psql_q "$MASTER_DB" "SELECT id FROM l10n_do_payroll_sync_event
-  WHERE model_name = 'l10n.do.hr.retention.scale' ORDER BY id DESC LIMIT 1")"
-assert_eq "the event is marked delivered" "sent" "$(event_state "$LAST_EVENT")"
-
-INBOUND_OK="$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_payroll_sync_log
-  WHERE direction = 'in' AND endpoint = '/push' AND status = 'ok'")"
-assert_ne "the client audited the inbound push" "0" "$INBOUND_OK"
-
-# ---------------------------------------------------------------------------
-head2 "4. Company-scoped parameter lands in the right company"
-# ---------------------------------------------------------------------------
-printf '{"division": 2.5}' | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/edit_division.py" >/dev/null 2>&1
-for _ in $(seq 1 10); do
-  [[ "$(client_division monthly)" == "2.50000" ]] && break
-  sleep 1
-done
-assert_eq "payment division reached the client" "2.50000" "$(client_division monthly)"
-ORPHANS="$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_hr_payroll_payment_division
-  WHERE company_id IS NULL")"
-assert_eq "no company-less row was created" "0" "$ORPHANS"
-
-# ---------------------------------------------------------------------------
-head2 "5. Offline client: retry with backoff, then dead letter"
-# ---------------------------------------------------------------------------
-docker stop "$CLIENT_NAME" >/dev/null 2>&1
-printf '{"percent": 21.5}' | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/edit_scale.py" >/dev/null 2>&1
-sleep 2
-
-OFFLINE_EVENT="$(psql_q "$MASTER_DB" "SELECT id FROM l10n_do_payroll_sync_event
-  WHERE model_name = 'l10n.do.hr.retention.scale' ORDER BY id DESC LIMIT 1")"
-STATE="$(event_state "$OFFLINE_EVENT")"
-assert_ne "an unreachable client does not lose the event" "sent" "$STATE"
-assert_contains "the event is queued for retry" "$STATE" "pending failed"
-
-RETRY_AT="$(psql_q "$MASTER_DB" "SELECT next_retry_at IS NOT NULL FROM l10n_do_payroll_sync_event WHERE id = $OFFLINE_EVENT")"
-assert_eq "a retry is scheduled" "t" "$RETRY_AT"
-
-# Force the retry budget to run out without waiting for the real backoff.
-printf '{"event_id": %s}' "$OFFLINE_EVENT" | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/exhaust_retries.py" >/dev/null 2>&1
-assert_eq "the event dead-letters after its retries" "dead" "$(event_state "$OFFLINE_EVENT")"
-
-CLIENT_ERR="$(psql_q "$MASTER_DB" "SELECT state FROM l10n_do_payroll_sync_client WHERE id = $SYNC_CLIENT_ID")"
-assert_eq "the client is flagged in error" "error" "$CLIENT_ERR"
-
-# ---------------------------------------------------------------------------
-head2 "6. Client comes back: retry from the dead letter queue"
-# ---------------------------------------------------------------------------
+echo "== 11. An unreachable client fails alone, then recovers =="
+reset_errors
+docker rm -f "$CLIENT_NAME" >/dev/null
+sync
+check "the run reports an error" "error" "$(field state)"
+check "the error counter moved" "1" "$(field db_errors)"
 start_server "$CLIENT_NAME" "$CLIENT_DB" "$CLIENT_PORT"
-wait_http "$CLIENT_URL" || { echo "client did not restart"; exit 1; }
+wait_http "$CLIENT_URL" >/dev/null
+sync
+check "the next night recovers" "success" "$(field state)"
+check "the counter is cleared" "0" "$(field db_errors)"
 
-printf '{"event_id": %s}' "$OFFLINE_EVENT" | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/retry_event.py" >/dev/null 2>&1
-sleep 2
-assert_eq "the retried event is delivered" "sent" "$(event_state "$OFFLINE_EVENT")"
-assert_eq "the value the client missed is now applied" "21.5000" "$(client_scale_percent l10n_do_hr_retention_scale_2)"
+echo "== 12. A new ISR bracket needs base.group_system to be created =="
+# The bracket that never travelled: hr_payroll.group_hr_payroll_manager can
+# read and write the scale but not create it, so the corrections of the
+# existing brackets land and a brand new one is refused.
+reset_errors
+CLIENT_KEY_RESTRICTED="$(put_args '{"action": "restricted_api_user"}'; run_py "$CLIENT_DB" edit_client.py | sed -n 's/^KEY=//p' | tail -1)"
+master "$(printf '{"action": "set_api_user", "project_id": %s, "login": "sync_api", "key": "%s"}' \
+  "$PROJECT_ID" "$CLIENT_KEY_RESTRICTED")"
+master '{"action": "new_scale", "sequence": 9, "name": "Rentas desde RD$1,000,000.01 en adelante"}'
+sync
+check "the client is only partially synchronized" "partial" "$(field state)"
+check "the bracket was refused" "1" "$(field errors)"
+check "the client never got it" "" "$(psql_q "$CLIENT_DB" "SELECT name FROM l10n_do_hr_retention_scale WHERE sequence = 9")"
+MESSAGE="$(psql_q "$MASTER_DB" "SELECT message FROM l10n_do_payroll_sync_log ORDER BY id DESC LIMIT 1")"
+if [[ "$MESSAGE" == *"not allowed to create"* ]]; then ok "the log says what the client refused"
+else ko "the log says what the client refused" "message was [$MESSAGE]"; fi
+if [[ "$MESSAGE" == *"base.group_system"* ]]; then ok "and which group would fix it"
+else ko "and which group would fix it" "message was [$MESSAGE]"; fi
+NOTE="$(psql_q "$MASTER_DB" "SELECT count(*) FROM mail_message WHERE model = 'project.project' AND res_id = $PROJECT_ID")"
+if [[ "${NOTE:-0}" -ge 1 ]]; then ok "the client database chatter carries the failure"
+else ko "the client database chatter carries the failure" "no message logged"; fi
 
-CLIENT_OK="$(psql_q "$MASTER_DB" "SELECT state FROM l10n_do_payroll_sync_client WHERE id = $SYNC_CLIENT_ID")"
-assert_eq "the client is back online" "online" "$CLIENT_OK"
+echo "== 13. The same bracket travels once the group is granted =="
+reset_errors
+master "$(printf '{"action": "set_api_user", "project_id": %s, "login": "admin", "key": "%s"}' \
+  "$PROJECT_ID" "$CLIENT_KEY")"
+sync
+check "the bracket is created" "1" "$(field created)"
+check "the client holds it" "Rentas desde RD\$1,000,000.01 en adelante" \
+  "$(psql_q "$CLIENT_DB" "SELECT name FROM l10n_do_hr_retention_scale WHERE sequence = 9")"
+master '{"action": "drop_scale", "sequence": 9}'
 
-# ---------------------------------------------------------------------------
-head2 "7. Pull mode: the client fetches on its own"
-# ---------------------------------------------------------------------------
-# Silence push so only the pull path can explain the change.
-printf '{"push_enabled": false}' | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/set_client_flags.py" >/dev/null 2>&1
-
-printf '{"percent": 23.25}' | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/edit_scale.py" >/dev/null 2>&1
-sleep 1
-assert_ne "push is off, so the client has not seen it yet" "23.2500" "$(client_scale_percent l10n_do_hr_retention_scale_2)"
-
-odoo_shell "$CLIENT_DB" < "$HERE/py/pull_now.py" >/dev/null 2>&1
-assert_eq "the client picked it up by pulling" "23.2500" "$(client_scale_percent l10n_do_hr_retention_scale_2)"
-
-PULL_LOGGED="$(psql_q "$MASTER_DB" "SELECT count(*) FROM l10n_do_payroll_sync_log
-  WHERE direction = 'in' AND endpoint = '/pull' AND status = 'ok'")"
-assert_ne "the master audited the pull" "0" "$PULL_LOGGED"
-
-printf '{"push_enabled": true}' | docker exec -i "$CONTAINER" tee /tmp/sync_e2e_args.json >/dev/null
-odoo_shell "$MASTER_DB" < "$HERE/py/set_client_flags.py" >/dev/null 2>&1
-
-# ---------------------------------------------------------------------------
-head2 "8. Safety properties"
-# ---------------------------------------------------------------------------
-# Executable payroll code must not be distributable while the switch is off.
-R="$(api "$CLIENT_URL" /manifest "$CLIENT_INBOUND_KEY")"
-if [[ "$(http_body "$R")" == *"amount_python_compute"* ]]; then
-  ko "python code fields are not advertised" "amount_python_compute is in the manifest"
-else
-  ok "python code fields are not advertised"
-fi
-
-# A model outside the registry must be refused even with a valid key.
-R="$(api "$CLIENT_URL" /push "$CLIENT_INBOUND_KEY" \
-  '{"items":[{"event_id":1,"model":"res.users","ref":"base.user_admin","operation":"upsert","values":{"login":"pwned"}}]}')"
-assert_eq "an unregistered model is refused" "200" "$(http_code "$R")"
-assert_contains "the refusal is explicit" '"status": "error"' "$(http_body "$R")"
-ADMIN_LOGIN="$(psql_q "$CLIENT_DB" "SELECT login FROM res_users WHERE id = 2")"
-assert_eq "res.users was not touched" "admin" "$ADMIN_LOGIN"
-
-# Applying a change on the client must not make the client emit its own events.
-CLIENT_EVENTS="$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_payroll_sync_event")"
-assert_eq "the client emits no events of its own" "0" "$CLIENT_EVENTS"
-
-# Secrets must never be readable in the audit trail.
-LEAKED="$(psql_q "$CLIENT_DB" "SELECT count(*) FROM l10n_do_payroll_sync_log
-  WHERE payload LIKE '%${CLIENT_INBOUND_KEY}%'")"
-assert_eq "no API key was written to the log" "0" "$LEAKED"
-
-# Re-applying the exact same payload must be a no-op, not an error.
-R="$(api "$CLIENT_URL" /push "$CLIENT_INBOUND_KEY" \
-  '{"items":[{"event_id":99,"model":"l10n.do.hr.retention.scale","ref":"l10n_do_hr_payroll.l10n_do_hr_retention_scale_2","operation":"upsert","values":{"percent":23.25}}]}')"
-assert_contains "a replayed event is idempotent" "already up to date" "$(http_body "$R")"
-
-# ---------------------------------------------------------------------------
-head2 "Summary"
-# ---------------------------------------------------------------------------
-printf '  %s passed, %s failed\n' "$PASS" "$FAIL"
-if (( FAIL > 0 )); then
-  printf '  failed: %s\n' "${FAILED_NAMES[*]}"
-  exit 1
-fi
-exit 0
+echo
+echo "$PASS passed, $FAIL failed"
+[[ $FAIL -eq 0 ]]

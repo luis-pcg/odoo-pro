@@ -1,0 +1,208 @@
+{
+    "module": "l10n_do_ecf_purchase_reception",
+    "title": "Recepción de e-CF de Proveedores — Manual de usuario",
+    "cover": {
+        "program": "Manual de Usuario",
+        "subject": "RECEPCIÓN DE e-CF DE COMPRAS",
+        "version": "V19"
+    },
+    "general": [
+        {
+            "label": "Módulo",
+            "value": "RECEPCIÓN DE e-CF DE COMPRAS"
+        },
+        {
+            "label": "Dónde está en Odoo",
+            "value": "Contabilidad ▸ Proveedores ▸ Recepciones ▸ e-CF recibido"
+        },
+        {
+            "label": "Para quién es",
+            "value": "Quien recibe y factura las compras"
+        },
+        {
+            "label": "Qué resuelve",
+            "value": "Trae a Odoo las facturas electrónicas que los proveedores ya reportaron a la DGII"
+        },
+        {
+            "label": "Versión",
+            "value": "19.0.1.0.0"
+        }
+    ],
+    "intro": "Sus proveedores emiten facturas electrónicas (e-CF) y se las reportan a la DGII. Este módulo las trae solas a Odoo todas las noches y las deja en una bandeja.\n\nUsted hace una sola cosa: decir a qué producto suyo corresponde cada línea de la factura del proveedor. Después da un botón y Odoo crea la orden de compra o la factura de proveedor, ya con su e-NCF, su código de seguridad y el XML firmado. Nada se contabiliza solo.",
+    "requirements": [
+        "El administrador prende el módulo una vez; usted no configura nada.",
+        "Hace falta el permiso **Administrador de facturación** para ver el menú.",
+        "Todo vive en **Contabilidad ▸ Proveedores ▸ Recepciones**."
+    ],
+    "flows": [
+        {
+            "id": "u01-bandeja",
+            "section": "Su trabajo de cada día",
+            "title": "La bandeja: qué le llegó de sus proveedores",
+            "description": "**Contabilidad ▸ Proveedores ▸ Recepciones ▸ e-CF recibido.** Cada línea es una factura que un proveedor ya le reportó a la DGII.\n\nEl estado dice qué falta:\n\n- **Por vincular** — hay que decirle a Odoo qué producto es cada línea.\n- **Listo** — no falta nada, sólo dar el botón.\n- **Hecho** — ya tiene su factura en Odoo.\n- **Duplicado** — esa factura ya la digitaron a mano.\n- **Error** — los montos del documento no cuadran.\n\nLa columna **Por vincular** dice cuántas líneas le faltan a cada documento.",
+            "steps": [
+                {
+                    "goto": "/web?debug=0#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action"
+                },
+                {
+                    "waitFor": ".o_list_view",
+                    "timeout": 60000
+                },
+                {
+                    "click": ".o_searchview .o_facet_remove"
+                },
+                {
+                    "wait": 2500
+                }
+            ],
+            "viewport": {
+                "height": 620
+            }
+        },
+        {
+            "id": "u02-documento",
+            "section": "Su trabajo de cada día",
+            "title": "Cómo se lee un documento",
+            "description": "Arriba, quién le facturó y con qué documento. Abajo, en **Líneas**, lo que le vendieron: artículo, cantidad, precio, ITBIS y total.\n\nNada de eso se escribe a mano ni se puede cambiar: es lo que el proveedor le reportó a la DGII, tal como salió del XML firmado. Lo único que le toca a usted es la columna **Producto de Odoo**.",
+            "fullPage": true,
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=3&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                }
+            ]
+        },
+        {
+            "id": "u03-vincular",
+            "section": "Su trabajo de cada día",
+            "title": "Diga qué producto suyo es cada línea",
+            "description": "Es la única tarea manual, y sólo la primera vez que ese proveedor le vende ese artículo.\n\n- En **Producto de Odoo**, escoja el producto que corresponde al artículo del proveedor.\n- La **varita** guarda el vínculo: la próxima factura de ese proveedor se vincula sola.\n- El **+** crea el producto en Odoo cuando todavía no existe, con el nombre y el impuesto de la factura.\n\nEl icono a la izquierda del artículo dice cómo va cada línea:\n\n- Visto verde — vínculo guardado; ese artículo se reconoce solo de aquí en adelante.\n- Triángulo amarillo — producto puesto, vínculo sin guardar: dé la varita.\n- Equis roja — todavía sin producto: escójalo, o créelo con el **+**.\n\nCuando ya ninguna línea queda pendiente, el documento pasa a **Listo**.",
+            "element": ".o_field_widget[name='line_ids']",
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=5&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                },
+                {
+                    "scrollTo": ".o_field_widget[name='line_ids']"
+                },
+                {
+                    "wait": 1000
+                }
+            ]
+        },
+        {
+            "id": "u04-crear",
+            "section": "Su trabajo de cada día",
+            "title": "Cree la orden o la factura",
+            "description": "Con el documento en **Listo**, escoja el botón según cómo se compró:\n\n- **Crear factura** — compra sin orden: sale la factura de proveedor.\n- **Crear orden** — sólo la orden de compra, para recibir la mercancía después.\n- **Ordenar y facturar** — la orden, la recepción y la factura de un tirón.\n- **Recibir y facturar** — aparece en lugar de los otros cuando la orden ya existe.\n\nLa factura nace en **borrador**, con el e-NCF, el código de seguridad y el XML del proveedor. Revísela y contabilícela como cualquier otra.",
+            "element": ".o_form_statusbar",
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=9&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                }
+            ]
+        },
+        {
+            "id": "u05-duplicado",
+            "section": "Cuando Odoo le avisa",
+            "title": "«Esa factura ya la digité a mano»",
+            "description": "El documento llega marcado **Duplicado** y le dice con cuál factura suya coincide.\n\nDé **Vincular factura**: no se crea nada nuevo; su factura de siempre se queda con el XML y el código de seguridad del proveedor.",
+            "fullPage": true,
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=2&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                }
+            ]
+        },
+        {
+            "id": "u06-impuesto",
+            "section": "Cuando Odoo le avisa",
+            "title": "«El ITBIS del producto no es el que facturó el proveedor»",
+            "description": "La línea sale en rojo y arriba aparece el aviso. Odoo respeta el impuesto de su producto y no deja crear la factura hasta que se aclare, porque uno de los dos está mal:\n\n- Si el equivocado es su producto, corrija el impuesto en la ficha del producto.\n- Si el equivocado es el proveedor, pídale la nota de crédito o use **Rechazar**.",
+            "fullPage": true,
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=9&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                }
+            ]
+        },
+        {
+            "id": "u07-error",
+            "section": "Cuando Odoo le avisa",
+            "title": "«Los montos no cuadran»",
+            "description": "Estado **Error**: lo que suman las líneas no da el total que declaró el proveedor. Eso no se arregla en Odoo.\n\n**Reintentar** vuelve a bajar el documento por si falló la descarga. Si sigue igual, es el proveedor quien tiene que corregirlo.",
+            "fullPage": true,
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=1&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2500
+                }
+            ]
+        },
+        {
+            "id": "u08-aprobacion",
+            "section": "Cuando Odoo le avisa",
+            "title": "Aprobar o rechazar ante la DGII",
+            "description": "La pestaña **Aprobación comercial** es su respuesta al proveedor delante de la DGII.\n\n- **Aprobar** — usted reconoce la compra.\n- **Rechazar** — usted no la reconoce: la DGII avisa al proveedor, que tendrá que emitir una nota de crédito o anular el documento.\n\nHay una **Fecha límite de aprobación** contada desde que el documento llegó. Rechazar no toca la factura que ya se haya creado.",
+            "steps": [
+                {
+                    "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=5&view_type=form"
+                },
+                {
+                    "waitFor": ".o_form_view",
+                    "timeout": 60000
+                },
+                {
+                    "wait": 2000
+                },
+                {
+                    "click": ".o_notebook a.nav-link:has-text('Aprobación comercial')"
+                },
+                {
+                    "wait": 2000
+                }
+            ]
+        }
+    ],
+    "notes": "**Hay proveedores que se facturan solos.** Si el administrador marcó un proveedor con *Facturar sus e-CF automáticamente*, sus documentos aparecen ya en **Hecho** y con la factura en borrador esperando, siempre que todas las líneas se hayan vinculado solas. Lo que se automatiza es la digitación, nunca la contabilización.\n\n**Cada documento sale por un solo camino.** Al escoger orden o factura, los demás botones desaparecen: un e-CF termina en una sola factura, que es como la DGII lo tiene registrado.\n\n**Facturas con retenciones.** Cuando el e-CF trae retenciones, el documento se lo avisa arriba: se muestran aquí pero no se calculan en la factura. Revíselas antes de contabilizar.\n\n**Si no ve un documento en la bandeja**, quite el filtro de la barra de búsqueda: la lista abre mostrando sólo lo pendiente."
+}

@@ -36,6 +36,18 @@ odoo_cli() {
     "$@"
 }
 
+put_args() {
+  # put_args '<json>' — hands parameters to the python helpers, which read
+  # /tmp/sync_e2e_args.json inside the container.
+  docker exec -i "$CONTAINER" bash -c "cat > /tmp/sync_e2e_args.json" <<<"$1"
+}
+
+run_py() {
+  # run_py <db> <helper.py> — executes a helper from py/ through odoo shell.
+  local db="$1" script="$2"
+  odoo_shell "$db" < "$(dirname "${BASH_SOURCE[0]}")/py/$script"
+}
+
 odoo_shell() {
   # Reads the python snippet from stdin.
   local db="$1"; shift
@@ -111,5 +123,6 @@ wait_http() {
 }
 
 stop_servers() {
+  # Only the client runs a server: the master pushes, it is never called.
   docker rm -f "$MASTER_NAME" "$CLIENT_NAME" >/dev/null 2>&1 || true
 }
