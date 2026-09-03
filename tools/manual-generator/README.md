@@ -110,9 +110,14 @@ node capture.mjs --config=configs/<módulo>.json --db=test_v19_<módulo> --rende
 }
 ```
 
-Acciones soportadas en `steps`: `goto`, `gotoXmlId` (+`action`), `waitFor`
-(+`timeout`), `click`, `fill`+`value`, `press` (+`sel`), `scrollTo`, `expand`,
-`wait` (ms).
+Acciones soportadas en `steps`: `goto` (+`navbar`), `gotoXmlId` (+`action`),
+`waitFor` (+`timeout`), `click`, `fill`+`value`, `press` (+`sel`), `scrollTo`,
+`expand`, `wait` (ms).
+
+`goto` espera el `.o_main_navbar` del cliente web; con `"navbar": false` no lo
+espera, que es lo que hace falta para pantallas completas sin navbar como el
+punto de venta (`/pos/ui/<id>`). En ese caso el `waitFor` del flujo decide
+cuándo la pantalla está lista.
 
 `gotoXmlId` resuelve el id por RPC (`ir.model.data.check_object_reference`, con
 `active_test: False` para que un registro archivado —un cron que se instala

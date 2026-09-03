@@ -20,7 +20,9 @@
 //           viewport?: { width?, height? }  -> shorter window for a short page,
 //                                             so the shot is not half blank, steps[] }
 //   step: one of
-//     { goto: "/web#action=..." }        navigate (waits for the web client)
+//     { goto: "/web#action=...",         navigate (waits for the web client;
+//       navbar?: false }                 `navbar: false` for full-screen clients
+//                                        with no navbar, like /pos/ui/<id>)
 //     { gotoXmlId: "module.xml_id",      open that record's form, resolving the id
 //       action: "module.action" }         over RPC: survives a rebuilt database and
 //                                        does not depend on the UI language the way
@@ -109,7 +111,12 @@ console.log("web client up");
 async function runStep(step, flowId) {
     if (step.goto !== undefined) {
         await page.goto(baseUrl + step.goto, { waitUntil: "domcontentloaded" });
-        await page.waitForSelector(".o_main_navbar", { timeout: 60000 });
+        // The Point of Sale (and any other full-screen client) has no navbar:
+        // `navbar: false` skips the wait and the flow's own `waitFor` decides
+        // when the page is ready.
+        if (step.navbar !== false) {
+            await page.waitForSelector(".o_main_navbar", { timeout: 60000 });
+        }
         return;
     }
     if (step.gotoXmlId !== undefined) {
