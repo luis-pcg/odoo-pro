@@ -1,15 +1,17 @@
-# `stock_analytic_distribution` — Documentación técnica
+# `stock_analytic_distribution_features` — Documentación técnica
 
 **Reemplazo de OCA `stock_analytic` en Odoo 19, apoyado en el core**
 
 | | |
 |---|---|
 | Cliente disparador | Escala Solar (migración 17.0 → 19.0) |
-| Módulo propuesto | `stock_analytic_distribution` (+ puente `stock_analytic_distribution_project`) |
-| Repo destino | `odoo-pro` (raíz), rama `19.0` |
+| Módulo | `stock_analytic_distribution_features` (+ puente `stock_analytic_distribution_features_project`) |
+| Repo destino | `odoo-pro/store-addons` (submódulo `indexa-git/store-addons`), rama `19.0` |
 | Versión | `19.0.1.0.0` |
 | Sustituye | `OCA/account-analytic/stock_analytic` (17.0.1.2.1 / 18.0.1.2.0) |
-| Estado | Diseño / pendiente de aprobación |
+| Estado | **Implementado y probado** — 17 tests propios en verde, 236 tests de `stock_account` + `project_stock_account` sin regresión |
+| Manual de usuario | `docs/manuals/stock_analytic_distribution_features/README.md` (12 capturas) |
+| Base de pruebas | `./setup_v19_stock_analytic_distribution_features.sh --recreate` |
 
 ---
 
@@ -92,7 +94,7 @@ Una sola fuente de verdad: el hook `_get_analytic_distribution()`. Tanto la dist
 
 ### 3.2 Diferencia de fondo con OCA `stock_analytic`
 
-| | OCA `stock_analytic` | `stock_analytic_distribution` (core) |
+| | OCA `stock_analytic` | `stock_analytic_distribution_features` (core) |
 |---|---|---|
 | Cómo llega el analítico | Inyecta `analytic_distribution` en el **apunte contable** de valuación (`_get_account_move_line_vals`) y deja que `account` genere la AAL | Devuelve la distribución por `_get_analytic_distribution()` y el core crea la **AAL directa** |
 | AAL resultante | `move_line_id` = apunte de valuación | `move_line_id = False`, ligada a `stock_move.analytic_account_line_ids` |
@@ -113,8 +115,8 @@ La distribución **ya no queda marcada en el apunte contable** de valuación. Si
 ## 4. Estructura de los módulos
 
 ```
-odoo-pro/
-├── stock_analytic_distribution/
+odoo-pro/store-addons/
+├── stock_analytic_distribution_features/
 │   ├── __init__.py
 │   ├── __manifest__.py
 │   ├── models/
@@ -129,20 +131,22 @@ odoo-pro/
 │   │   ├── stock_move_views.xml
 │   │   ├── stock_picking_views.xml
 │   │   └── stock_scrap_views.xml
-│   ├── migrations/19.0.1.0.0/
-│   │   ├── pre-migrate.py
-│   │   └── post-migrate.py
 │   ├── tests/
 │   │   ├── __init__.py
 │   │   ├── common.py
 │   │   ├── test_stock_analytic.py
 │   │   └── test_stock_scrap.py
 │   └── i18n/es_DO.po
-└── stock_analytic_distribution_project/      # puente, auto_install
+└── stock_analytic_distribution_features_project/      # puente, auto_install
     ├── __init__.py
     ├── __manifest__.py
-    └── models/{__init__,stock_move}.py
+    ├── models/{__init__,stock_move}.py
+    └── tests/{__init__,test_project_bridge}.py
 ```
+
+`store-addons` ya está en el `addons_path` (`conf/odoo.conf`), justo después de `/mnt/extra-addons-pro`.
+
+**Ningún script de migración vive dentro del módulo.** La fusión con el módulo de OCA es una línea en `upgrade-util/src/l10n_do_banks/19.0.1.0.0/pre-module-merge.py` (§6.3), donde están las demás fusiones de la migración a 19.0.
 
 ### 4.1 Manifest base
 
@@ -153,8 +157,8 @@ odoo-pro/
     "version": "19.0.1.0.0",
     "category": "Inventory/Inventory",
     "license": "LGPL-3",
-    "author": "Indexa",
-    "website": "https://github.com/indexa-git/odoo-pro",
+    "author": "INDEXA SRL.",
+    "website": "https://www.progressa.group/",
     "depends": ["stock_account", "analytic"],
     "data": [
         "views/stock_move_views.xml",
@@ -225,7 +229,7 @@ Notas:
 ### 4.3 `models/stock_move_line.py`
 
 ```python
-from odoo import api, models
+from odoo import models
 
 from .stock_move import SYNC_KEY
 
@@ -234,7 +238,6 @@ class StockMoveLine(models.Model):
     _name = "stock.move.line"
     _inherit = ["stock.move.line", "analytic.mixin"]
 
-    @api.model
     def _prepare_stock_move_vals(self):
         res = super()._prepare_stock_move_vals()
         if self.analytic_distribution:
@@ -343,7 +346,7 @@ Puntos de inserción en v19 (**difieren de 17.0** — el PR #898 no los revisó)
 
 Todo el campo va con `groups="analytic.group_analytic_accounting"` y `optional="hide"` en las listas.
 
-### 4.9 Módulo puente `stock_analytic_distribution_project`
+### 4.9 Módulo puente `stock_analytic_distribution_features_project`
 
 ```python
 {
@@ -352,7 +355,7 @@ Todo el campo va con `groups="analytic.group_analytic_accounting"` y `optional="
     "category": "Inventory/Inventory",
     "license": "LGPL-3",
     "author": "Indexa",
-    "depends": ["stock_analytic_distribution", "project_stock_account"],
+    "depends": ["stock_analytic_distribution_features", "project_stock_account"],
     "auto_install": True,
     "installable": True,
 }
@@ -365,22 +368,32 @@ from odoo import models
 class StockMove(models.Model):
     _inherit = "stock.move"
 
+    def _get_analytic_distribution(self):
+        """Manual distribution wins over the project of the picking.
+
+        `stock_analytic_distribution_features` states the same rule, but it and
+        `project_stock_account` are siblings in the dependency graph: which of
+        the two overrides runs first depends on the module load order. This
+        module depends on both, so it is always last in the MRO and its rule is
+        the one that decides.
+        """
+        return self.analytic_distribution or super()._get_analytic_distribution()
+
     def _get_valid_moves_domain(self):
         """project_stock_account only lets through moves whose picking has a project
         and an analytic-enabled operation type. Also let through moves carrying a
         manual analytic distribution, otherwise they never produce analytic lines."""
         return ["|", ("analytic_distribution", "!=", False), *super()._get_valid_moves_domain()]
-
-    def _prepare_analytic_line_values(self, account_field_values, amount, unit_amount):
-        res = super()._prepare_analytic_line_values(account_field_values, amount, unit_amount)
-        if self.analytic_distribution and self.picking_id:
-            # Manual distribution: keep the picking category so the cost lands in the
-            # "Materials" bucket of project profitability, same as the native flow.
-            res["category"] = "picking_entry"
-        return res
 ```
 
 Sin este módulo, en cualquier DB con `project` instalado la distribución manual queda muerta. Con él, la precedencia queda explícita: **manual gana; si no hay manual, el proyecto del conduce.**
+
+Dos correcciones respecto al diseño original, ambas verificadas contra el código de v19:
+
+- **La precedencia vive aquí, no sólo en el módulo base.** `stock_analytic_distribution_features` y `project_stock_account` son hermanos en el grafo de dependencias, así que cuál de los dos `_get_analytic_distribution()` corre primero depende del orden de carga de módulos. Se reprodujo el caso: en una DB donde `project_stock_account` se instaló después, el conduce con proyecto **y** distribución manual imputó al proyecto, no a la cuenta manual. El puente depende de los dos, va siempre último en el MRO y cierra la ambigüedad.
+- **No hace falta forzar `category = 'picking_entry'`.** `project_stock_account._prepare_analytic_line_values` (`project_stock_account/models/stock_move.py:17-22`) ya lo pone para *cualquier* movimiento con conduce, tenga proyecto o no. Verificado en la DB de pruebas: las partidas de distribución manual salen con `category = picking_entry`.
+
+**Interacción a tener en cuenta:** `project_stock_account._prepare_analytic_lines` lanza `ValidationError` si el proyecto del conduce no tiene los planes marcados obligatorios para el dominio `stock_picking`. Un movimiento con distribución manual en un conduce **sin** proyecto entra igual por ese `super()`. Mientras no se configure una aplicabilidad `stock_picking` = obligatoria no pasa nada; si se configura, hay que ponerla sobre el dominio `stock_move` en su lugar.
 
 ---
 
@@ -411,112 +424,59 @@ Sin este módulo, en cualquier DB con `project` instalado la distribución manua
 
 ### 6.2 El único problema real: el nombre del módulo
 
+El módulo **no reutiliza el nombre técnico de OCA**: aquél es `stock_analytic`, éste es `stock_analytic_distribution_features` (el porqué, en 6.6). Para Odoo son dos módulos distintos, y ahí está todo el riesgo.
+
 El upgrade va 17.0 → 18.0 → 19.0.
 
 - **Salto 17 → 18:** `stock_analytic` existe upstream en la rama 18.0 (`18.0.1.2.0`). Sin intervención.
-- **Salto 18 → 19:** `stock_analytic` no existe. Odoo lo marca para desinstalar → **borra los campos de `ir_model_fields` y dropea las columnas `analytic_distribution`**. Pérdida silenciosa de toda la imputación analítica de los conduces.
+- **Salto 18 → 19:** `stock_analytic` no existe en disco. Odoo 19 **no lo desinstala solo**: lo deja en estado inconsistente y en cada arranque escribe
+  `Some modules have inconsistent states, some dependencies or manifest may be missing: ['stock_analytic']`.
+  La pérdida ocurre cuando alguien lo desinstala para limpiar ese error: `ir.model.data._module_data_uninstall` borra sus `ir.model.fields` y **dropea las tres columnas `analytic_distribution`** (`stock_move`, `stock_move_line`, `stock_scrap`). Verificado: ver 6.7, camino CONTROL.
 
-Solución: renombrar el módulo instalado antes de arrancar el 19.0, de forma que Odoo lo vea como **actualización** de `stock_analytic_distribution` en lugar de baja de `stock_analytic`.
+> Corrección respecto al diseño original, que daba por hecho el auto-desinstalar. La diferencia importa: sin nada hecho, los datos **no** se pierden en el arranque; se pierden más tarde, cuando alguien limpia. Es peor, porque el momento de la pérdida se desacopla del upgrade y nadie lo relaciona.
 
-### 6.3 Paso 0 — rename previo al arranque de 19.0
+**La migración la hace `merge_module` desde upgrade-util** (6.3). No hay scripts dentro del módulo: la fusión vive en el árbol de upgrade, junto a los demás merges de la migración a 19.0.
 
-Debe ejecutarse **después** de terminar el salto 18.0 y **antes** de lanzar Odoo 19 con `-u all`. No puede vivir dentro del propio módulo: cuando corren sus scripts, la desinstalación de `stock_analytic` ya ocurrió.
+### 6.3 Solución: `merge_module` en upgrade-util
 
-```sql
--- migration/19.0/pre_rename_stock_analytic.sql
-BEGIN;
-
-UPDATE ir_module_module
-   SET name = 'stock_analytic_distribution'
- WHERE name = 'stock_analytic';
-
-UPDATE ir_module_module_dependency
-   SET name = 'stock_analytic_distribution'
- WHERE name = 'stock_analytic';
-
-UPDATE ir_model_data
-   SET module = 'stock_analytic_distribution'
- WHERE module = 'stock_analytic';
-
-UPDATE ir_model_data
-   SET name = 'module_stock_analytic_distribution'
- WHERE name = 'module_stock_analytic'
-   AND module = 'base'
-   AND model = 'ir.module.module';
-
--- Views carry the module name in their key
-UPDATE ir_ui_view
-   SET key = replace(key, 'stock_analytic.', 'stock_analytic_distribution.')
- WHERE key LIKE 'stock_analytic.%';
-
-COMMIT;
-```
-
-Equivalente con upgrade-util (ya está en el entorno): `util.rename_module(cr, "stock_analytic", "stock_analytic_distribution")` — `upgrade-util/src/util/modules.py:388`. Hace exactamente estos UPDATEs más el manejo de traducciones y autodiscovery. Preferible si el runbook del upgrade ya usa `--upgrade-path`.
-
-Si `stock_picking_analytic` estaba instalado, hay que decidir: renombrarlo a un módulo propio equivalente, o desinstalarlo aceptando la pérdida de la cabecera (ver 6.6).
-
-### 6.4 `migrations/19.0.1.0.0/pre-migrate.py`
-
-Limpieza de residuos de la implementación OCA que nuestro módulo no define.
+El repo `indexa-git/upgrade-util` ya lleva los scripts de la migración a 19.0 organizados por módulo portador. `l10n_do_banks` es el que agrupa las fusiones de módulos, así que la nuestra es una línea más en su lista:
 
 ```python
-from odoo.tools.sql import column_exists
+# upgrade-util/src/l10n_do_banks/19.0.1.0.0/pre-module-merge.py
+_MERGES = [
+    ("account_auto_transfer_features", "account_transfer_features"),
+    ("payment_azul", "payment_azul_webpages"),
+    ("account_reconcile_payment", "l10n_do_account_withholding_tax"),
+    # OCA stock_analytic has no 19.0 version; store-addons replaces it.
+    ("stock_analytic", "stock_analytic_distribution_features"),
+]
 
 
 def migrate(cr, version):
-    # OCA views we do not ship: drop the xmlids so the ORM does not try to
-    # reload records that no longer exist in the module.
-    cr.execute(
-        """
-        DELETE FROM ir_ui_view
-         WHERE id IN (
-               SELECT res_id FROM ir_model_data
-                WHERE module = 'stock_analytic_distribution'
-                  AND model = 'ir.ui.view'
-         )
-        """
-    )
-    cr.execute(
-        """
-        DELETE FROM ir_model_data
-         WHERE module = 'stock_analytic_distribution'
-           AND model = 'ir.ui.view'
-        """
-    )
-
-    # stock_picking_analytic technical field, unused by the core-based flow.
-    if column_exists(cr, "stock_picking", "original_analytic_distribution"):
-        cr.execute("ALTER TABLE stock_picking DROP COLUMN original_analytic_distribution")
+    ...
+    for old_module, into_module in _MERGES:
+        util.merge_module(cr, old_module, into_module)
 ```
 
-### 6.5 `migrations/19.0.1.0.0/post-migrate.py`
+`util.merge_module` (`upgrade-util/src/util/modules.py:428`) hace todo en una llamada:
 
-**Regla dura: no regenerar AAL de movimientos históricos.**
+| Qué hace | Efecto aquí |
+|---|---|
+| Reasigna `ir_model_data`, `ir_model_constraint`, `ir_model_relation` y traducciones | Los campos `analytic_distribution` y el valor `stock_move` del dominio pasan a ser nuestros |
+| Reescribe `ir_ui_view.key` | Las vistas de OCA dejan de colgar del módulo viejo |
+| Rewire de `ir_module_module_dependency` | Cualquier módulo que dependiera de `stock_analytic` apunta al nuevo |
+| `DELETE FROM ir_module_module WHERE name='stock_analytic'` | El módulo OCA desaparece: no queda estado inconsistente que nadie tenga que limpiar |
+| `force_install_module(into)` si el viejo estaba instalado | `stock_analytic_distribution_features` queda instalado en la misma corrida, y el puente entra por `auto_install` |
 
-Las AAL de 17.0 nacieron de los apuntes de valuación (`account_analytic_line.move_line_id IS NOT NULL`) y siguen vivas después del upgrade. Si además llamamos `_create_analytic_move()` sobre movimientos `done` antiguos, el core crea una **segunda** AAL por movimiento → **todo el costo histórico se duplica en los proyectos.**
+Corre en fase **pre**, antes de cargar modelos y vistas. Es no-op si el módulo OCA nunca estuvo instalado: `merge_module` sale con un log y no toca nada.
 
-Solo se regenera para conduces **aún no validados**, donde el core nunca creó nada y el usuario espera ver la estimación:
+**No hay transformación de datos.** Nombres de campo, modelo y columna son idénticos entre los dos módulos, así que los `jsonb` no se reescriben. Tampoco se regenera ninguna partida analítica, de modo que el costo histórico de los proyectos no se puede duplicar; las de los conduces abiertos nacen con la primera edición o validación.
 
-```python
-from odoo import SUPERUSER_ID, api
+Requisito de ejecución: el upgrade tiene que arrancar con `--upgrade-path` apuntando a `upgrade-util/src`, o `from odoo.upgrade import util` no resuelve. Es el mismo requisito que ya tienen los demás scripts de ese árbol.
 
+Si `stock_picking_analytic` estaba instalado, hay que decidir aparte: portarlo o desinstalarlo aceptando la pérdida de la cabecera (6.4).
 
-def migrate(cr, version):
-    env = api.Environment(cr, SUPERUSER_ID, {})
-    moves = env["stock.move"].search(
-        [
-            ("state", "not in", ("done", "cancel", "draft")),
-            ("picked", "=", True),
-            ("analytic_distribution", "!=", False),
-        ]
-    )
-    moves.sudo()._create_analytic_move()
-```
-
-Si el equipo funcional prefiere arranque limpio, este script se omite: la primera edición o validación del conduce genera las AAL sola.
-
-### 6.6 `stock_picking_analytic` (analítica en la cabecera del conduce)
+### 6.4 `stock_picking_analytic` (analítica en la cabecera del conduce)
 
 ACSONE `stock_picking_analytic` no existe ni en 18.0 ni en 19.0. Dos caminos:
 
@@ -526,13 +486,13 @@ ACSONE `stock_picking_analytic` no existe ni en 18.0 ni en 19.0. Dos caminos:
 
 Decisión pendiente de la validación en la DB del cliente (fase F0).
 
-### 6.7 Verificación post-upgrade
+### 6.5 Verificación post-upgrade
 
 ```sql
 -- 1. El módulo quedó instalado con el nombre nuevo, no desinstalado
 SELECT name, state, latest_version
   FROM ir_module_module
- WHERE name IN ('stock_analytic', 'stock_analytic_distribution');
+ WHERE name IN ('stock_analytic', 'stock_analytic_distribution_features');
 
 -- 2. Las columnas sobrevivieron
 SELECT table_name, column_name, data_type
@@ -560,37 +520,140 @@ SELECT count(*)
 
 El punto 4 es el control clave: **el total analítico por cuenta no debe moverse ni un peso** con el upgrade.
 
-### 6.8 Alternativa: conservar el nombre `stock_analytic`
+### 6.6 Alternativa: conservar el nombre `stock_analytic`
 
 Vendorizar con el mismo nombre técnico elimina el paso 0 completo (sin rename, sin scripts de módulo). `addons_path` pone `/mnt/extra-addons-pro` **antes** de `OCA/account-analytic` (`conf/odoo.conf`), así que nuestra copia gana sobre upstream.
 
-Se descarta: nuestra implementación **no** es la de OCA (AAL directa vs apunte contable). Un módulo con nombre de OCA y comportamiento distinto, sombreando silenciosamente al upstream cuando el submódulo suba, es una trampa para el próximo que lo toque. El rename es 20 líneas de SQL una sola vez.
+Se descarta: nuestra implementación **no** es la de OCA (AAL directa vs apunte contable). Un módulo con nombre de OCA y comportamiento distinto, sombreando silenciosamente al upstream cuando el submódulo suba, es una trampa para el próximo que lo toque. Y el nombre propio no cuesta nada operativamente: la migración de datos sale gratis respetando el orden de 6.3.
+
+### 6.7 Prueba de la migración: `replicate_stock_analytic_migration.sh`
+
+El riesgo aquí es un módulo que desaparece, no una línea de código, así que la prueba es el entregable. El script monta un `stock_analytic` de mentira dentro del contenedor —mismos nombres técnicos que el de OCA: `analytic_distribution` en `stock.move`, `stock.move.line` y `stock.scrap` vía `analytic.mixin`, más el valor `stock_move` del dominio de aplicabilidad—, lo instala junto a `l10n_do_banks`, siembra datos como los de Escala Solar en 17.0/18.0 (conduce con reparto 60/40, desecho, dos partidas analíticas históricas al estilo OCA) y compara dos caminos sobre clones de la misma base.
+
+```bash
+./replicate_stock_analytic_migration.sh            # limpia las bases al terminar
+./replicate_stock_analytic_migration.sh --keep-dbs
+```
+
+- **CONTROL:** alguien desinstala `stock_analytic` a mano para limpiar el estado inconsistente.
+- **ARREGLO:** se rebobina `l10n_do_banks` y se actualiza con `--upgrade-path`, que dispara `pre-module-merge.py`.
+
+Resultado:
+
+```
+SNAPSHOT ANTES DEL CAMBIO
+  stock_move con distribucion   : 1
+  stock_move_line               : 1
+  stock_scrap                   : 1
+  jsonb del movimiento          : [({'1': 60.0, '2': 40.0},)]
+  partidas analiticas           : [(-50000.0, 2)]
+
+CONTROL — alguien desinstala stock_analytic a mano
+  columnas que sobreviven       : NINGUNA
+
+ARREGLO — upgrade de l10n_do_banks (upgrade-util: merge_module)
+  columnas que sobreviven       : stock_scrap, stock_move, stock_move_line
+  stock_move con distribucion   : 1
+  stock_move_line               : 1
+  stock_scrap                   : 1
+  jsonb del movimiento          : [({'1': 60.0, '2': 40.0},)]
+  partidas analiticas           : [(-50000.0, 2)]
+  valor de dominio stock_move   : 1
+  aplicabilidad configurada     : 1
+  modulos                       : ['stock_analytic_distribution_features=installed',
+                                   'stock_analytic_distribution_features_project=installed']
+```
+
+`stock_analytic` ya no aparece en la lista de módulos: `merge_module` borró su fila. El `jsonb` sale bit a bit igual al que entró, las partidas históricas no se duplican ni se pierden, y la configuración de aplicabilidad sobrevive. Lo que sigue pendiente es el mismo contraste sobre el dump real (7.4): esto prueba el mecanismo, no el volumen ni las particularidades de los datos del cliente.
 
 ---
 
 ## 7. Pruebas
 
-### 7.1 Tests automatizados (`tests/`)
+### 7.1 Tests automatizados
+
+Base común (`tests/common.py`): `TestStockCommon` + plan «Projects» con dos cuentas, categoría a costo estándar / valoración periódica, producto almacenable a 100 y 100 u de existencia.
+
+`stock_analytic_distribution_features/tests/` — 13 tests:
 
 | Test | Verifica |
 |---|---|
 | `test_distribution_creates_aal_on_validate` | Salida con distribución 100 % → 1 AAL, `amount = -move.value`, `unit_amount = qty` |
-| `test_distribution_split_two_accounts` | 60/40 → 2 AAL con los montos correctos |
+| `test_distribution_split_two_accounts` | 60/40 → 2 AAL de −600 y −400 |
 | `test_estimate_before_validation` | `picked = True`, `state = assigned` → AAL estimada a `standard_price` |
 | `test_change_distribution_rebalances` | Cambiar la distribución de un movimiento ya `picked` actualiza/borra las AAL, no las duplica |
 | `test_move_line_propagates_to_move` | Escribir en la línea sube al movimiento; sin recursión |
+| `test_move_propagates_to_move_lines` | Y al revés: el movimiento baja a sus líneas |
 | `test_mandatory_plan_blocks_validation` | Applicability `mandatory` + distribución al 50 % → `ValidationError` en `button_validate` |
-| `test_procurement_propagation` | Cadena MTO propaga la distribución al movimiento generado |
-| `test_scrap_analytic` | Desecho validado genera AAL |
-| `test_no_double_count_with_project` | Conduce con `project_id` + `analytic_costs` + distribución manual → **un solo** juego de AAL, con la manual |
-| `test_incoming_move_sign` | Entrada → AAL positiva |
+| `test_mandatory_plan_allows_full_distribution` | Con el 100 % la validación pasa |
+| `test_incoming_move_sign` | Entrada → AAL positiva, igual a `move.value` |
+| `test_no_distribution_no_aal` | Sin distribución no se genera nada |
+| `test_procurement_propagation` | `_prepare_procurement_values` lleva la distribución y `stock.rule` la acepta como campo custom |
+| `test_scrap_analytic` | Desecho validado genera AAL de −200 en la cuenta |
+| `test_scrap_without_distribution` | Desecho sin distribución no genera AAL |
+
+`stock_analytic_distribution_features_project/tests/` — 4 tests:
+
+| Test | Verifica |
+|---|---|
+| `test_manual_distribution_without_project` | Conduce sin proyecto pero con distribución manual → sí genera AAL (sin el puente, ninguna) |
+| `test_no_double_count_with_project` | Conduce con `project_id` + `analytic_costs` + distribución manual → **un solo** juego de AAL, con la manual, `category = picking_entry` |
+| `test_manual_wins_regardless_of_mro` | La precedencia la decide el puente, no el orden de carga |
+| `test_project_distribution_still_works` | Sin distribución manual, el flujo nativo por proyecto queda intacto |
+
+Resultado (contenedor `${ODOO_DEVELOPER}_v19`, DB `v19_sad_test`):
+
+```bash
+odoo -d <db> -u stock_analytic_distribution_features,stock_analytic_distribution_features_project \
+     --test-enable --test-tags '/stock_analytic_distribution_features,/stock_analytic_distribution_features_project'
+# 0 failed, 0 error(s)
+
+# Regresión del core, con nuestros módulos instalados:
+odoo -d <db> -u project_stock_account,stock_account \
+     --test-enable --test-tags '/project_stock_account,/stock_account'
+# 0 failed, 0 error(s) — 236 tests
+```
 
 ### 7.2 Script de entorno
 
-`setup_v19_stock_analytic_distribution.sh`, en la línea de los `setup_v19_*.sh` existentes: DB nueva, `stock_account` + `project` + módulos nuestros, plan analítico con 2 proyectos, productos valorados a costo estándar y FIFO, conduces de prueba (una cuenta / split 60-40 / sin distribución), un desecho.
+`setup_v19_stock_analytic_distribution_features.sh` (raíz del repo), en la línea de los `setup_v19_*.sh` existentes. Crea `v19_stock_analytic_distribution_features` sin datos demo, instala `stock_analytic_distribution_features` + `project_stock_account` (que dispara el `auto_install` del puente), y siembra seis escenarios:
 
-### 7.3 Ensayo de upgrade
+| | Escenario | Resultado esperado |
+|---|---|---|
+| A | Conduce validado, 100 % a PROY-001 | 2 AAL: −250,000 y −64,000 |
+| B | Conduce `picked` **sin validar**, 60/40 | −108,000 a PROY-001 y −72,000 a PROY-002, **antes de validar** |
+| C | Conduce validado sin distribución | sin AAL |
+| D | Desecho con distribución | −25,000 a PROY-002 |
+| E | Conduce con proyecto (flujo nativo) | −100,000 a PROY-003 |
+| F | Conduce con proyecto **y** distribución manual | −90,000 a PROY-001 (gana la manual) |
 
-Con dump real de Escala Solar: 17 → 18 → SQL de rename → 19 → los cinco queries de 6.7. Antes del salto, snapshot de los queries 3 y 4 sobre la DB 17.0 para comparar.
+El script cierra imprimiendo el acumulado por cuenta y un control de duplicados (`Movimientos con partidas duplicadas: ninguno`).
+
+### 7.3 Manual de usuario
+
+`docs/manuals/stock_analytic_distribution_features/README.md`, generado con `tools/manual-generator`:
+
+```bash
+cd tools/manual-generator && ./generate-manual.sh --module=stock_analytic_distribution_features
+```
+
+12 capturas sobre una base limpia (`configs/stock_analytic_distribution_features.json` + `.seed.py`), en español.
+
+### 7.4 Ensayo de upgrade
+
+Con dump real de Escala Solar: 17 → 18 → 19 con `--upgrade-path` → los cinco queries de 6.5. Antes del salto, snapshot de los queries 3 y 4 sobre la DB 17.0 para comparar. **Pendiente:** requiere el dump del cliente.
 
 ---
+
+## 8. Estado y pendientes
+
+| | |
+|---|---|
+| Módulos implementados en `store-addons` | ✅ |
+| Tests propios (13 + 4) y regresión del core (236) | ✅ en verde |
+| Base de demo con los seis escenarios | ✅ `setup_v19_stock_analytic_distribution_features.sh` |
+| Manual de usuario con capturas | ✅ `docs/manuals/stock_analytic_distribution_features/` |
+| Traducción `es_DO` | ✅ `i18n/es_DO.po` (etiqueta «Distribución analítica», dominio «Movimiento de stock») |
+| Migración de datos desde OCA `stock_analytic` | ✅ `merge_module` en `upgrade-util/src/l10n_do_banks/19.0.1.0.0/pre-module-merge.py`, probada con `replicate_stock_analytic_migration.sh` |
+| Decisión sobre `stock_picking_analytic` (§6.4) | ⏳ pendiente de validar la DB del cliente |
+| Ensayo 17 → 18 → 19 con datos de Escala Solar | ⏳ pendiente del dump (el mecanismo ya está probado, falta el volumen real) |
