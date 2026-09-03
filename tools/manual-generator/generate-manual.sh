@@ -5,11 +5,15 @@
 # 2. Instala el modulo (y sus dependencias)
 # 3. (opcional) Siembra datos de ejemplo con configs/<modulo>.seed.py
 # 4. Toma capturas de los flujos con Playwright (Chrome del sistema)
-# 5. Renderiza docs/manuals/<modulo>/README.md
+# 5. Arma docs/manuals/<modulo>/{README.md,manual.html,manual.pdf}
 #
 # Uso:
 #   ./generate-manual.sh --module=report_zpl_direct_print
 #   ./generate-manual.sh --module=report_zpl_direct_print --keep-db --headed
+#   ./generate-manual.sh --module=<modulo> --config=configs/<otro>.json --name=manual-usuario
+#
+# --config y --name permiten un segundo manual del mismo modulo (por ejemplo uno
+# corto para usuarios finales) en la misma carpeta, sin pisar al primero.
 #
 # Para documentar un modulo nuevo: crea configs/<modulo>.json (y opcional
 # configs/<modulo>.seed.py) y corre el script con --module=<modulo>.
@@ -33,24 +37,30 @@ DB_PASS="${DB_ENV_POSTGRES_PASSWORD:-odoo_password}"
 ODOO_PORT="${ODOO_PORT:-8069}"
 
 MODULE=""
+EXTRA_MODULES=""
 KEEP_DB=false
 HEADED=""
 BASE_URL_OVERRIDE=""
 CAPTURE_PORT="8071"
+CONFIG_OVERRIDE=""
+MANUAL_NAME="manual"
 
 for arg in "$@"; do
   case "$arg" in
     --module=*)   MODULE="${arg#--module=}" ;;
+    --extra-modules=*) EXTRA_MODULES="${arg#--extra-modules=}" ;;
     --keep-db)    KEEP_DB=true ;;
     --headed)     HEADED="--headed" ;;
     --base-url=*) BASE_URL_OVERRIDE="${arg#--base-url=}" ;;
     --port=*)     CAPTURE_PORT="${arg#--port=}" ;;
+    --config=*)   CONFIG_OVERRIDE="${arg#--config=}" ;;
+    --name=*)     MANUAL_NAME="${arg#--name=}" ;;
   esac
 done
 
 [[ -z "$MODULE" ]] && { echo "ERROR: falta --module=<nombre>" >&2; exit 1; }
 
-CONFIG="$SCRIPT_DIR/configs/${MODULE}.json"
+CONFIG="${CONFIG_OVERRIDE:-$SCRIPT_DIR/configs/${MODULE}.json}"
 SEED="$SCRIPT_DIR/configs/${MODULE}.seed.py"
 [[ ! -f "$CONFIG" ]] && { echo "ERROR: no existe $CONFIG" >&2; exit 1; }
 
@@ -102,14 +112,16 @@ _drop_db() {
 }
 
 # ─── 1+2. Crear base e instalar modulo ───────────────────────────────────────
-echo "[1/4] Creando base limpia e instalando '$MODULE'..."
+INSTALL_MODULES="$MODULE"
+[[ -n "$EXTRA_MODULES" ]] && INSTALL_MODULES="$MODULE,$EXTRA_MODULES"
+echo "[1/4] Creando base limpia e instalando '$INSTALL_MODULES'..."
 _drop_db "$DB"
 docker exec "$CONTAINER" odoo \
   -d "$DB" \
   --db_host="$DB_HOST" --db_port="$DB_PORT" \
   --db_user="$DB_USER" --db_password="$DB_PASS" \
   --without-demo=all --log-level=warn --stop-after-init --no-http \
-  -i "$MODULE" \
+  -i "$INSTALL_MODULES" \
   2>&1 | grep -E "loading module|modules loaded|ERROR|Module.*failed" || true
 
 # ─── 3. Sembrar datos de ejemplo ─────────────────────────────────────────────
@@ -163,28 +175,25 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
 fi
 
 # ─── 4. Capturas con Playwright ──────────────────────────────────────────────
-echo "[3b/4] Capturando pantallas con Playwright..."
+echo "[3b/4] Capturando pantallas y armando el manual con Playwright..."
 if [[ ! -d "$SCRIPT_DIR/node_modules/playwright" ]]; then
   echo "   Instalando dependencias de Node (playwright)..."
   ( cd "$SCRIPT_DIR" && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --no-audit --no-fund )
 fi
+# capture.mjs writes the whole manual: img/, README.md, manual.html and
+# manual.pdf. --out is the manual folder, not the image folder: the images go
+# in <out>/img on their own.
 node "$SCRIPT_DIR/capture.mjs" \
   --config="$CONFIG" \
   --base-url="$CAPTURE_URL" \
   --db="$DB" \
   --login=admin --password=admin \
-  --out="$IMG_DIR" \
+  --out="$OUT_DIR" \
+  --name="$MANUAL_NAME" \
   $HEADED
 
 # Stop the throwaway server as soon as captures are done.
 docker rm -f "$EPHEMERAL_NAME" >/dev/null 2>&1 || true
-
-# ─── 5. Renderizar manual ────────────────────────────────────────────────────
-echo "[4/4] Renderizando manual..."
-node "$SCRIPT_DIR/render-manual.mjs" \
-  --config="$CONFIG" \
-  --img="$IMG_DIR" \
-  --out="$OUT_DIR/README.md"
 
 # ─── Limpieza ────────────────────────────────────────────────────────────────
 if [[ "$KEEP_DB" == "false" ]]; then
@@ -195,5 +204,9 @@ else
 fi
 
 echo ""
-echo "✅ Manual generado: $OUT_DIR/README.md"
+MD_NAME="README.md"
+[[ "$MANUAL_NAME" != "manual" ]] && MD_NAME="${MANUAL_NAME}.md"
+echo "✅ Manual generado: $OUT_DIR/${MANUAL_NAME}.pdf"
+echo "   Markdown       : $OUT_DIR/$MD_NAME"
+echo "   HTML           : $OUT_DIR/${MANUAL_NAME}.html"
 echo "   Capturas       : $IMG_DIR"
