@@ -6,12 +6,12 @@
     "subject": "PREAJUSTE DE PDV SEGÚN EL ORIGEN DE LA ORDEN",
     "version": "V19"
   },
-  "intro": "El módulo **POS Preset by Order Origin** deduce el preajuste (*preset*) de cada orden del punto de venta a partir de su **origen**, en lugar de aplicar siempre el preajuste predeterminado:\n\n- La orden que **nace en una mesa** toma el preajuste de mesa (*Comer en el local*).\n- La orden que **nace sin mesa** —venta directa en el mostrador— toma el preajuste de venta directa (*Para llevar*).\n- La venta directa que **después se lleva a una mesa** cambia sola al preajuste de mesa, y sus totales no se tocan.\n\nEl cajero conserva la última palabra: si elige el preajuste a mano, el automatismo se apaga para esa orden.\n\nEl preajuste es lo que determina la tarifa y la posición fiscal de la orden, así que dejarlo a criterio del cajero significaba en la práctica facturar consumo en el local con la configuración de para llevar (y al revés). Este módulo elimina ese paso manual.",
+  "intro": "El preajuste (*preset*) de una orden del punto de venta es lo que le dice al sistema qué **tarifa** y qué **posición fiscal** usar, es decir, qué impuestos y qué propina legal llevan las líneas. Hasta ahora dependía de que el cajero se acordara de elegirlo en cada orden.\n\nCon el módulo **POS Preset by Order Origin** el preajuste se pone solo, según dónde nace la orden:\n\n- Orden que **nace en una mesa** → preajuste de mesa (*Comer en el local*).\n- Orden que **nace sin mesa**, en el mostrador → preajuste de venta directa (*Para llevar*).\n- Venta directa que **después se lleva a una mesa** → cambia sola a *Comer en el local*.\n\nEl cajero conserva la última palabra: si cambia el preajuste a mano, el automatismo deja de corregir esa orden.",
   "requirements": [
     "Odoo 19 con `point_of_sale` y `pos_restaurant` instalados.",
     "Módulo `pos_preset_by_order_origin` instalado.",
     "El PdV en modo restaurante (**Es un bar/restaurante**) y con al menos un piso con mesas.",
-    "Preajustes activados en el PdV (**Para llevar / Entrega / Miembros**) y los dos preajustes del flujo en la lista *Disponible*."
+    "Preajustes activados en el PdV (**Para llevar / Entrega / Miembros**), con los dos preajustes del flujo en la lista *Disponible*."
   ],
   "general": [
     {
@@ -31,69 +31,32 @@
       "value": "`pos_restaurant`"
     },
     {
-      "label": "Relevantes para las configuraciones",
+      "label": "Qué hay que configurar",
       "value": [
-        "Campos nuevos: `pos.config.table_preset_id` (En mesa) y `pos.config.direct_sale_preset_id` (Venta directa)",
-        "*Predeterminado* debe ser el preajuste de venta directa, o quedan órdenes vacías huérfanas en las pestañas",
-        "Los dos preajustes deben tener *Identificación = No requerida* y *Gestionar órdenes por tiempo* apagado",
-        "Los dos preajustes deben compartir tarifa y posición fiscal (si no, trasladar a una mesa re-precia la orden)",
-        "Sin modo restaurante o sin preajustes activos el módulo queda inerte",
-        "Base de las capturas: `test_v19_pos_preset_by_order_origin`"
+        "En el PdV: **En mesa** y **Venta directa**, debajo de *Predeterminado*",
+        "*Predeterminado* debe ser el mismo preajuste de **Venta directa**",
+        "Cada preajuste con **su** tarifa y **su** posición fiscal: eso es lo que cambia los impuestos y la propina legal",
+        "Sin modo restaurante o sin preajustes activos, el módulo no hace nada"
       ]
     }
   ],
-  "database": "`test_v19_pos_preset_by_order_origin`, creada con `cd tools/manual-generator && ./generate-manual.sh --module=pos_preset_by_order_origin --keep-db` (usuario `admin`, clave `admin`).",
   "cases": [
     {
-      "title": "Configuración",
+      "title": "Lo que debe pasar en caja",
       "groups": [
         {
-          "title": "Ajustes → Punto de venta → Para llevar / Entrega / Miembros",
+          "title": "Los tres escenarios",
           "items": [
             {
-              "label": "Campos nuevos **En mesa** y **Venta directa**, debajo de *Predeterminado*",
+              "label": "Orden nueva desde una mesa → *Comer en el local*, sin preguntar nada",
               "ok": true
             },
             {
-              "label": "Sólo se ofrecen preajustes de la lista *Disponible*",
+              "label": "Venta directa nueva → *Para llevar*, sin preguntar nada",
               "ok": true
             },
             {
-              "label": "Visibles únicamente cuando el PdV está en modo restaurante",
-              "ok": true
-            },
-            {
-              "label": "Un preajuste elegido fuera de *Disponible* se agrega solo a esa lista",
-              "ok": true
-            },
-            {
-              "label": "Cambiarlos invalida los datos de las sesiones abiertas (`last_data_change`)",
-              "ok": true
-            },
-            {
-              "label": "Los dos preajustes llegan al frontend del PdV aunque no estén en *Disponible*",
-              "ok": true
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "Operación en el punto de venta",
-      "groups": [
-        {
-          "title": "Los tres escenarios del requerimiento",
-          "items": [
-            {
-              "label": "Orden nueva desde una mesa → *Comer en el local*, sin diálogos",
-              "ok": true
-            },
-            {
-              "label": "Venta directa nueva → *Para llevar*, sin diálogos",
-              "ok": true
-            },
-            {
-              "label": "Venta directa **vacía** que adopta una mesa → *Comer en el local*, sin orden huérfana",
+              "label": "Venta directa **vacía** que adopta una mesa → *Comer en el local*",
               "ok": true
             },
             {
@@ -101,11 +64,11 @@
               "ok": true
             },
             {
-              "label": "Los totales de la orden trasladada no cambian",
+              "label": "Venta directa con líneas fusionada en una mesa ocupada → la orden resultante queda *Comer en el local*",
               "ok": true
             },
             {
-              "label": "Venta directa con líneas fusionada en una mesa ocupada → la orden resultante queda *Comer en el local*",
+              "label": "Al cambiar el preajuste, los impuestos de la orden se recalculan con la posición fiscal del nuevo preajuste",
               "ok": true
             }
           ]
@@ -122,29 +85,7 @@
               "ok": true
             },
             {
-              "label": "El cambio de preajuste sobre una orden ya sincronizada se propaga a los demás equipos",
-              "ok": true
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "Pruebas automatizadas",
-      "groups": [
-        {
-          "title": "`--test-tags=/pos_preset_by_order_origin`",
-          "items": [
-            {
-              "label": "2 pruebas Python (carga de los preajustes al frontend e invalidación de sesiones)",
-              "ok": true
-            },
-            {
-              "label": "Tour `PresetByOriginTour`: los tres escenarios más la elección manual",
-              "ok": true
-            },
-            {
-              "label": "6 pruebas unitarias Hoot del servicio del PdV",
+              "label": "La siguiente orden de esa misma mesa vuelve a nacer con el preajuste de mesa",
               "ok": true
             }
           ]
@@ -156,8 +97,8 @@
     {
       "id": "01-ajustes-pdv",
       "section": "Configuración",
-      "title": "1. Los dos ajustes nuevos",
-      "description": "**Ajustes → Punto de venta → Para llevar / Entrega / Miembros**. Debajo de *Predeterminado* aparecen los dos campos que publica el módulo:\n\n- **En mesa**: el preajuste que se aplica a las órdenes que nacen en una mesa o que se llevan a una mesa.\n- **Venta directa**: el que se aplica a las órdenes que nacen sin mesa.\n\nLos dos sólo ofrecen preajustes de la lista *Disponible*, y sólo se muestran cuando el PdV está en modo restaurante.\n\n*Predeterminado* debe coincidir con **Venta directa**: es la condición que usa Odoo para que una venta directa vacía adopte la mesa que el cajero acaba de tocar, en lugar de dejar una orden vacía suelta en las pestañas.",
+      "title": "1. Elegir los dos preajustes del PdV",
+      "description": "Entra a **Ajustes → Punto de venta**, elige tu punto de venta y baja hasta **Para llevar / Entrega / Miembros**. Debajo de *Predeterminado* aparecen los dos campos del módulo:\n\n1. **En mesa**: el preajuste de las órdenes que nacen en una mesa o que se pasan a una mesa. Normalmente *Comer en el local*.\n2. **Venta directa**: el preajuste de las órdenes que nacen sin mesa, en el mostrador. Normalmente *Para llevar*.\n3. **Predeterminado**: déjalo igual al de **Venta directa**. Si no, al tocar una mesa queda una orden vacía suelta en las pestañas.\n\nLos dos campos sólo ofrecen preajustes de la lista *Disponible*, y sólo se ven cuando el PdV está en modo restaurante.",
       "element": "div.o_setting_box:has([name='pos_table_preset_id'])",
       "steps": [
         {
@@ -185,8 +126,8 @@
     {
       "id": "02-preajustes",
       "section": "Configuración",
-      "title": "2. Preajustes silenciosos",
-      "description": "**Punto de venta → Configuración → Preajustes**. El módulo asigna el preajuste mientras la orden se crea, sin pasar por los diálogos del flujo nativo. Por eso los dos preajustes del flujo deben venir **sin preguntas**:\n\n- *Identificación* = **No requerida** (con *Nombre* Odoo pide un nombre en cada orden; así viene de fábrica el preajuste *Para llevar*).\n- *Gestionar órdenes por tiempo* **apagado** (si no, pide franja horaria).\n- *Modo de devolución* apagado, y la **misma** tarifa y posición fiscal en los dos.\n\nSi un preajuste conserva la identificación o la franja horaria, la orden se crea sin ese dato y Odoo lo reclama más adelante, al momento de cobrar.",
+      "title": "2. Revisar los preajustes",
+      "description": "Entra a **Punto de venta → Configuración → Preajustes** y abre los dos preajustes que acabas de elegir.\n\n**Tarifa y posición fiscal**: cada preajuste lleva las suyas y **no tienen que coincidir**. Al contrario: es justo la posición fiscal del preajuste la que le dice al sistema qué impuestos aplicar, así que *Comer en el local* lleva la que incluye la propina legal del 10 % y *Para llevar* la que no. Cuando una orden cambia de preajuste, sus líneas se recalculan con la posición fiscal nueva y el total cambia. Eso es lo esperado.\n\n**Lo único a tener en cuenta**: el módulo pone el preajuste mientras se crea la orden, sin abrir los diálogos del preajuste. Por eso, si el preajuste pide algo, Odoo lo reclama después, al cobrar:\n\n- *Identificación* = **Nombre** o **Dirección** → al cobrar pide el nombre o el cliente. Con **No requerida** no pregunta nada.\n- *Gestionar órdenes por tiempo* **encendido** → al cobrar pide la franja horaria. Se elige con el botón de la hora, en la barra superior del PdV. Déjalo encendido sólo si de verdad trabajas con franjas.\n\nNinguna de las dos cosas impide vender: sólo mueven la pregunta al momento del cobro.",
       "steps": [
         {
           "goto": "/odoo/action-point_of_sale.action_pos_preset_form"
@@ -206,8 +147,8 @@
     {
       "id": "03-mesas",
       "section": "Configuración",
-      "title": "3. El piso y las mesas",
-      "description": "**Punto de venta → Configuración → Mapa de pisos y mesas**. Sin mesas no hay origen que distinguir: el escenario de la orden en mesa y el del traslado no existen, y el módulo se comporta como Odoo de fábrica.\n\nEn las capturas se usa un piso *Salón* con cuatro mesas.",
+      "title": "3. Tener mesas en el piso",
+      "description": "Entra a **Punto de venta → Configuración → Mapa de pisos y mesas** y confirma que el piso tiene mesas. Sin mesas no hay dos orígenes que distinguir y el módulo no tiene nada que hacer.\n\nEn las capturas se usa un piso *Salón* con cuatro mesas.",
       "steps": [
         {
           "goto": "/odoo/action-pos_restaurant.action_restaurant_floor_form"
@@ -228,7 +169,7 @@
       "id": "04-plano-mesas",
       "section": "Operación en el punto de venta",
       "title": "4. Abrir el punto de venta",
-      "description": "Al abrir la caja registradora el PdV entra al plano de mesas. Desde aquí salen los dos orígenes posibles: tocar una mesa o crear una **Nueva orden** (venta directa en el mostrador).",
+      "description": "Abre la caja registradora. El PdV entra al plano de mesas, y desde aquí salen los dos orígenes posibles: **tocar una mesa** o pulsar **Nueva orden** (venta directa en el mostrador).",
       "steps": [
         {
           "goto": "/pos/ui/1",
@@ -257,7 +198,7 @@
       "id": "05-orden-en-mesa",
       "section": "Operación en el punto de venta",
       "title": "5. Orden que nace en una mesa",
-      "description": "Se toca la mesa 2 y se captura un *Café con leche*. La orden nace con el preajuste **Comer en el local** —el botón de preajuste, en la fila de acciones de la comanda— sin que el cajero elija nada y sin ningún diálogo de por medio.\n\nEl botón recorta la etiqueta cuando el nombre es largo; el nombre completo del preajuste de cada orden se ve en **Órdenes** (paso 9).",
+      "description": "Toca la **mesa 2** y captura un producto —aquí un *Café con leche*—.\n\nLa orden nace ya con el preajuste **Comer en el local**: se ve en el botón de preajuste, en la fila de acciones de la comanda. No hubo que elegir nada ni apareció ningún diálogo.\n\nEse botón recorta los nombres largos; el nombre completo se ve en **Órdenes** (paso 9).",
       "steps": [
         {
           "click": ".floor-map .table:has(.label:text-is(\"2\"))"
@@ -282,7 +223,7 @@
       "id": "06-venta-directa",
       "section": "Operación en el punto de venta",
       "title": "6. Venta directa en el mostrador",
-      "description": "De vuelta al plano (**Mesas**) y con **Nueva orden** se crea una venta directa: una orden sin mesa. Se captura un *Brownie de nuez* (RD$ 140.00).\n\nEl preajuste aplicado es **Para llevar**, y la etiqueta *Venta directa* de la barra superior confirma el origen de la orden.",
+      "description": "Vuelve al plano con **Mesas** y pulsa **Nueva orden**: eso crea una orden sin mesa. Captura un producto —aquí un *Brownie de nuez*, RD$ 140.00—.\n\nEl preajuste aplicado es **Para llevar**, y la etiqueta *Venta directa* de la barra superior confirma el origen.",
       "steps": [
         {
           "click": ".pos-leftheader .table-button"
@@ -317,7 +258,7 @@
       "id": "07-asignar-mesa",
       "section": "Operación en el punto de venta",
       "title": "7. El cliente se queda: asignar una mesa",
-      "description": "El cliente decide quedarse. Con **Asignar mesa** se escribe el número de la mesa —la 4— y se confirma con **Asignar**.\n\nÉste es el tercer escenario, y el que más se repite en el mostrador: la orden ya existe, ya tiene líneas, y su origen cambia a mitad de camino.",
+      "description": "El cliente decide quedarse. Pulsa **Asignar mesa**, escribe el número de mesa —la **4**— y confirma con **Asignar**.\n\nÉste es el caso que más se repite en el mostrador: la orden ya existe, ya tiene líneas, y su origen cambia a mitad de camino.",
       "steps": [
         {
           "click": ".set-table"
@@ -337,7 +278,7 @@
       "id": "08-mesa-asignada",
       "section": "Operación en el punto de venta",
       "title": "8. La orden pasa a Comer en el local",
-      "description": "Al asignar la mesa 4 el preajuste cambia solo a **Comer en el local** y el total sigue siendo **RD$ 140.00**: el traslado no re-precia la orden, porque los dos preajustes comparten tarifa y posición fiscal.\n\nSi cada preajuste tuviera su propia tarifa, este paso recalcularía los precios de las líneas ya capturadas. Es la razón por la que la configuración insiste en dejar la misma tarifa en los dos.",
+      "description": "Al asignar la mesa 4 el preajuste cambia solo a **Comer en el local**, sin tocar nada más.\n\nEn esta captura el total sigue siendo **RD$ 140.00** porque los dos preajustes de la base de ejemplo usan la misma tarifa y la misma posición fiscal. En una configuración real, donde *Comer en el local* lleva la posición fiscal con la propina legal del 10 % y *Para llevar* no, **el total se recalcula al asignar la mesa**: la propina entra y el total sube. Es el comportamiento correcto.\n\nEl mismo criterio vale para la tarifa: si los dos preajustes tienen tarifas distintas, al pasar la orden a la mesa se vuelven a calcular los precios de las líneas ya capturadas.",
       "steps": [
         {
           "click": "button:has-text(\"Asignar\"):not(.set-table)"
@@ -354,8 +295,8 @@
     {
       "id": "09-ordenes",
       "section": "Operación en el punto de venta",
-      "title": "9. El preajuste de cada orden, en una sola pantalla",
-      "description": "**Órdenes** lista las órdenes abiertas con el preajuste de cada una en una etiqueta de color. Se ven las dos del ejemplo, ambas ya de mesa y con **Comer en el local**: la que nació en la mesa 2 y la venta directa que acabó en la mesa 4.\n\nEs la pantalla donde conviene verificar el resultado: el botón de la comanda recorta los nombres largos, esta etiqueta no.",
+      "title": "9. Verificar el preajuste de cada orden",
+      "description": "Pulsa **Órdenes**: la lista muestra las órdenes abiertas con el preajuste de cada una en una etiqueta de color.\n\nSe ven las dos del ejemplo, ambas ya en mesa y con **Comer en el local**: la que nació en la mesa 2 y la venta directa que acabó en la mesa 4.\n\nÉsta es la pantalla donde conviene verificar: el botón de la comanda recorta los nombres largos, esta etiqueta no.",
       "steps": [
         {
           "click": ".pos-leftheader .orders-button"
@@ -375,8 +316,8 @@
     {
       "id": "10-preajuste-manual",
       "section": "Operación en el punto de venta",
-      "title": "10. El cajero conserva la última palabra",
-      "description": "El botón de preajuste sigue funcionando. Aquí se pasa la orden de la mesa 4 a **Para llevar** a mano —el cliente cambió de idea y se lleva el pedido—. A partir de ese momento el automatismo no vuelve a corregir esa orden: se sale al plano de mesas, se vuelve a entrar a la mesa 4 y la elección manual se mantiene.\n\nEs una decisión por orden: la siguiente orden de esa misma mesa vuelve a nacer como *Comer en el local*.",
+      "title": "10. Cambiar el preajuste a mano",
+      "description": "El botón de preajuste sigue funcionando. Aquí se pasa la orden de la mesa 4 a **Para llevar** a mano, porque el cliente cambió de idea y se lleva el pedido.\n\nDesde ese momento el automatismo no vuelve a corregir **esa** orden: se sale al plano de mesas, se vuelve a entrar a la mesa 4 y la elección manual se mantiene.\n\nEs una decisión por orden: la siguiente orden de esa misma mesa vuelve a nacer como *Comer en el local*.",
       "steps": [
         {
           "click": ".pos-leftheader .register-label"
@@ -430,10 +371,9 @@
     {
       "id": "11-limites",
       "section": "Comportamiento y límites",
-      "title": "11. Qué no hace el módulo",
-      "description": "- **No cambia tarifas ni posiciones fiscales por su cuenta.** Aplica el preajuste con el mismo mecanismo del flujo nativo, que arrastra la tarifa y la posición fiscal del preajuste. Con tarifas distintas, trasladar una orden ya capturada a una mesa **re-precia** sus líneas.\n- **No pide identificación ni franja horaria al crear la orden.** Se salta a propósito los diálogos del preajuste; Odoo los sigue exigiendo antes de cobrar, sólo que más adelante en el flujo.\n- **Pantalla de cocina.** Cambiar el preajuste después de enviar la orden a preparación se ve en la pantalla de cocina como un cambio de la orden.\n- **No toca la numeración fiscal.** El preajuste no participa en el NCF/e-CF ni en el asiento de cierre de sesión.\n- **Fuera de alcance:** autopedido por celular y quioscos (`pos_self_order`).\n\nSin modo restaurante, o con los preajustes desactivados, el módulo queda inerte y el punto de venta se comporta exactamente como de fábrica.",
+      "title": "11. Qué hace y qué no hace el módulo",
+      "description": "- **Lo único que decide es el preajuste.** La tarifa, la posición fiscal y los impuestos los sigue aplicando Odoo igual que siempre, a partir del preajuste que quedó en la orden.\n- **Al cambiar el preajuste, los totales cambian.** Si los preajustes tienen posiciones fiscales distintas (propina legal en mesa, sin propina para llevar), pasar una orden a una mesa recalcula sus impuestos. Con tarifas distintas, también sus precios.\n- **No pregunta al crear la orden.** Si el preajuste pide identificación o franja horaria, Odoo lo reclama al cobrar, no al abrir la orden.\n- **Pantalla de cocina.** Cambiar el preajuste después de mandar la orden a preparación se ve en cocina como un cambio de la orden.\n- **No toca la numeración fiscal.** El preajuste no interviene en el NCF/e-CF ni en el cierre de sesión.\n- **Fuera de alcance:** autopedido por celular y quioscos (`pos_self_order`).\n\nSin modo restaurante, o con los preajustes desactivados, el módulo queda inerte y el punto de venta se comporta exactamente como de fábrica.",
       "image": false
     }
-  ],
-  "notes": "**Pruebas.** `docker exec <contenedor> odoo -d <base> --db_host=odoo-db --db_port=5432 --db_user=odoo --db_password=odoo_password --test-enable --test-tags=/pos_preset_by_order_origin --stop-after-init --workers=0 --http-port=8079` corre las dos pruebas Python y el tour `PresetByOriginTour`. Las 6 pruebas unitarias Hoot van por el suite de `web`: `--test-tags=\"/web:WebSuite.test_unit_desktop[@pos_preset_by_order_origin]\"`. El contenedor necesita `websocket-client` y un Chrome (`ODOO_BROWSER_BIN`) para las pruebas con navegador.\n\n**Mantenimiento.** El módulo parchea cuatro métodos del frontend del PdV: `createNewOrder` y `selectPreset` (`point_of_sale`), `setTable` y `prepareOrderTransfer` (`pos_restaurant`). En cada migración mayor hay que verificar que sigan existiendo con la misma firma. La dependencia de `pos_restaurant` es obligatoria: los parches envuelven a los de ese módulo por cadena de prototipos, y eso sólo funciona si los assets se cargan después."
+  ]
 }
