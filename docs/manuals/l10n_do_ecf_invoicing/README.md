@@ -18,7 +18,7 @@ Se puede ejecutar tantas veces como haga falta. Al abrirla otra vez muestra, por
 - **Entorno del servicio e-CF en Certificación** (`CerteCF`). En Prueba o en Producción la opción no aparece, y si se llama de todos modos el sistema la rechaza.
 - Usuario con el permiso **Contabilidad: Administrador**.
 - Diarios de venta y de compra con **documentos fiscales activados**, y los tipos de e-CF habilitados en ellos: solo los tipos habilitados se ofrecen en el asistente.
-- Para los niveles *Validar* y *Validar y enviar*: **certificado .p12 y su contraseña** cargados en la compañía.
+- Para los niveles *Validar* y *Validar y enviar*: **certificado .p12 y su contraseña** cargados en la compañía. Sin ellos el asistente se detiene antes de crear nada y solo queda disponible el nivel *Crear borrador*.
 
 ## 1. El entorno tiene que estar en Certificación
 
@@ -62,6 +62,8 @@ En la captura se ve una certificación a medio camino: el Crédito Fiscal tiene 
 
 **Contraparte**, **Producto** y **Precio** se pueden ajustar por línea: se muestran con el botón de columnas opcionales, arriba a la derecha de la tabla.
 
+El recuadro rojo de la captura aparece cuando se elige un nivel que firma y la compañía todavía no tiene cargado el certificado `.p12`. Mientras esté ahí, **Generar** no crea nada: el asistente avisa primero en vez de dejar una tanda de borradores inservibles.
+
 ![4. El asistente, con el avance de lo ya emitido](img/04-asistente.png)
 
 ## 5. Hasta dónde llega la automatización
@@ -70,13 +72,15 @@ El **nivel de automatización** decide qué hace el botón *Generar*:
 
 | Nivel | Qué hace | Cómo quedan |
 |---|---|---|
-| **Crear borrador** | Solo crea las facturas | En borrador, para revisarlas antes de firmar |
-| **Validar (firma el e-CF)** | Valida y firma el XML | *Firmado pendiente*, listos para enviar |
+| **Crear borrador** | Solo crea las facturas | En borrador, sin NCF todavía: el e-CF nace al validar |
+| **Validar (firma el e-CF)** | Valida y firma el XML | *Firmado pendiente*, con su NCF y su código de seguridad |
 | **Validar y enviar a la DGII** | Valida, firma y envía | *Entregado pendiente*, con su TrackID |
 
 El estado final (aceptado o rechazado) lo cierran los procesos automáticos que ya corren cada 15 minutos, o el botón **Update ECF Now** de la propia factura.
 
-Dos detalles que conviene saber de antemano:
+**Los dos niveles que firman necesitan el certificado `.p12` de la compañía.** Sin él, el asistente no genera nada y explica dónde cargarlo: *Ajustes → Contabilidad → República Dominicana*. Es a propósito: firmar es lo que convierte la factura en e-CF, y sin certificado cada documento fallaría uno por uno al validar, dejando borradores que no sirven.
+
+Otros dos detalles que conviene saber de antemano:
 
 - El **41 (Compras)** no queda firmado al validar. Es así en la operación normal del módulo, no un problema del generador: se queda esperando al proceso automático.
 - Las **notas de crédito y débito** necesitan una factura E31 **ya validada** en la misma tanda. Con *Crear borrador* no hay ninguna, así que se omiten y el asistente lo avisa.
@@ -165,6 +169,7 @@ Los impuestos los pone el generador según el tipo:
 | *Los comprobantes de certificación solo pueden emitirse desde compañías dominicanas* | La compañía activa no es de República Dominicana |
 | *… omitido: necesita un documento E31 validado* | Se pidió una nota de crédito o débito con el nivel *Crear borrador* |
 | *Seleccione al menos un tipo de documento con una cantidad mayor que cero* | No hay nada marcado en la tabla |
+| *Firmar el e-CF requiere el certificado .p12 de la compañía y su contraseña…* | Se eligió *Validar* o *Validar y enviar* y la compañía no tiene el certificado cargado |
 
 ## Antes de pasar a producción
 
