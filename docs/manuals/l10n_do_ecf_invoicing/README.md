@@ -60,7 +60,7 @@ Las tres siguientes son el avance de la certificación, leído de los comprobant
 
 En la captura se ve una certificación a medio camino: el Crédito Fiscal tiene dos aceptadas y una rechazada, así que viene marcado para reponerla; el Consumo tiene una aceptada y una pendiente, así que viene desmarcado —un toque en **Generar** basta para emitir otro—; y los tipos que todavía no se han probado vienen marcados con cantidad **1**.
 
-**Contraparte**, **Producto** y **Precio** se pueden ajustar por línea: se muestran con el botón de columnas opcionales, arriba a la derecha de la tabla. El enlace **Vista** abre la línea completa.
+**Contraparte**, **Producto** y **Precio** se pueden ajustar por línea: se muestran con el botón de columnas opcionales, arriba a la derecha de la tabla.
 
 ![4. El asistente, con el avance de lo ya emitido](img/04-asistente.png)
 
