@@ -174,22 +174,22 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
     <li class="case-block">Lo que debe pasar
         <ul class="case-groups">
         <li class="case-group">Disponibilidad
-            <ul class="case-items"><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li></ul>
+            <ul class="case-items"><li>En entorno <strong>Certificación</strong>, el botón aparece en Ajustes y el menú está disponible para el administrador de contabilidad <span class="mark">✅</span></li><li>En entorno <strong>Prueba</strong> o <strong>Producción</strong>, el botón no aparece y la acción responde con un error claro <span class="mark">✅</span></li><li>La compañía que no es emisora de e-CF, o que no es dominicana, recibe un error explicando qué falta <span class="mark">✅</span></li></ul>
         </li>
         <li class="case-group">Generación
-            <ul class="case-items"><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li></ul>
+            <ul class="case-items"><li>Elegir un nivel que firma sin certificado cargado <strong>detiene el proceso antes de crear nada</strong>, con un mensaje que dice dónde cargarlo <span class="mark">✅</span></li><li>El asistente ofrece <strong>una línea por cada tipo de e-CF habilitado</strong> en los diarios de la compañía <span class="mark">✅</span></li><li>Cada tipo se arma con la contraparte que la DGII exige: contribuyente, no contribuyente, régimen especial, gubernamental o extranjero <span class="mark">✅</span></li><li>Los impuestos corresponden al tipo: ITBIS 18 % en ventas, exento en exportación, sin impuestos en régimen especial, ITBIS de compra más retenciones en el 41 <span class="mark">✅</span></li><li>Las notas (33 y 34) se emiten sobre una factura E31 validada de la misma tanda <span class="mark">✅</span></li><li>Un tipo que falle no cancela los demás: el resto se genera y el asistente informa qué quedó fuera <span class="mark">✅</span></li></ul>
         </li>
         <li class="case-group">Repetición
-            <ul class="case-items"><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li></ul>
+            <ul class="case-items"><li>Al reabrirlo muestra, por tipo, cuántas aceptó la DGII, cuántas están pendientes y cuántas rechazó <span class="mark">✅</span></li><li>Propone reponer la cantidad rechazada y deja en cero los tipos que van bien <span class="mark">✅</span></li><li>Cada ejecución emite comprobantes <strong>nuevos</strong>, con NCF nuevo: un e-CF rechazado no se reenvía <span class="mark">✅</span></li></ul>
         </li>
         <li class="case-group">Numeración
-            <ul class="case-items"><li>undefined <span class="mark">✅</span></li><li>undefined <span class="mark">✅</span></li></ul>
+            <ul class="case-items"><li>Los comprobantes de prueba numeran en su propio bloque, desde <code>E311000000001</code> <span class="mark">✅</span></li><li>La numeración de las facturas reales no se mueve: siguen desde su primer número <span class="mark">✅</span></li></ul>
         </li></ul>
     </li>
     <li class="case-block">Lo que hay que tener en cuenta
         <ul class="case-groups">
         <li class="case-group">Límites conocidos
-            <ul class="case-items"><li>undefined <span class="mark">🚫</span></li><li>undefined <span class="mark">🚫</span></li><li>undefined <span class="mark">🚫</span></li><li>undefined <span class="mark">🚫</span></li></ul>
+            <ul class="case-items"><li>Los comprobantes de certificación son asientos contables reales: entran en el libro mayor y en los reportes fiscales (606/607/608, IT-1) <span class="mark">🚫</span></li><li>Una vez emitido un e-CF en Certificación, la compañía no puede pasar el entorno a Producción mientras existan esos timbres <span class="mark">🚫</span></li><li>Tras certificar, el campo <em>Habilitar primera secuencia fiscal</em> queda apagado para los tipos usados <span class="mark">🚫</span></li><li>El tipo 41 no queda firmado al validar: espera al proceso automático, igual que en la operación normal <span class="mark">🚫</span></li></ul>
         </li></ul>
     </li></ul>
 
@@ -289,6 +289,6 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
 <p>| Mensaje | Qué significa |<br />|---|---|<br />| <em>Esta acción solo está disponible mientras el entorno e-CF de la compañía sea «Certificación»</em> | El entorno está en Prueba o en Producción |<br />| <em>La compañía debe estar configurada como emisora de e-CF</em> | Falta marcar la compañía como emisora |<br />| <em>Los comprobantes de certificación solo pueden emitirse desde compañías dominicanas</em> | La compañía activa no es de República Dominicana |<br />| <em>… omitido: necesita un documento E31 validado</em> | Se pidió una nota de crédito o débito con el nivel <em>Crear borrador</em> |<br />| <em>Seleccione al menos un tipo de documento con una cantidad mayor que cero</em> | No hay nada marcado en la tabla |<br />| <em>Firmar el e-CF requiere el certificado .p12 de la compañía y su contraseña…</em> | Se eligió <em>Validar</em> o <em>Validar y enviar</em> y la compañía no tiene el certificado cargado |</p>
 <p>## Antes de pasar a producción</p>
 <ul class="plain"><li>Los comprobantes de certificación son <strong>asientos contables reales</strong>. Si la certificación se hace sobre la base de datos de producción, hay que contar con ellos al presentar 606, 607, 608 e IT-1.</li><li>Mientras existan timbres emitidos en Certificación, <strong>la compañía no puede cambiar el entorno a Producción</strong>. Es una validación del propio módulo, y es la razón principal para certificar en una base de datos aparte.</li><li>Tras certificar, <em>Habilitar primera secuencia fiscal</em> queda apagado para los tipos usados, porque ya existe un documento posteado de ese tipo. Si producción tiene que arrancar en un número autorizado concreto, se configura con el gestor de secuencias (<code>l10n_do_document_pools</code>).</li></ul>
-<p class="source">Generado con <code>node capture.mjs --config=/Users/luisfernandez/repos/dev_env_odoo_pro-19/tools/manual-generator/configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing</code>.</p>
+<p class="source">Generado con <code>node capture.mjs --config=configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing</code>.</p>
 </body>
 </html>

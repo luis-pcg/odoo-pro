@@ -73,13 +73,19 @@ function letter(index) {
 }
 
 function caseItem(item) {
-    const mark = item.ok === false ? FAIL_MARK : OK_MARK;
-    const note = item.note ? ` <span class="case-note">${inline(item.note)}</span>` : "";
-    return `<li>${inline(item.label)} <span class="mark">${mark}</span>${note}</li>`;
+    // A plain string is a passing case; `label` is the long form. An item with
+    // neither is dropped rather than printed as "undefined".
+    const entry = typeof item === "string" ? { label: item } : item || {};
+    const label = entry.label ?? entry.text;
+    if (!label) return "";
+    const mark = entry.ok === false ? FAIL_MARK : OK_MARK;
+    const note = entry.note ? ` <span class="case-note">${inline(entry.note)}</span>` : "";
+    return `<li>${inline(label)} <span class="mark">${mark}</span>${note}</li>`;
 }
 
 function caseGroup(group) {
     const items = (group.items || []).map(caseItem).join("");
+    if (!items) return "";
     return `
         <li class="case-group">${inline(group.title)}
             <ul class="case-items">${items}</ul>

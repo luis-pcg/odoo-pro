@@ -61,35 +61,77 @@
         {
           "title": "Disponibilidad",
           "items": [
-            "En entorno **Certificación**, el botón aparece en Ajustes y el menú está disponible para el administrador de contabilidad",
-            "En entorno **Prueba** o **Producción**, el botón no aparece y la acción responde con un error claro",
-            "La compañía que no es emisora de e-CF, o que no es dominicana, recibe un error explicando qué falta"
+            {
+              "label": "En entorno **Certificación**, el botón aparece en Ajustes y el menú está disponible para el administrador de contabilidad",
+              "ok": true
+            },
+            {
+              "label": "En entorno **Prueba** o **Producción**, el botón no aparece y la acción responde con un error claro",
+              "ok": true
+            },
+            {
+              "label": "La compañía que no es emisora de e-CF, o que no es dominicana, recibe un error explicando qué falta",
+              "ok": true
+            }
           ]
         },
         {
           "title": "Generación",
           "items": [
-            "Elegir un nivel que firma sin certificado cargado **detiene el proceso antes de crear nada**, con un mensaje que dice dónde cargarlo",
-            "El asistente ofrece **una línea por cada tipo de e-CF habilitado** en los diarios de la compañía",
-            "Cada tipo se arma con la contraparte que la DGII exige: contribuyente, no contribuyente, régimen especial, gubernamental o extranjero",
-            "Los impuestos corresponden al tipo: ITBIS 18 % en ventas, exento en exportación, sin impuestos en régimen especial, ITBIS de compra más retenciones en el 41",
-            "Las notas (33 y 34) se emiten sobre una factura E31 validada de la misma tanda",
-            "Un tipo que falle no cancela los demás: el resto se genera y el asistente informa qué quedó fuera"
+            {
+              "label": "Elegir un nivel que firma sin certificado cargado **detiene el proceso antes de crear nada**, con un mensaje que dice dónde cargarlo",
+              "ok": true
+            },
+            {
+              "label": "El asistente ofrece **una línea por cada tipo de e-CF habilitado** en los diarios de la compañía",
+              "ok": true
+            },
+            {
+              "label": "Cada tipo se arma con la contraparte que la DGII exige: contribuyente, no contribuyente, régimen especial, gubernamental o extranjero",
+              "ok": true
+            },
+            {
+              "label": "Los impuestos corresponden al tipo: ITBIS 18 % en ventas, exento en exportación, sin impuestos en régimen especial, ITBIS de compra más retenciones en el 41",
+              "ok": true
+            },
+            {
+              "label": "Las notas (33 y 34) se emiten sobre una factura E31 validada de la misma tanda",
+              "ok": true
+            },
+            {
+              "label": "Un tipo que falle no cancela los demás: el resto se genera y el asistente informa qué quedó fuera",
+              "ok": true
+            }
           ]
         },
         {
           "title": "Repetición",
           "items": [
-            "Al reabrirlo muestra, por tipo, cuántas aceptó la DGII, cuántas están pendientes y cuántas rechazó",
-            "Propone reponer la cantidad rechazada y deja en cero los tipos que van bien",
-            "Cada ejecución emite comprobantes **nuevos**, con NCF nuevo: un e-CF rechazado no se reenvía"
+            {
+              "label": "Al reabrirlo muestra, por tipo, cuántas aceptó la DGII, cuántas están pendientes y cuántas rechazó",
+              "ok": true
+            },
+            {
+              "label": "Propone reponer la cantidad rechazada y deja en cero los tipos que van bien",
+              "ok": true
+            },
+            {
+              "label": "Cada ejecución emite comprobantes **nuevos**, con NCF nuevo: un e-CF rechazado no se reenvía",
+              "ok": true
+            }
           ]
         },
         {
           "title": "Numeración",
           "items": [
-            "Los comprobantes de prueba numeran en su propio bloque, desde `E311000000001`",
-            "La numeración de las facturas reales no se mueve: siguen desde su primer número"
+            {
+              "label": "Los comprobantes de prueba numeran en su propio bloque, desde `E311000000001`",
+              "ok": true
+            },
+            {
+              "label": "La numeración de las facturas reales no se mueve: siguen desde su primer número",
+              "ok": true
+            }
           ]
         }
       ]
@@ -101,19 +143,19 @@
           "title": "Límites conocidos",
           "items": [
             {
-              "text": "Los comprobantes de certificación son asientos contables reales: entran en el libro mayor y en los reportes fiscales (606/607/608, IT-1)",
+              "label": "Los comprobantes de certificación son asientos contables reales: entran en el libro mayor y en los reportes fiscales (606/607/608, IT-1)",
               "ok": false
             },
             {
-              "text": "Una vez emitido un e-CF en Certificación, la compañía no puede pasar el entorno a Producción mientras existan esos timbres",
+              "label": "Una vez emitido un e-CF en Certificación, la compañía no puede pasar el entorno a Producción mientras existan esos timbres",
               "ok": false
             },
             {
-              "text": "Tras certificar, el campo *Habilitar primera secuencia fiscal* queda apagado para los tipos usados",
+              "label": "Tras certificar, el campo *Habilitar primera secuencia fiscal* queda apagado para los tipos usados",
               "ok": false
             },
             {
-              "text": "El tipo 41 no queda firmado al validar: espera al proceso automático, igual que en la operación normal",
+              "label": "El tipo 41 no queda firmado al validar: espera al proceso automático, igual que en la operación normal",
               "ok": false
             }
           ]

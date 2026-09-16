@@ -1,6 +1,6 @@
 # Comprobantes de certificación DGII — Manual de usuario
 
-> Manual generado con `tools/manual-generator`: `node capture.mjs --config=/Users/luisfernandez/repos/dev_env_odoo_pro-19/tools/manual-generator/configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing`. Las capturas se regeneran corriendo ese comando contra la base de pruebas.
+> Manual generado con `tools/manual-generator`: `node capture.mjs --config=configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing`. Las capturas se regeneran corriendo ese comando contra la base de pruebas.
 
 Para certificarse ante la DGII como emisor electrónico hay que emitir un set de comprobantes de prueba: al menos uno de cada tipo de e-CF que la empresa vaya a usar (31 Crédito Fiscal, 32 Consumo, 33 Nota de Débito, 34 Nota de Crédito, 41 Compras, 43 Gasto Menor, 44 Régimen Especial, 45 Gubernamental, 46 Exportación y 47 Pago al Exterior). Hasta ahora eso se hacía factura por factura, a mano, y cada rechazo de la DGII obligaba a repetir el trabajo.
 
