@@ -360,19 +360,25 @@
           "timeout": 60000
         },
         {
+          "waitFor": ".o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_data_row:first-child td.o_list_record_selector input",
+          "timeout": 60000
+        },
+        {
           "wait": 1500
         },
         {
-          "click": ".o_data_row:first-child .o_list_record_selector input"
+          "click": ".o_cp_action_menus button:has-text('Acciones')",
+          "timeout": 60000
         },
         {
-          "wait": 1000
-        },
-        {
-          "click": ".o_cp_action_menus button:has-text('Acciones')"
-        },
-        {
-          "wait": 1500
+          "wait": 2000
         }
       ],
       "viewport": {

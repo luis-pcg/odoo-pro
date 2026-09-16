@@ -61,6 +61,9 @@ company.write(
         "l10n_do_ecf_api_version": "v3",
         # The whole feature hangs off this: the generator is only reachable here.
         "l10n_do_ecf_service_env": "CerteCF",
+        # No signing certificate on purpose: there is no DGII .p12 to ship with a
+        # manual, and the wizard says so plainly when a signing level is chosen.
+        # The batch below is posted with l10n_do_active_test, which skips signing.
     }
 )
 env.cr.commit()
