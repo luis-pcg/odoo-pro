@@ -1,0 +1,293 @@
+{
+  "module": "l10n_do_withholding_certification",
+  "title": "Certificación de Retenciones RD — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "CERTIFICACIÓN DE RETENCIONES RD",
+    "version": "V19"
+  },
+  "intro": "Cuando una empresa dominicana le retiene ITBIS o ISR a un suplidor, ese suplidor necesita un papel que diga cuánto le retuvieron y bajo qué norma: el **certificado de retención** que se le presenta a la DGII.\n\n**Certificación de Retenciones RD** (`l10n_do_withholding_certification`) lo imprime desde el propio pago. Un botón **Imprimir Certificación** en el pago al proveedor arma el documento con el nombre y el RNC/cédula del suplidor, el monto bruto en letras, una fila por cada factura pagada, una columna por cada impuesto retenido y la base legal de cada retención; además deja una copia adjunta en el historial del pago.\n\nEl módulo entiende las **dos formas** en que la retención se registra en República Dominicana, y las suma en un mismo certificado:\n\n- **Retención al registrar el pago** — la forma nativa de Odoo 19: la factura se debe completa y la retención se captura en el momento de pagar.\n- **Retención sobre la factura** — como se hacía hasta la v17 y como llegan las bases de datos migradas: el impuesto de retención se aplica en la factura del suplidor, cuyo total ya sale neto.\n\nHay dos diseños del certificado: uno para **compañía privada** y otro para **sector público**, con escudo nacional, membrete y el lema del año.",
+  "database": "Base de pruebas `test_v19_l10n_do_withholding_certification`, compañía **Constructora del Caribe SRL** (RD, DOP, plan contable dominicano), sin datos de demostración. La siembra deja las dos cuentas de retención configuradas, un suplidor persona física, una factura con la retención **sobre la factura** ya pagada, otra con la retención **en el pago** ya pagada, y una tercera sin pagar para ilustrar el asistente de registro de pago.",
+  "requirements": [
+    "Módulo **`l10n_do_withholding_certification`** instalado (arrastra `l10n_do_account_withholding_tax`, `l10n_do_accounting` y el `l10n_account_withholding_tax` del core).",
+    "Compañía con **país fiscal República Dominicana**: si el país fiscal no es RD, el módulo no marca ningún pago y el botón nunca aparece.",
+    "**Plan contable dominicano** cargado, con sus impuestos de retención de ITBIS e ISR.",
+    "Cada impuesto de retención debe asentar en **su propia cuenta contable**, y esa cuenta debe estar marcada como cuenta de retención con su **Nombre del impuesto** y su **Base legal** — de ahí salen las columnas y el texto legal del certificado.",
+    "Un **tipo de certificación** elegido en los ajustes de la compañía (*Compañía privada* o *Sector público*); sin él, el botón responde con un error.",
+    "El pago tiene que ser **de proveedor** (salida) y estar **publicado**: el botón no aparece en cobros ni en pagos en borrador o cancelados."
+  ],
+  "general": [
+    { "label": "Módulo", "value": "CERTIFICACIÓN DE RETENCIONES RD" },
+    { "label": "Nombre técnico", "value": "`l10n_do_withholding_certification`" },
+    { "label": "Versión", "value": "19.0.1.1.1" },
+    { "label": "Depende de", "value": "`l10n_do_account_withholding_tax`" },
+    {
+      "label": "Qué agrega",
+      "value": [
+        "Botón **Imprimir Certificación** en el pago al proveedor",
+        "Reporte **Certificación de Retención**, en variante privada y de sector público",
+        "Casillas **Es una cuenta de retención**, **Nombre del impuesto** y **Base legal** en la cuenta contable",
+        "Filtro **Tiene Retención** en la lista de pagos",
+        "Asistente **Configurar apariencia del documento** en los ajustes de la compañía",
+        "Copia del certificado adjunta al historial del pago cada vez que se imprime"
+      ]
+    },
+    {
+      "label": "Qué no cambia",
+      "value": [
+        "No modifica cómo se calcula ni cómo se asienta la retención",
+        "No toca las facturas ni los asientos contables",
+        "El certificado es un documento informativo: no se envía a la DGII"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Detección de la retención",
+          "items": [
+            { "label": "Pago con **líneas de retención** (flujo nativo v19) → botón visible", "ok": true },
+            { "label": "Pago de una factura con **impuestos de retención** (base migrada) → botón visible", "ok": true },
+            { "label": "Pago sin retención → sin botón y sin certificado", "ok": true },
+            { "label": "Pago en borrador o cancelado → sin botón", "ok": true },
+            { "label": "Compañía cuyo país fiscal no es RD → sin botón", "ok": true }
+          ]
+        },
+        {
+          "title": "Contenido del certificado",
+          "items": [
+            { "label": "Una **columna por cada cuenta** de retención, nunca los montos sumados", "ok": true },
+            { "label": "El encabezado de la columna es el **Nombre del impuesto** de la cuenta", "ok": true },
+            { "label": "La **Base legal** de cada cuenta se concatena en el párrafo («… y …, respectivamente»)", "ok": true },
+            { "label": "Una **fila por cada factura** liquidada por el pago, con su NCF", "ok": true },
+            { "label": "**Total bruto** = lo facturado antes de retener; **Total Pagado** = lo transferido", "ok": true },
+            { "label": "El monto bruto se imprime **en letras** en español", "ok": true }
+          ]
+        },
+        {
+          "title": "Diseño",
+          "items": [
+            { "label": "**Compañía privada** → membrete estándar de Odoo", "ok": true },
+            { "label": "**Sector público** → escudo nacional, RNC, web y lema del año", "ok": true },
+            { "label": "La tabla de **Firmas** se imprime en las dos variantes", "ok": true }
+          ]
+        },
+        {
+          "title": "Rastro",
+          "items": [
+            { "label": "Cada impresión deja el PDF adjunto en el historial del pago", "ok": true },
+            { "label": "El filtro **Tiene Retención** lista los pagos certificables", "ok": true }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-cuenta-retencion",
+      "section": "Configuración",
+      "title": "1. La cuenta de retención: de aquí sale todo lo que dice el certificado",
+      "description": "**Contabilidad › Configuración › Plan contable**, y se abre la cuenta en la que asienta el impuesto de retención — aquí *21030102 Retención ISR por pagar*.\n\nEl certificado **no lee nada del impuesto**: lee la cuenta. Por eso cada retención necesita su propia cuenta con tres casillas llenas:\n\n- **Es una cuenta de retención** — la marca como tal. Sin ella, la retención registrada sobre la factura no se detecta.\n- **Nombre del impuesto** — el texto del encabezado de la columna y del párrafo del certificado: `ITBIS`, `ISR`.\n- **Base legal** — el artículo o norma que ampara la retención: *el Art. 309 del Código Tributario*, *la Norma General 02-05 de la DGII*.\n\nSi dos retenciones comparten la misma cuenta, el certificado imprime **una sola columna** con los dos montos sumados y sin nombre propio. Una cuenta por impuesto retenido.",
+      "steps": [
+        { "gotoXmlId": "__manual__.cuenta_ret_isr", "action": "account.action_account_form" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2000 }
+      ],
+      "viewport": { "height": 760 }
+    },
+    {
+      "id": "02-impuesto-retencion",
+      "section": "Configuración",
+      "title": "2. El impuesto de retención y dónde asienta",
+      "description": "**Contabilidad › Configuración › Impuestos**, y se abre el impuesto de retención — aquí *-10% ISR Hon.*, con importe **negativo**, que es lo que lo convierte en retención.\n\nEn la pestaña **Definición**, la línea de reparto de tipo *Impuesto* tiene que apuntar a la cuenta de retención del paso anterior: es la cuenta que el módulo busca para saber cómo se llama la columna y qué norma citar.\n\nLa casilla **Retención en el pago** decide *cuándo* se retiene, y con eso, cuál de los dos flujos del módulo se usa:\n\n- **Marcada** — el impuesto queda **fuera** de la factura (se debe completa) y se captura al registrar el pago. Es el flujo nativo de Odoo 19.\n- **Sin marcar** — el impuesto se aplica **en la factura**, cuyo total sale ya neto de retención. Es la forma pre-v19 y la que traen las bases migradas.\n\nEl certificado sale igual con cualquiera de las dos; los dos flujos se ven más abajo.",
+      "steps": [
+        { "gotoXmlId": "__manual__.impuesto_ret_isr", "action": "account.action_tax_form" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2000 }
+      ],
+      "viewport": { "height": 760 }
+    },
+    {
+      "id": "03-ajustes",
+      "section": "Configuración",
+      "title": "3. Dónde se configura el certificado",
+      "description": "**Ajustes › Ajustes generales**, sección **Compañías**. El módulo agrega ahí el bloque **Withholding Certification** con un único enlace, **Configurar apariencia del documento**, que abre el asistente del paso siguiente.\n\nToda la configuración del certificado es **por compañía**: en una base multicompañía, cada una lleva su propio tipo, su lema y su tabla de firmas.",
+      "steps": [
+        { "goto": "/odoo/settings" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2500 },
+        { "scrollTo": "button[name='setup_document_layout']" },
+        { "wait": 1200 }
+      ],
+      "viewport": { "height": 820 }
+    },
+    {
+      "id": "04-asistente-diseno",
+      "section": "Configuración",
+      "title": "4. El asistente de apariencia del documento",
+      "description": "El asistente guarda directamente sobre la compañía:\n\n- **Tipo de Certificación** — *Compañía privada* usa el membrete estándar de Odoo; *Sector público* cambia a un diseño con escudo nacional, RNC y dirección de la institución. **Es obligatorio**: sin tipo, el botón de impresión responde *«No Withholding Certification Type found»*.\n- **Firmas** — bloque de texto enriquecido con los nombres y cargos de quienes firman. Se imprime al pie de las dos variantes.\n\nLos tres campos restantes — **Mostrar cabecera**, **Mostrar pie de página** y **Slogan del año** — sólo aparecen cuando el tipo es *Sector público*, porque sólo el diseño institucional los usa. Se ven en el paso 13.",
+      "steps": [
+        { "click": "button[name='setup_document_layout']", "timeout": 30000 },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 2000 }
+      ],
+      "element": ".modal-content"
+    },
+    {
+      "id": "05-factura-por-pagar",
+      "section": "Retención al registrar el pago",
+      "title": "5. La factura del suplidor, con la retención pendiente",
+      "description": "**Contabilidad › Proveedores › Facturas**, factura *B0100000017* del ingeniero Ramón Emilio Peña Ureña.\n\nCon **Retención en el pago** marcada en los impuestos, la factura **no descuenta** la retención: se le debe al suplidor el total con ITBIS, **RD$ 37,760.00**. Los impuestos de retención sí están en las líneas, esperando el momento del pago.\n\nEs importante para leer el certificado: el *Total bruto* que imprime es este monto facturado, no lo que finalmente se transfiere.",
+      "steps": [
+        { "gotoXmlId": "__manual__.factura_por_pagar", "action": "account.action_move_in_invoice_type" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "viewport": { "height": 900 }
+    },
+    {
+      "id": "06-registrar-pago",
+      "section": "Retención al registrar el pago",
+      "title": "6. Registrar el pago: aquí se captura la retención",
+      "description": "Al pulsar **Registrar pago**, el asistente trae ya calculadas las **líneas de retención** de la factura: una por impuesto, con su base y su monto. El **importe** del pago baja a lo que realmente se le transfiere al suplidor.\n\nEsas líneas son la primera de las dos formas que el certificado lee. Al confirmar, quedan guardadas en el pago y de ahí salen las columnas del documento.\n\nSe pueden ajustar antes de confirmar (cambiar un monto, quitar una línea): el certificado imprime lo que quede registrado en el pago.",
+      "steps": [
+        { "click": "button[name='action_register_payment']", "timeout": 30000 },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 2500 }
+      ],
+      "element": ".modal-content"
+    },
+    {
+      "id": "07-pago-con-retencion",
+      "section": "Retención al registrar el pago",
+      "title": "7. El pago publicado y el botón Imprimir Certificación",
+      "description": "Este es el pago de la factura *B0100000016*, ya publicado. Sus **líneas de retención** guardan RD$ 4,500.00 de ITBIS y RD$ 2,500.00 de ISR sobre una factura de RD$ 29,500.00, así que al suplidor se le transfirieron RD$ 22,500.00.\n\nEn la barra de botones aparece **Imprimir Certificación**. Sale sólo cuando se cumplen las tres condiciones a la vez:\n\n1. el pago es **de proveedor** (salida),\n2. está **publicado** (ni borrador ni cancelado),\n3. el módulo detectó retención — en el pago o en las facturas que liquida.\n\nSi el botón no aparece, el problema está en una de esas tres, no en el reporte.",
+      "steps": [
+        { "gotoXmlId": "__manual__.pago_en_pago", "action": "account.action_account_payments_payable" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "viewport": { "height": 900 }
+    },
+    {
+      "id": "08-certificado-privado",
+      "section": "El certificado",
+      "title": "8. El certificado impreso (compañía privada)",
+      "description": "El botón imprime esto. De arriba abajo:\n\n- **Ciudad y fecha** de emisión, esta última escrita en letras.\n- El párrafo dirigido a la **DGII**, con el nombre y el RNC/cédula del suplidor, el monto **en letras**, y una frase por cada impuesto retenido con su monto y su base legal — *«… según está estipulado en la Norma General 02-05 de la DGII y el Art. 309 del Código Tributario, respectivamente»*.\n- La tabla **Reporte Retenciones**: una fila por cada factura que el pago liquidó, con su fecha, su **Total bruto**, su **NCF**, una columna por cada retención y el **Total Pagado**. La fila de totales cierra la cuenta: RD$ 29,500.00 facturados − RD$ 4,500.00 de ITBIS − RD$ 2,500.00 de ISR = RD$ 22,500.00 transferidos.\n- La tabla de **Firmas** configurada en el asistente.\n\nUn pago que liquida varias facturas imprime **una fila por factura**, y las retenciones capturadas en el pago se reparten entre ellas en proporción a su monto.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.pago_en_pago",
+          "url": "/report/html/l10n_do_withholding_certification.l10n_do_report_withholding_cert/{id}",
+          "navbar": false
+        },
+        { "waitFor": ".page", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "09-chatter",
+      "section": "El certificado",
+      "title": "9. Cada impresión queda archivada en el pago",
+      "description": "Imprimir no sólo descarga el PDF: el módulo lo **adjunta al historial del pago** y deja el mensaje *«New Withholding Certification printed»*.\n\nSirve de rastro — se sabe cuándo se le entregó el certificado al suplidor y con qué contenido — y de copia: se puede volver a descargar el mismo documento sin reimprimirlo. Cada pulsación del botón agrega un adjunto nuevo, así que el historial conserva también las versiones anteriores si algo se corrigió por el medio.",
+      "steps": [
+        { "gotoXmlId": "__manual__.pago_en_pago", "action": "account.action_account_payments_payable" },
+        { "waitFor": ".o-mail-Thread", "timeout": 60000 },
+        { "wait": 2000 },
+        { "scrollTo": ".o-mail-Message" },
+        { "wait": 1200 }
+      ],
+      "viewport": { "height": 900 }
+    },
+    {
+      "id": "10-filtro-tiene-retencion",
+      "section": "El certificado",
+      "title": "10. Encontrar los pagos que llevan certificado",
+      "description": "**Contabilidad › Proveedores › Pagos**, filtro **Tiene Retención**. Deja en la lista sólo los pagos que el módulo marcó como certificables — los mismos que muestran el botón.\n\nEs la forma práctica de trabajar el cierre de mes: se filtra el período, se listan los pagos con retención y se imprime el certificado de cada suplidor.\n\nLos dos pagos de esta base aparecen aquí aunque su retención esté registrada de forma distinta: uno la lleva en el pago y el otro en la factura.",
+      "steps": [
+        { "goto": "/odoo/action-account.action_account_payments_payable" },
+        { "waitFor": ".o_list_view", "timeout": 60000 },
+        { "wait": 1500 },
+        { "click": ".o_searchview_dropdown_toggler, .o_cp_searchview .dropdown-toggle", "timeout": 20000 },
+        { "wait": 800 },
+        { "click": ".o_filter_menu .dropdown-item:has-text('Tiene Retención')", "timeout": 20000 },
+        { "wait": 1500 }
+      ],
+      "viewport": { "height": 700 }
+    },
+    {
+      "id": "11-factura-con-retencion",
+      "section": "Retención sobre la factura (bases migradas)",
+      "title": "11. La otra forma: la retención va en la factura",
+      "description": "Hasta la v17 —y así llegan las bases de datos migradas— la retención dominicana se aplicaba como un **impuesto negativo en la factura del suplidor**. La factura *B0100000015* está registrada así: RD$ 18,000.00 de honorarios + RD$ 3,240.00 de ITBIS − RD$ 3,240.00 de retención de ITBIS − RD$ 1,800.00 de retención de ISR, y su **total ya sale neto: RD$ 16,200.00**.\n\nSu pago **no lleva ninguna línea de retención** —no había nada que retener al pagar, ya estaba descontado— y aun así el módulo lo detecta: recorre las facturas que el pago liquidó y suma los impuestos de retención asentados en ellas.\n\nAmbas formas conviven. Un mismo pago puede llevar retención capturada en el pago y liquidar facturas que ya traían la suya: el certificado las suma sin que una tape a la otra.",
+      "steps": [
+        { "gotoXmlId": "__manual__.factura_en_factura", "action": "account.action_move_in_invoice_type" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "viewport": { "height": 900 }
+    },
+    {
+      "id": "12-certificado-migrado",
+      "section": "Retención sobre la factura (bases migradas)",
+      "title": "12. Su certificado, idéntico al del otro flujo",
+      "description": "El certificado del pago de esa factura es el mismo documento, con las mismas columnas y la misma base legal. La única diferencia está en cómo se reconstruye el **Total bruto**: como la factura ya venía neta, el módulo le **suma de vuelta** la retención para poder informar lo facturado.\n\nRD$ 16,200.00 de factura + RD$ 3,240.00 + RD$ 1,800.00 retenidos = **RD$ 21,240.00** de total bruto, que es la cifra que la DGII espera ver como ingreso del suplidor.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.pago_en_factura",
+          "url": "/report/html/l10n_do_withholding_certification.l10n_do_report_withholding_cert/{id}",
+          "navbar": false
+        },
+        { "waitFor": ".page", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "13-asistente-gov",
+      "section": "El certificado del sector público",
+      "title": "13. Cambiar a Sector público",
+      "description": "En el mismo asistente de **Configurar apariencia del documento**, al poner el **Tipo de Certificación** en *Sector público* aparecen los tres campos que sólo usa el diseño institucional:\n\n- **Mostrar cabecera** — imprime el encabezado con escudo nacional, logo de la institución, dirección, RNC y web.\n- **Mostrar pie de página** — reserva el pie institucional.\n- **Slogan del año** — el lema oficial del año, que va centrado sobre el texto del certificado.\n\nAl guardar, el cambio aplica a **todos** los certificados de esa compañía, también a los que ya se habían impreso: el reporte se arma en el momento de imprimirlo.",
+      "steps": [
+        { "goto": "/odoo/settings" },
+        { "waitFor": ".o_form_view", "timeout": 60000 },
+        { "wait": 2500 },
+        { "scrollTo": "button[name='setup_document_layout']" },
+        { "click": "button[name='setup_document_layout']", "timeout": 30000 },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1500 },
+        { "selectOption": ".modal [name='l10n_do_withholding_cert_type'] select", "label": "Sector público" },
+        { "wait": 1500 }
+      ],
+      "element": ".modal-content"
+    },
+    {
+      "id": "14-certificado-gov",
+      "section": "El certificado del sector público",
+      "title": "14. El certificado institucional",
+      "description": "Guardado el asistente, el mismo pago imprime la variante de sector público: **escudo nacional** junto al logo de la institución, su dirección y teléfono, la línea *PRESIDENCIA DE LA REPÚBLICA* con el RNC y la web, y el **lema del año** centrado sobre el texto.\n\nEl contenido no cambia — mismo párrafo, misma tabla, mismas firmas —; cambia el membrete. Volver a *Compañía privada* en el asistente devuelve el diseño estándar.",
+      "steps": [
+        { "click": ".modal footer button:has-text('Guardar')", "timeout": 30000 },
+        { "wait": 2500 },
+        {
+          "gotoXmlId": "__manual__.pago_en_pago",
+          "url": "/report/html/l10n_do_withholding_certification.l10n_do_report_withholding_cert/{id}",
+          "navbar": false
+        },
+        { "waitFor": ".page", "timeout": 60000 },
+        { "wait": 2500 }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "15-solucion-problemas",
+      "section": "El certificado del sector público",
+      "title": "15. Si algo no sale",
+      "description": "Los tres síntomas que se reportan siempre tienen la misma familia de causas.\n\n**No aparece el botón Imprimir Certificación.** Es un único campo interno en falso. Se revisa en este orden: ¿el pago es **de proveedor** y está **publicado**? ¿El **país fiscal** de la compañía es República Dominicana? ¿Hay retención — líneas en el pago, o impuestos de retención en las facturas que liquida? En una base **migrada desde la v17**, además, las cuentas de retención tienen que quedar marcadas como tales: es lo que permite reconocer la retención asentada en la factura.\n\n**El certificado sale en blanco.** Es el mismo campo: el reporte completo está condicionado a él, así que un pago no detectado imprime una página vacía en vez de un error. Se corrige igual que el punto anterior.\n\n**Una columna sale sin nombre, o dos retenciones aparecen sumadas en una.** Las dos retenciones comparten cuenta contable, o a la cuenta le falta el **Nombre del impuesto**. Una cuenta por impuesto retenido, y las tres casillas llenas.\n\n**Sale el error «No Withholding Certification Type found».** La compañía no tiene **Tipo de Certificación**. Se elige en el asistente del paso 4.",
+      "image": false
+    }
+  ],
+  "notes": "**Bruto contra neto en el párrafo.** El párrafo de apertura imprime el monto **en letras en bruto** y la **cifra en neto** (lo transferido). Es así desde la versión 17 y se conserva a propósito para no cambiar un documento que los clientes ya presentan a la DGII; la tabla de abajo desglosa las dos cifras sin ambigüedad.\n\n**Los números en letras.** Los genera la librería `num2words` en español, que escribe *«Veintiuno Mil»* donde el español dominicano diría *«Veintiún Mil»*. Es una limitación de la librería, no del módulo.\n\n**El certificado no se envía a la DGII.** Es un documento informativo que se le entrega al suplidor; el reporte de las retenciones a la DGII va por el 606 y por el IR-17, que son otros módulos.\n\n**Bases migradas desde la v17.** Odoo sólo recalcula un campo almacenado al actualizar cuando su columna es nueva, así que la actualización del módulo trae un script que vuelve a marcar en SQL todos los pagos históricos. Después de migrar conviene comprobar con el filtro **Tiene Retención** que la cantidad de pagos marcados cuadra con lo esperado."
+}

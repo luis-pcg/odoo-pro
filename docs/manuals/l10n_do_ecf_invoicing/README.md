@@ -53,19 +53,17 @@ Requiere el permiso **Contabilidad: Administrador**.
 
 El asistente trae **una línea por cada tipo de e-CF habilitado** en los diarios de la compañía. Si un tipo no aparece, es que la compañía no lo tiene habilitado: eso se corrige en *Administrar tipos de documento ECF*, no aquí.
 
-La columna **Generar** decide qué se emite, y **Cant.** cuántos de cada tipo.
+Cada columna se puede ajustar antes de generar:
 
-Las tres siguientes son el avance de la certificación, leído de los comprobantes ya emitidos:
+- **Generar** — si el tipo entra en la tanda.
+- **Cant.** — cuántos comprobantes de ese tipo se emiten ahora.
+- **Producto** y **Impuestos** — vienen con lo que exige cada tipo (ITBIS 18 %, exento, retenciones) y se pueden cambiar por los que la empresa factura de verdad. En las notas de crédito y débito van en solo lectura: una nota toma el producto, los impuestos y el importe de la factura sobre la que se emite.
+- **OK / Enviados / Fallidos** — el avance de la certificación: aceptados por la DGII, esperando respuesta y rechazados.
+- **Sec.** — solo aparece cuando la secuencia fiscal de ese tipo no puede numerar todavía; entonces el tipo no se puede marcar.
 
-- **Aceptadas** — la DGII las aprobó.
-- **Pendientes** — enviadas y todavía sin respuesta, o aún sin enviar.
-- **Rechazadas** — la DGII las devolvió; el módulo ya las canceló.
+*Contraparte* y *Precio* están disponibles en el botón de columnas opcionales, arriba a la derecha.
 
 En la captura se ve una certificación a medio camino: el Crédito Fiscal tiene dos aceptadas y una rechazada, así que viene marcado para reponerla; el Consumo tiene una aceptada y una pendiente, así que viene desmarcado —un toque en **Generar** basta para emitir otro—; y los tipos que todavía no se han probado vienen marcados con cantidad **1**.
-
-**Contraparte**, **Producto** y **Precio** se pueden ajustar por línea: se muestran con el botón de columnas opcionales, arriba a la derecha de la tabla.
-
-El recuadro rojo de la captura aparece cuando se elige un nivel que firma y la compañía todavía no tiene cargado el certificado `.p12`. Mientras esté ahí, **Generar** no crea nada: el asistente avisa primero en vez de dejar una tanda de borradores inservibles.
 
 ![4. El asistente, con el avance de lo ya emitido](img/04-asistente.png)
 

@@ -4,26 +4,32 @@
 # Demuestra, sobre bases reales, que los datos analiticos de OCA `stock_analytic`
 # sobreviven al cambio a `stock_analytic_distribution_features` en Odoo 19.
 #
-# Monta un `stock_analytic` de mentira dentro del contenedor (mismos nombres
-# tecnicos que el de OCA: analytic_distribution en stock.move, stock.move.line y
-# stock.scrap via analytic.mixin, mas el valor `stock_move` del dominio de
-# aplicabilidad), lo instala, siembra datos como los que tendria Escala Solar en
-# 17.0/18.0, y luego compara dos caminos:
+# Instala el `stock_analytic` real de OCA (rama 19.0, version 19.0.1.0.0, la que
+# trae `stock_picking_type_id` en account.analytic.applicability), siembra datos
+# como los que tendria Escala Solar en 17.0/18.0, y luego compara dos caminos:
 #
 #   CONTROL : alguien desinstala `stock_analytic` a mano para limpiar el estado
 #             inconsistente -> Odoo dropea las tres columnas. Perdida total.
-#   ARREGLO : se actualiza `l10n_do_banks` con --upgrade-path, y la entrada que
-#             se agrego en
-#             upgrade-util/src/l10n_do_banks/19.0.1.0.0/pre-module-merge.py
-#             llama a
+#   ARREGLO : se actualiza `l10n_do_banks` pasando
+#             upgrade-util/src/l10n_do_banks/19.0.1.0.0/merge_modules_before_load.py
+#             por --pre-upgrade-scripts, que llama a
 #             `util.merge_module(cr, 'stock_analytic', 'stock_analytic_distribution_features')`
-#             -> el modulo OCA desaparece, el nuevo queda instalado y las
-#                columnas, el jsonb y las partidas analiticas siguen intactas.
+#             -> el modulo OCA queda desinstalado (su fila se recrea como
+#                `uninstalled` desde el manifest en disco), el nuevo queda
+#                instalado y las columnas, el jsonb y las partidas analiticas
+#                siguen intactas.
 #
 # Por que funciona: los nombres de campo, modelo y columna son identicos entre
 # los dos modulos, asi que no hay nada que convertir; merge_module solo reasigna
 # los metadatos (ir_model_data, constraints, relaciones, traducciones), borra la
 # fila del modulo viejo y force-instala el nuevo.
+#
+# Por que el merge va por --pre-upgrade-scripts y no por un pre- normal: OCA porto
+# stock_analytic a 19.0, asi que su codigo esta en el addons_path. Si la fila del
+# modulo se borra cuando el grafo ya lo incluye, Odoo lo carga igual y la reflexion
+# de su FK `account_analytic_applicability_stock_picking_type_id_fkey` resuelve el
+# modulo a NULL: "null value in column module of relation ir_model_constraint".
+# --pre-upgrade-scripts corre en loading.py antes de cargar cualquier modulo.
 #
 # Nota sobre Odoo 19: un modulo que esta en la base pero ya no en el disco NO se
 # desinstala solo; queda en estado inconsistente y Odoo lo registra como error al
@@ -56,9 +62,8 @@ for arg in "$@"; do
 done
 
 ODOO_DB_FLAGS="--db_host=$DB_HOST --db_port=$DB_PORT --db_user=$DB_USER --db_password=$DB_PASS"
-ADDONS_PATH="$(grep '^addons_path' "$SCRIPT_DIR/conf/odoo.conf" | sed 's/^addons_path = //')"
-SIM_DIR="/tmp/oca_sim_stock_analytic"
 UPGRADE_SRC="/tmp/oca_sim_upgrade_util/src"
+PRE_UPGRADE_SCRIPT="$UPGRADE_SRC/l10n_do_banks/19.0.1.0.0/merge_modules_before_load.py"
 
 echo "======================================================"
 echo " Migracion de datos OCA stock_analytic -> stock_analytic_distribution_features"
@@ -74,52 +79,12 @@ kill_conns() {
      \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$1' AND pid <> pg_backend_pid()\"" >/dev/null 2>&1
 }
 
-# ── 1. Modulo OCA simulado dentro del contenedor ─────────────────────────────
-echo "→ [1/5] Escribiendo el stock_analytic simulado en $SIM_DIR..."
-docker exec "$CONTAINER" bash -lc "
-set -e
-rm -rf $SIM_DIR && mkdir -p $SIM_DIR/stock_analytic/models
-cat > $SIM_DIR/stock_analytic/__manifest__.py <<'EOF'
-{
-    'name': 'Stock Analytic (OCA simulation)',
-    'version': '19.0.1.2.0',
-    'license': 'AGPL-3',
-    'author': 'OCA',
-    'category': 'Inventory',
-    'depends': ['stock_account', 'analytic'],
-    'installable': True,
-}
-EOF
-echo 'from . import models' > $SIM_DIR/stock_analytic/__init__.py
-echo 'from . import stock_analytic' > $SIM_DIR/stock_analytic/models/__init__.py
-cat > $SIM_DIR/stock_analytic/models/stock_analytic.py <<'EOF'
-from odoo import fields, models
-
-
-class StockMove(models.Model):
-    _name = 'stock.move'
-    _inherit = ['stock.move', 'analytic.mixin']
-
-
-class StockMoveLine(models.Model):
-    _name = 'stock.move.line'
-    _inherit = ['stock.move.line', 'analytic.mixin']
-
-
-class StockScrap(models.Model):
-    _name = 'stock.scrap'
-    _inherit = ['stock.scrap', 'analytic.mixin']
-
-
-class AccountAnalyticApplicability(models.Model):
-    _inherit = 'account.analytic.applicability'
-
-    business_domain = fields.Selection(
-        selection_add=[('stock_move', 'Stock Move')],
-        ondelete={'stock_move': 'cascade'},
-    )
-EOF
-" || { echo 'ERROR escribiendo el modulo simulado' >&2; exit 1; }
+# ── 1. Modulo OCA real en el addons path ─────────────────────────────────────
+echo "→ [1/5] Verificando que el stock_analytic de OCA este en el addons path..."
+docker exec "$CONTAINER" bash -lc "test -f /mnt/extra-addons-pro/OCA/account-analytic/stock_analytic/__manifest__.py" \
+  || { echo 'ERROR: OCA/account-analytic no trae stock_analytic; actualiza el submodulo a origin/19.0' >&2; exit 1; }
+docker exec "$CONTAINER" bash -lc \
+  "grep -m1 version /mnt/extra-addons-pro/OCA/account-analytic/stock_analytic/__manifest__.py" | sed 's/^/  /'
 
 echo "→ Copiando upgrade-util al contenedor ($UPGRADE_SRC)..."
 docker exec "$CONTAINER" bash -lc "rm -rf $(dirname $UPGRADE_SRC) && mkdir -p $(dirname $UPGRADE_SRC)"
@@ -134,14 +99,14 @@ export PGPASSWORD=$DB_PASS
 dropdb -h $DB_HOST -p $DB_PORT -U $DB_USER --if-exists $BASE_DB
 createdb -h $DB_HOST -p $DB_PORT -U $DB_USER $BASE_DB
 odoo -c /etc/odoo/odoo.conf -d $BASE_DB $ODOO_DB_FLAGS \
-  --addons-path='$ADDONS_PATH,$SIM_DIR' -i stock_analytic,project_stock_account,l10n_do_banks \
+  -i stock_analytic,project_stock_account,l10n_do_banks \
   --stop-after-init --no-http --max-cron-threads=0 --workers=0 --log-level=warn
-" >/dev/null 2>&1 || { echo 'ERROR instalando el modulo OCA simulado' >&2; exit 1; }
+" >/dev/null 2>&1 || { echo 'ERROR instalando el modulo OCA' >&2; exit 1; }
 
 echo "→ Sembrando conduce, desecho y partidas analiticas historicas..."
 docker exec -i "$CONTAINER" bash -lc "
   odoo shell -c /etc/odoo/odoo.conf -d $BASE_DB $ODOO_DB_FLAGS \
-    --addons-path='$ADDONS_PATH,$SIM_DIR' --no-http --max-cron-threads=0 --workers=0 --log-level=error
+    --no-http --max-cron-threads=0 --workers=0 --log-level=error
 " <<'PYEOF' 2>&1 | grep -E "SNAPSHOT|  "
 import logging
 logging.disable(logging.WARNING)
@@ -199,6 +164,8 @@ env['account.analytic.line'].create([
 ])
 env['account.analytic.applicability'].create({
     'business_domain': 'stock_move', 'analytic_plan_id': plan.id, 'applicability': 'optional',
+    # campo propio del stock_analytic 19.0 de OCA: su FK es la que reventaba el upgrade
+    'stock_picking_type_id': wh.out_type_id.id,
 })
 env.cr.commit()
 
@@ -253,7 +220,7 @@ PYEOF
 # ── 5. ARREGLO ───────────────────────────────────────────────────────────────
 echo ""
 echo "======================================================"
-echo " ARREGLO — upgrade de l10n_do_banks (upgrade-util: merge_module)"
+echo " ARREGLO — upgrade con --pre-upgrade-scripts (upgrade-util: merge_module)"
 echo "======================================================"
 echo "→ [4/5] Rebobinando l10n_do_banks a 17.0.1.0.0 para que cruce 19.0.1.0.0..."
 docker exec "$CONTAINER" bash -lc "
@@ -262,9 +229,10 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $FIXED_DB -tAc \
   \"UPDATE ir_module_module SET latest_version='17.0.1.0.0' WHERE name='l10n_do_banks'\"
 " >/dev/null 2>&1
 
-echo "→ Actualizando l10n_do_banks con --upgrade-path (corre pre-module-merge.py)..."
+echo "→ Actualizando l10n_do_banks con --pre-upgrade-scripts (corre merge_modules_before_load.py)..."
 docker exec "$CONTAINER" bash -lc "
 odoo -c /etc/odoo/odoo.conf -d $FIXED_DB $ODOO_DB_FLAGS --upgrade-path=$UPGRADE_SRC \
+  --pre-upgrade-scripts=$PRE_UPGRADE_SCRIPT \
   -u l10n_do_banks --stop-after-init --no-http --max-cron-threads=0 --workers=0 --log-level=warn
 " 2>&1 | grep -iE "Module merged|Traceback|CRITICAL" | head -6 | sed 's/^/  /'
 
@@ -319,7 +287,7 @@ if ! $KEEP_DBS; then
     kill_conns "$db"
     docker exec "$CONTAINER" bash -lc "PGPASSWORD=$DB_PASS dropdb -h $DB_HOST -p $DB_PORT -U $DB_USER --if-exists $db" >/dev/null 2>&1
   done
-  docker exec "$CONTAINER" bash -lc "rm -rf $SIM_DIR $(dirname $UPGRADE_SRC)"
+  docker exec "$CONTAINER" bash -lc "rm -rf $(dirname $UPGRADE_SRC)"
 else
   echo "Bases conservadas: $BASE_DB, $LOSS_DB, $FIXED_DB (--keep-dbs)"
 fi

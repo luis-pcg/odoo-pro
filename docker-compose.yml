@@ -18,6 +18,7 @@ services:
       - ODOO_AUTO_UPDATE_MODULES=${ODOO_AUTO_UPDATE_MODULES}
       - ODOO_DATABASE_NAME=${ODOO_DATABASE_NAME}
     volumes:
+      - ./odoo/:/odoo-src:delegated
       - ./enterprise/:/mnt/extra-addons-enterprise:delegated
       - ./odoo-pro/:/mnt/extra-addons-pro:delegated
       - ./conf:/etc/odoo:delegated

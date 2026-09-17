@@ -109,6 +109,7 @@ await page.waitForSelector(".o_main_navbar", { timeout: 300000 });
 console.log("web client up");
 
 async function runStep(step, flowId) {
+    const timeout = step.timeout || 30000;
     if (step.goto !== undefined) {
         await page.goto(baseUrl + step.goto, { waitUntil: "domcontentloaded" });
         // The Point of Sale (and any other full-screen client) has no navbar:
@@ -143,6 +144,14 @@ async function runStep(step, flowId) {
             return;
         }
         const [model, id] = reference;
+        // A `url` turns the resolved id into any address, not only a form view:
+        // `/report/html/<report>/{id}` previews a report the same way the
+        // printed PDF looks.
+        if (step.url) {
+            await page.goto(baseUrl + step.url.replace("{id}", id), { waitUntil: "domcontentloaded" });
+            if (step.navbar !== false) await page.waitForSelector(".o_main_navbar", { timeout: 60000 });
+            return;
+        }
         // The action goes in the hash when the step names one: a bare
         // `#model=...&id=...` leaves the web client without an action to build
         // the form from, and it answers with a client error dialog.
@@ -169,12 +178,14 @@ async function runStep(step, flowId) {
         // Same as scrollTo but targets the LAST match — e.g. the last payment
         // line of an invoice, so everything above it ends up in view.
         await page.locator(step.scrollToLast).last().scrollIntoViewIfNeeded({ timeout });
+        return;
     }
     if (step.selectOption) {
         // Native <select> widgets (Odoo widget="selection"). Choose by visible
         // label when given, otherwise by option value.
         const opt = step.label !== undefined ? { label: step.label } : { value: step.value };
         await page.selectOption(step.selectOption, opt, { timeout });
+        return;
     }
     if (step.press !== undefined) {
         if (step.sel) await page.locator(step.sel).first().press(step.press);
@@ -190,11 +201,13 @@ async function runStep(step, flowId) {
         // e.g. Odoo binary fields). `path` is resolved relative to the config.
         const filePath = isAbsolute(step.path) ? step.path : join(dirname(configPath), step.path);
         await page.setInputFiles(step.setFile, filePath, { timeout });
+        return;
     }
     if (step.hover) {
         // Parks the mouse on a neutral element (e.g. the breadcrumb) so no
         // row/cell tooltip is open when the screenshot is taken.
         await page.locator(step.hover).first().hover({ timeout });
+        return;
     }
     if (step.expand !== undefined) {
         const height = await page.evaluate((sel) => {
