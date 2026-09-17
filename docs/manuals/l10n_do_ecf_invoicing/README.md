@@ -1,12 +1,14 @@
 # Comprobantes de certificación DGII — Manual de usuario
 
-> Manual generado con `tools/manual-generator`: `node capture.mjs --config=configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing`. Las capturas se regeneran corriendo ese comando contra la base de pruebas.
+> Manual generado con `tools/manual-generator`: `node capture.mjs --config=/Users/luisfernandez/repos/dev_env_odoo_pro-19/tools/manual-generator/configs/l10n_do_ecf_invoicing.json --db=test_v19_l10n_do_ecf_invoicing`. Las capturas se regeneran corriendo ese comando contra la base de pruebas.
 
 Para certificarse ante la DGII como emisor electrónico hay que emitir un set de comprobantes de prueba: al menos uno de cada tipo de e-CF que la empresa vaya a usar (31 Crédito Fiscal, 32 Consumo, 33 Nota de Débito, 34 Nota de Crédito, 41 Compras, 43 Gasto Menor, 44 Régimen Especial, 45 Gubernamental, 46 Exportación y 47 Pago al Exterior). Hasta ahora eso se hacía factura por factura, a mano, y cada rechazo de la DGII obligaba a repetir el trabajo.
 
 **Generar comprobantes de certificación** los crea en masa desde una sola pantalla. Aparece **solo mientras el entorno e-CF de la compañía está en Certificación**, arma cada tipo con la contraparte, el producto y los impuestos que ese tipo exige, y deja elegir hasta dónde llega la automatización: crear el borrador, validarlo (que es cuando se firma el e-CF) o validarlo y enviarlo a la DGII.
 
 Se puede ejecutar tantas veces como haga falta. Al abrirla otra vez muestra, por tipo, cuántos comprobantes aceptó la DGII, cuántos están pendientes y cuántos rechazó, y propone reponer justo los rechazados. Un e-CF rechazado nunca se reenvía: se emite uno nuevo, con NCF nuevo.
+
+Los comprobantes salen de los diarios y de las **secuencias fiscales que la compañía ya tiene configuradas**: el entorno de Certificación no es producción, así que no hay nada que separar.
 
 **Base de datos de las capturas:** Base de pruebas `test_v19_l10n_do_ecf_invoicing`, compañía **COMERCIAL DEL CARIBE SRL** (RD, RNC 131793916, plan contable dominicano), marcada como emisora de e-CF y con el entorno del servicio en **Certificación**. La siembra deja una primera tanda ya generada —tres E31 y dos E32— con las respuestas de la DGII simuladas: dos E31 y una E32 aceptadas, una E32 pendiente y una E31 rechazada. Así las pantallas muestran el caso real, que es el de una certificación a medio camino.
 
@@ -18,6 +20,7 @@ Se puede ejecutar tantas veces como haga falta. Al abrirla otra vez muestra, por
 - **Entorno del servicio e-CF en Certificación** (`CerteCF`). En Prueba o en Producción la opción no aparece, y si se llama de todos modos el sistema la rechaza.
 - Usuario con el permiso **Contabilidad: Administrador**.
 - Diarios de venta y de compra con **documentos fiscales activados**, y los tipos de e-CF habilitados en ellos: solo los tipos habilitados se ofrecen en el asistente.
+- Si la compañía usa el **gestor de secuencias** (`l10n_do_document_pools`), cada tipo necesita su **secuencia fiscal confirmada** en el diario. El asistente avisa tipo por tipo cuando falta.
 - Para los niveles *Validar* y *Validar y enviar*: **certificado .p12 y su contraseña** cargados en la compañía. Sin ellos el asistente se detiene antes de crear nada y solo queda disponible el nivel *Crear borrador*.
 
 ## 1. El entorno tiene que estar en Certificación
@@ -90,9 +93,7 @@ Otros dos detalles que conviene saber de antemano:
 
 Al pulsar **Generar**, el asistente deja en pantalla los comprobantes que acaba de crear. Son facturas normales: se abren, se revisan y se envían como cualquier otra.
 
-Aquí se ve lo que trae cada una: el tipo de documento correcto, la contraparte que ese tipo exige y el NCF del bloque de certificación.
-
-Fíjese en la numeración: **E311000000001** en adelante. Los comprobantes de prueba llevan un bloque propio para no chocar con las facturas reales, que siguen numerando desde su primer número como si estas no existieran.
+Aquí se ve lo que trae cada una: el tipo de documento correcto, la contraparte que ese tipo exige y su NCF, tomado de la **secuencia fiscal que la compañía ya tiene configurada** para ese tipo. No hay numeración aparte: en Certificación la instancia no es productiva, así que los comprobantes de prueba consumen la misma secuencia que el resto.
 
 ![6. Los comprobantes generados](img/06-comprobantes-generados.png)
 
@@ -120,16 +121,15 @@ Para reponerlas basta con abrir otra vez el asistente: la columna **Rechazadas**
 
 Los tipos que van bien vienen con cantidad **0** y desmarcados, para no duplicar trabajo. Por eso el asistente se puede abrir cuantas veces haga falta sin llevar la cuenta aparte.
 
-## 10. Por qué los NCF de prueba empiezan en 1000000001
+## 10. De dónde sale el NCF de los comprobantes de prueba
 
-Dos hechos del módulo explican el diseño de la numeración:
+De la **secuencia fiscal de la compañía**, igual que cualquier otra factura. El entorno de Certificación existe precisamente para eso: la instancia no está en producción, así que no hace falta inventar una numeración aparte.
 
-1. **El entorno no separa la numeración.** Una factura en Certificación y una en Producción del mismo tipo comparten contador: el entorno solo decide a qué servicio de la DGII se manda el XML. Sin más, los comprobantes de prueba se comerían el NCF real.
-2. **El NCF es único por compañía.** El plan fiscal dominicano lo garantiza con un índice único sobre el número y la compañía. Un segundo contador que arrancara en 1 chocaría con las facturas reales.
+Esto importa cuando la compañía usa el **gestor de secuencias** (`l10n_do_document_pools`): ahí un documento solo se puede numerar desde un talonario en estado **válido**, con su número de autorización y su rango. Si el talonario de un tipo está sin confirmar, agotado o vencido, ese tipo **no se puede emitir todavía**.
 
-Por eso los comprobantes de certificación llevan una marca propia, numeran en el bloque **1000000001** en adelante (`E311000000001`, `E321000000001`…) y se emiten en dos diarios propios, **Certification Sales** y **Certification Purchases**, que el asistente crea la primera vez.
+Por eso el asistente lo revisa antes: el tipo aparece con el motivo en la columna **Secuencia**, viene desmarcado, y si se fuerza, el asistente lo dice en vez de dejar borradores que no se pueden validar. La solución está en el diario: *Contabilidad → Configuración → Diarios → pestaña de tipos de documento*, cargar el rango autorizado por la DGII y confirmarlo.
 
-El resultado práctico: se puede certificar y seguir facturando sin que una cosa mueva a la otra.
+Si la compañía tiene más de un diario fiscal, se usa aquel con el que realmente factura: el que tiene las secuencias confirmadas y los documentos emitidos.
 
 ## 11. Contrapartes, producto e impuestos de prueba
 
@@ -170,6 +170,8 @@ Los impuestos los pone el generador según el tipo:
 | *… omitido: necesita un documento E31 validado* | Se pidió una nota de crédito o débito con el nivel *Crear borrador* |
 | *Seleccione al menos un tipo de documento con una cantidad mayor que cero* | No hay nada marcado en la tabla |
 | *Firmar el e-CF requiere el certificado .p12 de la compañía y su contraseña…* | Se eligió *Validar* o *Validar y enviar* y la compañía no tiene el certificado cargado |
+| *… omitido: Secuencia fiscal sin confirmar* | Ese tipo no tiene su talonario confirmado en el diario |
+| *… omitido: Secuencia fiscal agotada / vencida* | El talonario de ese tipo se acabó o pasó su fecha de vencimiento |
 
 ## Antes de pasar a producción
 
