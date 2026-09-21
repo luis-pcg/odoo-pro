@@ -1,110 +1,111 @@
 {
   "module": "l10n_do_bank_charges_import",
-  "extra_modules": ["account_bank_charge_import_bpd", "account_bank_charge_import_bhd"],
-  "title": "Importación de Cargos Bancarios RD (l10n_do_bank_charges_import)",
-  "intro": "Este manual muestra, **desde una base de datos limpia**, cómo importar los **cargos bancarios** (comisiones, impuesto 0.15%, cargos por transferencia, etc.) desde el archivo que emite el banco, generando automáticamente por cada NCF/e-CF:\n\n1. La **factura de proveedor** a nombre del banco (el proveedor se crea solo con su RNC si no existe), con su **NCF/e-CF** como número de documento fiscal y **Tipo de Gasto 07 — Gastos Financieros**.\n2. Los **pagos** en el diario de banco, uno por cada movimiento del archivo, **conciliados** contra la factura.\n\nBancos soportados: **Banco Popular Dominicano** (txt, csv) vía `account_bank_charge_import_bpd` y **Banco BHD León** (csv) vía `account_bank_charge_import_bhd`. El banco se detecta por el campo **Banco RD** (`l10n_do_bank`) del banco configurado en la cuenta bancaria del diario.\n\n> **Replicar todo automáticamente** (crea base limpia, instala, siembra y captura):\n> ```bash\n> cd tools/manual-generator\n> ./generate-manual.sh --module=l10n_do_bank_charges_import\n> ```\n> La base se siembra con `configs/l10n_do_bank_charges_import.seed.py` (compañía RD con plan contable dominicano, diario de banco BPD con la cuenta 0000809972854, dos diarios de compras fiscales y un producto de servicio) y se importa el archivo de ejemplo `account_bank_charge_import_bpd/bpd_charges_file/bpd_chrgs.csv`.",
+  "extra_modules": [
+    "account_bank_charge_import_base",
+    "l10n_do_accounting"
+  ],
+  "title": "Cargos bancarios con comprobante fiscal — Manual de usuario (l10n_do_bank_charges_import)",
+  "intro": "`account_bank_charge_import_base` convierte el archivo de cargos del banco en facturas de proveedor pagadas. Eso resuelve la contabilidad, pero **no el comprobante fiscal**: el banco emite un NCF o un e-CF por esos cargos, y la DGII espera verlo en el 606.\n\nEste módulo es la capa dominicana que falta. Toma la factura que el módulo base va a crear y, antes de crearla, le pone lo que la localización exige:\n\n- El **diario fiscal de compra** en vez del diario por defecto, para que la factura reciba numeración de comprobante.\n- El **número de comprobante**: la referencia del cargo *es* el NCF que emitió el banco, así que se copia a `l10n_latam_document_number` en lugar de dejar que Odoo genere uno.\n- El **tipo de comprobante**, deducido del prefijo: `E31` es Factura de Crédito Fiscal Electrónica, `E34` es Nota de Crédito Electrónica.\n- El **tipo de gasto 07 — Gastos financieros**, que es como la DGII clasifica las comisiones bancarias en el 606.\n\nAdemás agrega al asistente un selector de diario fiscal de compra, y solo lo enseña cuando hay más de uno donde elegir.",
   "requirements": [
-    "Módulos **`l10n_do_bank_charges_import`** + el módulo del banco (**`account_bank_charge_import_bpd`** y/o **`account_bank_charge_import_bhd`**) instalados.",
-    "Compañía con localización RD: plan contable dominicano, **moneda DOP** y **RNC** configurado.",
-    "Un **diario de banco** cuya **cuenta bancaria** tenga como banco un `res.bank` con **Banco RD** (`l10n_do_bank`) = Banco Popular o BHD — así se detecta el formato del archivo. Ojo: el campo *Banco* del diario es relativo a la cuenta bancaria; el banco se asigna en la cuenta, no en el diario.",
-    "Un **diario de compras fiscal** (con *Usar documentos* activo) donde se registrarán las facturas del banco; si hay más de uno, el asistente muestra el campo **Diario de Compra** para elegir.",
-    "Un **producto de servicio** (p. ej. «Comisiones bancarias») con cuenta de gasto, para asignar a cada NCF del archivo.",
-    "El archivo de cargos descargado del banco (BPD: reporte de comprobantes fiscales en csv/txt)."
+    "Módulo **`l10n_do_bank_charges_import`** instalado (v `19.5.1.1.0`, línea 20.0 / `master`). Odoo `master` se autodeclara `19.5`, de ahí el prefijo de versión.",
+    "Dependencias: **`account_bank_charge_import_base`** (v `19.5.2.0.0`) y **`l10n_do_accounting`** (v `19.5.3.0.0`).",
+    "Compañía con **país República Dominicana** y el **plan contable dominicano** cargado: de ahí salen los diarios fiscales de compra y los tipos de comprobante.",
+    "Al menos un **diario de compra con «Usar documentos»** activo. Con dos o más, el asistente deja elegir cuál.",
+    "Un **módulo de banco** instalado para leer el archivo (`account_bank_charge_import_bpd`, `_bhd`). Sin él, el módulo base no sabe leer nada."
   ],
   "flows": [
     {
-      "id": "01-dashboard",
-      "title": "1. Punto de entrada: tarjeta del diario de banco",
-      "description": "**Contabilidad → Tablero.** En la tarjeta del **diario de banco** (aquí *Cuenta Corriente BPD*), el menú **⋮** muestra la opción **Cargos Bancarios** en la columna *Nuevo*. El enlace solo aparece en diarios de tipo *banco*.",
+      "id": "01-diarios",
+      "title": "1. Los diarios fiscales de compra",
+      "description": "El módulo busca diarios de **compra** con **«Usar documentos»** activo — la marca de `l10n_latam_invoice_document` que dice que ese diario numera comprobantes fiscales. Esos, y solo esos, pueden recibir la factura del banco.\n\nEl campo del asistente **se esconde cuando solo hay uno**: no tiene sentido preguntar. En esta base hay dos, por eso el paso siguiente lo muestra.\n\nSi la compañía no tiene ninguno, el asistente no fuerza nada y la factura sale por el diario que decida el módulo base, sin número de comprobante.",
       "steps": [
-        { "goto": "/odoo/action-account.open_account_journal_dashboard_kanban" },
-        { "waitFor": ".o_kanban_record", "timeout": 30000 },
-        { "wait": 1500 },
-        { "hover": ".o_kanban_record:has-text(\"Cuenta Corriente BPD\")" },
-        { "wait": 400 },
-        { "click": ".o_kanban_record:has-text(\"Cuenta Corriente BPD\") button.dropdown-toggle", "timeout": 10000 },
-        { "waitFor": "a:has-text(\"Cargos Bancarios\")", "timeout": 10000 },
-        { "wait": 800 }
+        {
+          "goto": "/odoo/action-l10n_do_bank_charges_import.demo_journals"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 2500
+        }
       ]
     },
     {
       "id": "02-asistente",
-      "title": "2. El asistente de importación",
-      "description": "Al pulsar **Cargos Bancarios** se abre el asistente **Importar Cargos Bancarios** con:\n\n- **Diario de banco** — precargado con el diario desde el que se abrió (contra este diario se registran los pagos).\n- **Sube tu archivo** — el archivo de cargos descargado del banco; arriba se listan los formatos soportados según los módulos de banco instalados.\n- **Diario de Compra** — visible solo cuando la compañía tiene **más de un** diario de compras fiscal; permite elegir en cuál registrar las facturas.\n- **Validar registros** — si está activo (por defecto), las facturas se **publican** y los pagos se **concilian** automáticamente; si se desactiva, todo queda en borrador para revisión manual.",
+      "title": "2. El asistente gana un selector de diario fiscal",
+      "description": "Junto a **Diario de banco** aparece ahora **Diario de Compra**. El primero dice de dónde salen los pagos; el segundo, por qué diario fiscal entra la factura.\n\nViene relleno con el primer diario de compra con documentos de la compañía, y el usuario puede cambiarlo. El campo `show_journal_field` es el que decide si se enseña, contando cuántos diarios fiscales de compra tiene la compañía.\n\nDetalle del port: ese conteo, y el valor por defecto, ahora comprueban antes si el usuario puede leer diarios. El módulo base concede el asistente a cualquier usuario interno, pero `account.journal` no es legible sin un grupo de contabilidad — así que el asistente reventaba con un error de permisos **al abrirse**, antes de que el usuario pudiera hacer nada.",
       "steps": [
-        { "click": "a:has-text(\"Cargos Bancarios\")", "timeout": 10000 },
-        { "waitFor": ".modal .o_form_view", "timeout": 15000 },
-        { "wait": 1000 }
-      ],
-      "screenshotEl": ".modal-content"
-    },
-    {
-      "id": "03-archivo-cargado",
-      "title": "3. Cargar el archivo del banco",
-      "description": "Al seleccionar el archivo (aquí `bpd_chrgs.csv` del Banco Popular), el asistente lo lee y carga **una línea por cada NCF/e-CF** encontrado — en el ejemplo, dos e-CF tipo 31 (`E310018094134` y `E310019656684`).\n\nSi el archivo no corresponde al banco del diario (o la cuenta bancaria del diario no tiene un banco con **Banco RD** configurado), no se carga ninguna línea y aparece la advertencia *«No se pudo cargar ninguna factura del archivo dado»*.",
-      "steps": [
-        { "setFile": ".modal input[type=file]", "path": "../../../odoo-pro/account_bank_charge_import_bpd/bpd_charges_file/bpd_chrgs.csv", "timeout": 15000 },
-        { "waitFor": ".modal .o_data_row", "timeout": 20000 },
-        { "wait": 1200 }
-      ],
-      "screenshotEl": ".modal-content"
-    },
-    {
-      "id": "04-productos",
-      "title": "4. Asignar el producto a cada NCF",
-      "description": "Cada línea (NCF) debe tener un **producto** — es el que define la **cuenta de gasto** de la factura y la descripción de su línea. Se puede usar un mismo producto de servicio genérico («Comisiones bancarias») o productos distintos por tipo de cargo. La **cuenta analítica** y las **etiquetas** son opcionales (aparecen con la contabilidad analítica activa).\n\nSi alguna línea queda sin producto, el asistente detiene la importación con *«Todas las referencias de facturas deben estar relacionadas a un producto»*.",
-      "steps": [
-        { "click": ".modal .o_data_row:nth-child(1) .o_data_cell[name=\"product_id\"]", "timeout": 10000 },
-        { "type": ".modal .o_selected_row [name=\"product_id\"] input", "value": "Comisiones", "timeout": 10000 },
-        { "waitFor": ".o-autocomplete--dropdown-menu", "timeout": 10000 },
-        { "click": ".o-autocomplete--dropdown-menu li a:has-text(\"Comisiones\")", "timeout": 10000 },
-        { "wait": 500 },
-        { "click": ".modal .o_data_row:nth-child(2) .o_data_cell[name=\"product_id\"]", "timeout": 10000 },
-        { "type": ".modal .o_selected_row [name=\"product_id\"] input", "value": "Comisiones", "timeout": 10000 },
-        { "waitFor": ".o-autocomplete--dropdown-menu", "timeout": 10000 },
-        { "click": ".o-autocomplete--dropdown-menu li a:has-text(\"Comisiones\")", "timeout": 10000 },
-        { "wait": 500 },
-        { "click": ".modal .o_form_view h2", "timeout": 10000 },
-        { "wait": 800 }
-      ],
-      "screenshotEl": ".modal-content"
-    },
-    {
-      "id": "05-resultado",
-      "title": "5. Importar: facturas de proveedor generadas",
-      "description": "Al pulsar **Importar**, el asistente genera por cada NCF una **factura de proveedor** a nombre del banco (creándolo con su RNC si no existe) en el **diario de compras fiscal**, y registra en el **diario de banco** un pago por cada movimiento del archivo, conciliado contra la factura. Con **Validar registros** activo, las facturas quedan **publicadas** y **pagadas**.\n\nAl terminar se abre el listado de facturas de proveedor: `E310019656684` por **RD$255.00** y `E310018094134` por **RD$171.91**, ambas en estado **Pagado**.",
-      "steps": [
-        { "click": ".modal footer button:has-text(\"Importar\")", "timeout": 15000 },
-        { "waitForHidden": ".modal", "timeout": 90000 },
-        { "waitFor": ".o_list_view .o_data_row", "timeout": 30000 },
-        { "wait": 1500 }
+        {
+          "goto": "/odoo/accounting"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 40000
+        },
+        {
+          "wait": 4000
+        },
+        {
+          "scrollTo": ".o_kanban_record:has-text('Banco - Cuenta')"
+        },
+        {
+          "wait": 900
+        },
+        {
+          "hover": ".o_kanban_record:has-text('Banco - Cuenta')"
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": ".o_kanban_record:has-text('Banco - Cuenta') .dropdown-toggle >> nth=0"
+        },
+        {
+          "waitFor": "a[name='import_bank_charges']",
+          "timeout": 20000
+        },
+        {
+          "click": "a[name='import_bank_charges']"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 30000
+        },
+        {
+          "wait": 2500
+        }
       ]
     },
     {
-      "id": "06-factura",
-      "title": "6. La factura fiscal resultante",
-      "description": "Cada factura queda con:\n\n- **Proveedor**: el banco (BANCO POPULAR DOMINICANO S A BANCO MULTIPLE, RNC 101010632), creado automáticamente si no existía.\n- **Tipo de Documento**: al ser un e-CF tipo **E31**, se asigna *(E) Crédito Fiscal Electrónica* (para **E34** sería la *Nota de Crédito Electrónica*).\n- **Número de Documento**: el NCF/e-CF del archivo.\n- **Tipo de Costos y Gastos: 07 — Gastos Financieros** (requisito DGII para el 606).\n- **Fecha**: el último día del mes de los movimientos (30/06/2020).\n- **Diario**: el diario de compras fiscal elegido.",
+      "id": "03-factura",
+      "title": "3. La factura, con su comprobante fiscal",
+      "description": "Esta factura la generó el módulo base a partir de una referencia de cargo; lo que este módulo le agregó es todo lo fiscal:\n\n| Campo | Valor | De dónde sale |\n|---|---|---|\n| **Diario** | Compras (fiscal) | El selector del asistente |\n| **Tipo de comprobante** | Factura de Crédito Fiscal Electrónica (E31) | Deducido del prefijo de la referencia |\n| **Número de comprobante** | `E310000000123` | La referencia del cargo: el NCF que emitió el banco |\n| **Proveedor** | El banco | Lo aporta el módulo del banco |\n\nEl número **no lo genera Odoo**. El banco ya emitió ese comprobante; la factura solo lo registra. Por eso se escribe en `l10n_latam_document_number` en lugar de dejar que la secuencia del diario tome el siguiente.",
       "steps": [
-        { "click": ".o_data_row:first-child .o_data_cell", "timeout": 15000 },
-        { "waitFor": ".o_form_view", "timeout": 30000 },
-        { "wait": 1500 }
+        {
+          "goto": "/odoo/action-l10n_do_bank_charges_import.demo_invoice"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 3000
+        }
       ]
     },
     {
-      "id": "07-pagos",
-      "title": "7. Línea de gasto y pagos conciliados",
-      "description": "La factura tiene **una línea** con el producto asignado por el **total de los movimientos** de ese NCF (aquí RD$255.00 = 6 comisiones del mes), y debajo del total aparecen los **pagos individuales conciliados** — uno por cada movimiento del archivo, con su fecha real (01/06, 10/06, 15/06, 22/06, 29/06 y 30/06). La factura queda en estado **PAGADO** y el botón inteligente **Pagos** enlaza los asientos del diario de banco.",
-      "steps": [
-        { "scrollToLast": ".o_form_sheet *:has-text(\"Pagado el\")", "timeout": 10000 },
-        { "wait": 1000 }
-      ]
+      "id": "04-gasto",
+      "title": "4. Tipo de gasto 07 — Gastos financieros",
+      "description": "En la cabecera de la factura del paso anterior, **Tipo de Costos y Gastos** quedó en **07 - Gastos Financieros**. El módulo lo fija siempre, sin preguntar: una comisión bancaria es un gasto financiero y no hay otro caso.\n\nEse campo es lo que después clasifica la factura en el **606** (reporte de compras de la DGII). Sin él, la factura entra al reporte sin categoría y hay que corregirla a mano.\n\nEs el único valor que este módulo impone sin dejar elección; todo lo demás —diario, tipo y número de comprobante— sale de lo que el usuario eligió o de lo que traía el archivo.",
+      "image": false
     },
     {
-      "id": "08-notas-flujo",
-      "title": "8. Detalles del flujo",
-      "description": "- **Detección del banco**: el asistente compara el campo **Banco RD** (`l10n_do_bank`) del banco de la cuenta bancaria del **diario de banco**. Si el diario no tiene cuenta/banco, o el banco no tiene `l10n_do_bank`, el archivo no se reconoce.\n- **Moneda**: la moneda del archivo (RD$/US$) debe coincidir con la del diario de banco; si no, el asistente lo rechaza.\n- **Diario de Compra**: con un solo diario de compras fiscal, el campo se oculta y se usa automáticamente.\n- **Validar registros desactivado**: las facturas y pagos se crean en **borrador**, sin conciliar — útil para revisar antes de publicar.",
+      "id": "05-prefijos",
+      "title": "5. Qué prefijos reconoce, y qué pasa con el resto",
+      "description": "| Prefijo de la referencia | Tipo de comprobante que pone |\n|---|---|\n| `E31` | `l10n_do_accounting.ecf_fiscal_client` — Factura de Crédito Fiscal Electrónica |\n| `E34` | `l10n_do_accounting.ecf_credit_note_client` — Nota de Crédito Electrónica |\n| cualquier otro | Ninguno: se escribe el número y el tipo lo decide Odoo |\n\nO sea que un NCF del formato viejo (`B01`, `B04`) entra igual, con su número, pero sin que este módulo le imponga un tipo. Es deliberado: el módulo solo sabe traducir los dos prefijos electrónicos que el banco usa hoy.\n\nY todo esto **solo corre si hay diario fiscal de compra seleccionado**. Sin él, el módulo se limita a poner el tipo de gasto 07 y deja la factura como la haría el módulo base.\n\n**Nota para el responsable funcional:** en la 20.0 el `l10n_do` del núcleo pasó a traer sus propios tipos de comprobante electrónicos (`ecf_31`, `ecf_32`, `ecf_33`, `ecf_34`), que conviven con los de `l10n_do_accounting` sin colisionar de nombre. Este módulo sigue usando los de `l10n_do_accounting`. Unificarlos es una decisión funcional, no una tarea de port.",
       "image": false
     }
   ],
-  "notes": "Los montos del ejemplo salen de `bpd_chrgs.csv`: e-CF `E310018094134` por **RD$171.91** (4 pagos del impuesto 0.15% DGII) y `E310019656684` por **RD$255.00** (6 comisiones). El asistente y sus mensajes están traducidos al español (es_DO) desde `account_bank_charge_import_base 19.0.1.0.3` y `l10n_do_bank_charges_import 19.0.1.0.1`."
+  "notes": "### Qué agrega el módulo\n\n| Qué | Dónde |\n|---|---|\n| `purchase_journal_id` | Campo del asistente: el diario fiscal de compra |\n| `show_journal_field` | Calculado; esconde el campo cuando solo hay un diario fiscal |\n| `_fiscal_purchase_journal_domain()` | El dominio compartido por el valor por defecto y el conteo |\n| `_generate_charges_invoice()` | Pone tipo de gasto 07, diario, número y tipo de comprobante antes de llamar al módulo base |\n\nLa única vista es una herencia de tres líneas sobre el formulario del asistente del módulo base.\n\n### Notas de la migración a la línea 20.0 (`master`)\n\n**El código propio del módulo no tenía ninguna rotura.** Todo lo que usa sigue existiendo en la 20.0: `account.journal.l10n_latam_use_documents`, `account.move.l10n_latam_document_number` y `l10n_latam_document_type_id` (ambos siguen siendo escribibles), `account.move.l10n_do_expense_type`, y los xmlid `l10n_do_accounting.ecf_fiscal_client` / `ecf_credit_note_client`. El ancla de la vista (`<field name=\"validate\">` en el formulario del asistente) también.\n\nLo que sí hubo fue un **defecto que el port destapó**:\n\n- `_get_default_purchase_journal_id()` y `_compute_show_journal_field()` hacían `search()` y `search_count()` sobre `account.journal` sin comprobar permisos. El módulo base concede el asistente a `base.group_user`, pero `account.journal` no es legible sin un grupo de contabilidad, así que para un usuario interno sin contabilidad el asistente **reventaba con `AccessError` al abrirse**, dentro de `default_get`, antes de mostrar nada. Ahora ambos pasan por `has_access(\"read\")`, que es el helper que la 20.0 documenta para esto, y el asistente se abre con el campo vacío y oculto.\n- La prueba lo cubre (`test_wizard_opens_for_a_user_without_accounting_groups`), y de paso lo cubre también la suite del módulo base, que es donde saltó.\n- El RNC de prueba del fixture (`131000000`) tiene dígito verificador inválido y `base` lo rechaza desde la 20.0. Cambiado por `131793916`.\n\n**Versión `20.0.1.0.1` → `19.5.1.1.0` e `installable: True`.** `master` se autodeclara `19.5`, y `check_version()` fuerza `installable=False` en cualquier módulo instalable cuya versión no empiece exactamente con la serie en ejecución. El salto es de *minor*: no cambió ninguna tabla, campo ni registro de seguridad, así que **no hizo falta script de migración**.\n\n### Sobre el árbol de dependencias\n\nEste módulo depende de **dos** módulos que se portaron por separado, así que su rama se apila sobre las dos:\n\n```\nmaster\n └── migration-20.0-l10n_do_accounting          (l10n_do_accounting y compañía)\n      └── migration-20.0-account_bank_charge_import_base\n           ├── migration-20.0-account_bank_charge_import_bpd\n           └── migration-20.0-l10n_do_bank_charges_import   <- este\n```\n\nLa rama de `account_bank_charge_import_base` salía de `master` y se rebasó sobre la de `l10n_do_accounting` para que este módulo tuviera las dos dependencias portadas en un solo árbol. La rama de `_bpd` se arrastró con ella.\n\n### Verificación\n\nEl módulo instala a `19.5.1.1.0` y su suite pasa **10 de 10**. La pila completa (`account_bank_charge_import_base` + este) pasa **39 de 39**.\n\n**Aviso sobre el entorno, que cambió lo que se puede afirmar:** la imagen `dev_env_odoo_pro-20-odoo` trae el nightly `19.5a1-20260901` y, al ejecutar Odoo desde el checkout de `odoo`, el intérprete mezclaba los dos: `odoo/` (el ORM, `base`) salía del checkout, pero **los addons de aplicación (`account`, `portal`, `website_sale`, `l10n_latam_*`) salían del deb**, porque `/usr/lib/python3/dist-packages/odoo/addons` queda antes que `/src/odoo/addons` en `odoo.addons.__path__`. Se resuelve montando los addons del checkout encima:\n\n```bash\n-v \"$R/odoo/addons\":/usr/lib/python3/dist-packages/odoo/addons:ro\n```\n\nCon la pila consistente saltó justo el fallo de permisos descrito arriba, que el `account` del deb no reproducía. Todas las cifras de este manual son con la pila consistente.\n\n### Reproducir este manual\n\n```bash\ncd tools/manual-generator\n./generate-manual.sh --module=l10n_do_bank_charges_import \\\n  --addons-path=/mnt/extra-addons,/mnt/extra-addons-pro,/mnt/extra-addons-pro/store-addons\n```\n\nEl `--addons-path` saca `enterprise` de la ruta: ese checkout va por delante del núcleo de la imagen y `ai_auto_install` muere al importar (`cannot import name '_check_jwt'`), lo que tumba la instalación entera. Este módulo no necesita `enterprise`.\n\nEl seed (`configs/l10n_do_bank_charges_import.seed.py`) arma, sobre una base limpia: la compañía dominicana con su plan contable, un segundo diario fiscal de compra —para que el selector aparezca—, un diario de banco, un producto de cargo, y **una importación con una referencia e-CF `E31`**, ejecutada por el código real del módulo con solo la lectura del archivo simulada, que es lo que aportan los módulos de banco."
 }

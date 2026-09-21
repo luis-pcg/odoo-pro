@@ -1,0 +1,89 @@
+{
+  "module": "bnc_bank_statement_import",
+  "title": "Importación de extractos Banesco — Manual de usuario (bnc_bank_statement_import)",
+  "intro": "Este módulo permite importar en Odoo el estado de cuenta tal como lo descarga la banca en línea de **Banesco**, sin reformatearlo. Formato: archivo de texto `.txt` separado por comas.\n\nSe activa solo en los diarios cuya cuenta bancaria tiene *Entidad Bancaria* = **Banesco**; en cualquier otro diario el archivo sigue el camino estándar de Odoo.",
+  "requirements": [
+    "Módulo **`bnc_bank_statement_import`** instalado (v `20.0.1.0.0`, Odoo 20.0).",
+    "Dependencias: **`account_bank_statement_import`** (Enterprise) y **`l10n_do_banks`**.",
+    "Un **diario de banco** cuya cuenta bancaria tenga *Entidad Bancaria* = **Banesco** y el mismo número de cuenta que trae el archivo (en el ejemplo `123456789`).",
+    "Permiso de **Contabilidad** para importar extractos."
+  ],
+  "flows": [
+    {
+      "id": "01-cuenta",
+      "title": "1. Marcar la cuenta bancaria del diario",
+      "description": "En *Contabilidad → Configuración → Diarios*, el diario de banco apunta a una **cuenta bancaria**. En esa cuenta, pestaña *Información bancaria*, el campo **Entidad Bancaria** debe decir **Banesco (Banreservas)**. Es lo que el módulo consulta (`journal.bank_account_id.l10n_do_bank == \"banesco\"`) para saber que el archivo es de este banco.\n\nEn 20.0 el banco se guarda en la cuenta bancaria y no en un registro *Banco* aparte. Por eso el campo está aquí.",
+      "steps": [
+        {
+          "goto": "/odoo/action-bnc_bank_statement_import.demo_bank_account"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "click": "button.nav-link:has-text('Información bancaria')"
+        },
+        {
+          "waitFor": "div[name='l10n_do_bank']",
+          "timeout": 15000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-importar",
+      "title": "2. Subir el archivo desde la tarjeta del diario",
+      "description": "En el *Tablero* de Contabilidad, botón **Subir** de la tarjeta del diario, se elige el archivo del banco (en el ejemplo `bnc_stmt.txt`). No aparece el asistente de columnas de Odoo: el módulo lee el formato del banco directamente y Odoo abre la conciliación bancaria con las transacciones del extracto nuevo.",
+      "steps": [
+        {
+          "goto": "/odoo/accounting"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 40000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "setFile": ".o_kanban_record:has-text('Banesco - ') input[type='file']",
+          "path": "../../../odoo-pro/bnc_bank_statement_import/bnc_stmt_file/bnc_stmt.txt"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 40000
+        },
+        {
+          "wait": 5000
+        }
+      ]
+    },
+    {
+      "id": "03-transacciones",
+      "title": "3. Transacciones importadas",
+      "description": "La lista de transacciones del diario muestra fecha, etiqueta, importe, saldo acumulado y el extracto al que pertenece cada una. A partir de aquí se concilian como cualquier otra transacción bancaria.",
+      "steps": [
+        {
+          "goto": "/odoo/action-bnc_bank_statement_import.demo_statement_lines"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-otros",
+      "title": "4. Qué pasa con otros diarios u otros archivos",
+      "image": false,
+      "description": "- Si la cuenta del diario **no** está marcada como Banesco (Banreservas), el módulo no hace nada y el archivo sigue al siguiente lector (OFX, CAMT, CSV genérico…).\n- Si el diario es de Banesco (Banreservas) pero el archivo no tiene su formato, también se deja pasar. Si ningún lector lo reconoce, Odoo responde *Could not make sense of the given file*.\n- El módulo también pasa el contexto `skip_csv_check` para que el archivo no caiga en el asistente genérico de columnas."
+    }
+  ],
+  "notes": "Verificado sobre Odoo 20.0 con Enterprise: el archivo de ejemplo del módulo se subió desde la tarjeta del diario en el cliente web."
+}

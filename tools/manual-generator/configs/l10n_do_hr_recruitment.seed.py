@@ -125,7 +125,9 @@ def make_job(name, department, degrees, **extra):
         "name": name,
         "company_id": company.id,
         "department_id": department.id,
-        "user_id": admin.id,  # Reclutador (usuario) del puesto
+        # master renombro hr.job.user_id -> recruiter_id y lo paso de
+        # res.users a hr.employee; los entrevistadores siguen siendo usuarios.
+        "recruiter_id": carolina.id,
         "interviewer_ids": [(6, 0, [admin.id])],
         "l10n_do_recruitment_degree_ids": [(6, 0, [d.id for d in degrees])],
     }

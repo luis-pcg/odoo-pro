@@ -1,0 +1,310 @@
+{
+  "module": "l10n_do_hr_payroll",
+  "title": "Nómina Dominicana — pruebas de la migración a Odoo 20.0",
+  "intro": "Recorrido de las pruebas hechas sobre `l10n_do_hr_payroll` al portarlo a la línea 20.0 (`master`, que se auto-reporta como `19.5a1`). Cada sección muestra la pantalla que se verificó y qué cambió del lado del core para que siguiera funcionando.\n\nResultado de la corrida que produjo estas capturas:\n\n| Prueba | Resultado |\n|---|---|\n| Instalación en base limpia | sin errores |\n| Suite del módulo (`--test-tags=/l10n_do_hr_payroll`) | 9/9 |\n| Verificaciones de flujo | 48/48 |\n| Upgrade de una base con forma 19.0 | correcto |\n| Repetir el upgrade | sin cambios (idempotente) |\n",
+  "requirements": [
+    "`l10n_do_hr_payroll` **19.5.2.0.0** — la versión debe empezar con la serie que corre el servidor, o `check_version()` la vuelve no instalable.",
+    "Dependencias ya portadas: `l10n_do_banks` y `l10n_do_hr` (PR #1137 y #1138).",
+    "Compañía con país República Dominicana y moneda DOP.",
+    "Empleados en la estructura *Nómina de Empleados Internos* con frecuencia quincenal."
+  ],
+  "flows": [
+    {
+      "id": "01-menu-configuracion",
+      "title": "1. Menú de configuración dominicano",
+      "description": "**Nómina → Configuración → Dominican legislation.** 20.0 retiró el módulo `hr_work_entry_enterprise`, que era el padre de este menú; ahora cuelga de `hr_payroll.menu_hr_payroll_configuration`. Las tres pantallas que abre son las de las secciones 2, 3 y 4.",
+      "image": false
+    },
+    {
+      "id": "02-escalas-isr",
+      "title": "2. Escalas de retención ISR",
+      "description": "Las cuatro escalas DGII cargadas por data del módulo. La lista sigue editable en línea y los permisos siguen siendo los mismos, ahora declarados en `security/ir.access.csv`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_retention_scale_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-division-pago",
+      "title": "3. División de pago",
+      "description": "Divisiones mensual / quincenal / semanal. La restricción de unicidad se declara con `models.Constraint`, la forma que 20.0 espera en lugar de `_sql_constraints`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_payroll_payment_division_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-riesgo-laboral",
+      "title": "4. Tipos de riesgo laboral",
+      "description": "Catálogo usado por la contribución de riesgo laboral (SRL) de la compañía.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_occupational_risk_type_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-ajustes-nomina",
+      "title": "5. Ajustes de nómina",
+      "description": "**Ajustes → Nómina.** El bloque *Dominican Localization* (ONG, tipo de riesgo laboral y automatización de vacaciones) se reancló después del bloque `hr_payroll_accountant`. El xpath que ocultaba el botón nativo *Choose a Payroll Localization Package* se eliminó: 20.0 quitó ese ajuste, y en su lugar el módulo muestra el paquete activo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payroll_configuration"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 4000
+        },
+        {
+          "scrollTo": "div[name='l10n_do_ngo']",
+          "timeout": 25000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-empleado-retenciones",
+      "title": "6. Empleado: retenciones de ley",
+      "description": "**Empleados → un empleado → pestaña Nómina.** Los campos `l10n_do_schedule_retentions`, *Works in two companies* y *Single Withholding Agent* viven en `hr.version` y se anclan al formulario que trae `hr_payroll` (`payroll_hr_employee_view_form`), después de *Reference*: en 20.0 ese campo ya no está en la vista base de `hr`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr.open_view_employee_list_my"
+        },
+        {
+          "waitFor": ".o_kanban_view,.o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_kanban_record:not(.o_kanban_ghost):first-child, .o_data_row:first-child .o_data_cell",
+          "timeout": 25000
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Payroll')",
+          "timeout": 20000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "07-ajuste-quincena",
+      "title": "7. Ajuste salarial por quincena",
+      "description": "**Nómina → Ajustes salariales.** `l10n_do_apply_on` decide en qué quincena se descuenta. En 19.0 el ajuste tenía varios empleados (`employee_ids`); 20.0 lo dejó en uno (`employee_id`), así que la bandera de frecuencia se calcula sobre ese empleado y el campo pasó a llamarse `l10n_do_semi_or_biweekly`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.hr_salary_attachment_action/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    },
+    {
+      "id": "08-pay-runs",
+      "title": "8. Nóminas: banderas dominicanas",
+      "description": "**Nómina → Nóminas.** Las tres banderas (*Royalty*, *Extraordinary*, *Liquidation*) se reanclaron dentro de la plantilla `payrun_name` del kanban de 20.0. El `div.o_payrun_info` que usaba la vista de 19.0 desapareció junto con el rediseño del kanban por pasos.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    },
+    {
+      "id": "09-nueva-nomina",
+      "title": "9. Alta de nómina",
+      "description": "El formulario de `hr.payslip.run` es ahora un diálogo de creación. Las tres banderas se añaden después de `company_id`; el `schedule_pay` que la vista de 19.0 ocultaba ya no existe en el modelo, y el botón *Computar Nóminas* se retiró porque el core trae `action_re_compute_payslips`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run_create"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "10-recibo-computo",
+      "title": "10. Recibo: cómputo salarial",
+      "description": "Recibo de la 2da quincena. *Wage* muestra el salario base porque el módulo declara `_get_basic_wage_line_codes` → `BASE` y `_get_gross_wage_line_codes` → `BRUTO`, los ganchos que 20.0 abrió; en 19.0 el módulo reemplazaba `_compute_basic_net` completo y `basic_wage` quedaba en cero. Se ven las retenciones SFS, AFP e ISR, el depósito a terceros y el préstamo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_data_row:first-child .o_data_cell",
+          "timeout": 20000
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Salary Computation')",
+          "timeout": 15000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "11-recibo-inputs",
+      "title": "11. Recibo: entradas salariales",
+      "description": "La línea de *Préstamos* la genera el ajuste salarial y queda marcada con `l10n_do_from_attachment`, la bandera que distingue lo generado de lo capturado a mano. `compute_sheet` la reconstruye pidiéndole el recálculo al ORM: llamar al compute directamente escribe `input_line_ids`, y 20.0 vuelve a entrar a `compute_sheet` desde `hr.payslip.write` con esa misma clave — una recursión infinita.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_data_row:first-child .o_data_cell",
+          "timeout": 20000
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Salary Inputs')",
+          "timeout": 15000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "12-recibo-terceros",
+      "title": "12. Recibo: depósito a terceros",
+      "description": "La pestaña se declaraba como `<sheet>` dentro del `notebook`, así que nunca se dibujaba. Ahora es un `<page>` y la restricción que exige que el total cuadre con la entrada DTER es verificable desde la interfaz.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_data_row:first-child .o_data_cell",
+          "timeout": 20000
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Deposit to Third Parties')",
+          "timeout": 15000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "13-reporte-lineas",
+      "title": "13. Reporte de líneas de recibo",
+      "description": "**Nómina → Reportes → Recibos.** Reemplaza la vista SQL `payslip.report` del módulo, que leía `hr_salary_rule.category_id` y `struct_id`, columnas que 20.0 convirtió en many2many. El reporte de líneas del core cubre lo mismo sin SQL, y el módulo sólo le agrega los dos filtros dominicanos (*Appears On Payslip* y *Nóminas con cheque*).",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.hr_payslip_line_action_report"
+        },
+        {
+          "waitFor": ".o_list_view,.o_pivot_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "click": ".o_searchview_dropdown_toggler, .o_cp_searchview .dropdown-toggle",
+          "timeout": 15000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "### Cómo se regeneran estas capturas\n\nEl generador estándar crea la base con el core del contenedor. En este entorno el `enterprise` fijado (2026-07-31) no es compatible con el nightly del contenedor (19.5a1-20260901) — `account_accountant` no instala — así que la base se levanta con un core contemporáneo al `enterprise` fijado y se llama al generador con `--base-url`:\n\n```bash\ncd tools/manual-generator\nnode capture.mjs --config=configs/l10n_do_hr_payroll_migracion_20.json \\\n  --base-url=http://localhost:8099 --db=<base> --login=admin --password=admin \\\n  --out=../../docs/manuals/l10n_do_hr_payroll_migracion_20/img\nnode render-manual.mjs --config=configs/l10n_do_hr_payroll_migracion_20.json \\\n  --img=../../docs/manuals/l10n_do_hr_payroll_migracion_20/img \\\n  --out=../../docs/manuals/l10n_do_hr_payroll_migracion_20/README.md\n```\n\nLa base de ejemplo se siembra con `configs/l10n_do_hr_payroll_migracion_20.seed.py`.\n\n### Hallazgos previos, no tocados por este port\n\n- Las reglas `DLAB` y `NLAB` usan una variable `amount_to_pay` que ninguna regla define (la regla `APAGAR` declara `amounttopay`), así que lanzan `NameError` cuando llega su entrada. `NLAB` además lee `employee.l10n_do_days_division`, un campo que no existe.\n- La regla `ISR` anualiza multiplicando por 12 el `SALDGII` del recibo, que en una nómina quincenal es medio mes.\n- `l10n_do_first_payslip_of_month` es verdadero en cualquier recibo que no tenga otro anterior en el mes, así que en un mes con una sola quincena capturada resulta verdadero a la vez que `l10n_do_last_payslip_of_month`.\n"
+}

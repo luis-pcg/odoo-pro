@@ -1,0 +1,377 @@
+{
+  "module": "l10n_do_hr_payroll",
+  "title": "Nómina Dominicana — Manual de usuario (Odoo 20)",
+  "intro": "Este manual explica, paso a paso, cómo configurar y procesar la nómina dominicana en Odoo 20 con el módulo **Nómina Dominicana** (`l10n_do_hr_payroll`).\n\n**¿Qué cambió respecto a la versión anterior?**\n\n| Antes (Odoo 19) | Ahora (Odoo 20) |\n|---|---|\n| Las entradas del recibo (incentivos, horas extra, préstamos…) eran *Tipos de entrada*. | Las entradas son **Reglas salariales** marcadas como *Recibo de nómina*. Se agregan en el recibo con el mismo código de siempre (INC, HEL, PRE…). |\n| Los descuentos fijos se configuraban con *Duración: Una vez / Limitado / Ilimitado* y un *Monto total*. | En **Payslip Adjustments** solo se indica el **Importe** y si se **repite** (*Repeat*) hasta una fecha. |\n| Un ajuste terminado quedaba *Terminado*. | Un ajuste está *En proceso* o *Pausado*; los botones **Pause** y **Restart** lo detienen o reanudan. |\n\nLos ejemplos usan dos empleados quincenales: **Ana Mercedes Pérez** (RD$ 85,000) y **Beto Antonio Gómez** (RD$ 45,000).",
+  "requirements": [
+    "Compañía con país **República Dominicana** y moneda **DOP**.",
+    "Usuario con permiso **Nómina: Administrador** y el grupo **Manager Configuration** (Ajustes → Usuarios → pestaña *Permisos*). Sin ese grupo no aparece el menú *Legislación Dominicana*.",
+    "Empleados con un contrato en la estructura **Nómina de Empleados Internos**."
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes-nomina",
+      "title": "1. Ajustes de la nómina dominicana",
+      "description": "Ruta: **Nómina → Configuración → Ajustes**, sección de localización dominicana.\n\n- **ONG**: márquelo si la compañía es una organización sin fines de lucro.\n- **Escala de Riesgo Laboral**: elija la clase de riesgo (I a IV) que le asignó la TSS. Se usa para calcular el Seguro de Riesgos Laborales (SRL).\n- **Automatización de pago de vacaciones**: calcula el pago de vacaciones a partir de las ausencias aprobadas.\n\nPulse **Guardar** al terminar.",
+      "steps": [
+        {
+          "goto": "/odoo/payroll"
+        },
+        {
+          "waitFor": ".o_action_manager",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "evaluate": "(async () => { const { registry } = odoo.loader.modules.get(\"@web/core/registry\"); const { Component, xml } = odoo.loader.modules.get(\"@odoo/owl\"); class Stub extends Component { static template = xml`<span/>`; static props = [\"*\"]; } const w = registry.category(\"view_widgets\"); if (!w.contains(\"iap_view_my_services\")) w.add(\"iap_view_my_services\", { component: Stub }); await odoo.__WOWL_DEBUG__.root.env.services.action.doAction(\"hr_payroll.action_hr_payroll_configuration\"); })()"
+        },
+        {
+          "waitFor": "[name=l10n_do_ngo]",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "screenshotEl": ".o_settings_container:has([name=l10n_do_ngo])"
+    },
+    {
+      "id": "02-menu-configuracion",
+      "title": "2. Menú de configuración",
+      "description": "En **Nómina → Configuración** están todas las tablas que usa la nómina: **Estructuras**, **Reglas**, **Parámetros de regla** y, al final, **Legislación Dominicana** (*División de Pagos*, *Escala de riesgo laboral* y *Escala de Retención*).",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_menu_sections button:has-text('Configuración'), .o_menu_sections .dropdown-toggle:has-text('Configuración')"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-division-pago",
+      "title": "3. División de pagos",
+      "description": "Ruta: **Configuración → Legislación Dominicana → División de Pagos**.\n\nIndica en cuántas partes se divide el salario mensual: **mes (1)**, **quincenal (2)** o **semana (4.33)**. Ya viene cargada; normalmente no hay que tocarla.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_payroll_payment_division_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "04-riesgo-laboral",
+      "title": "4. Escala de riesgo laboral",
+      "description": "Ruta: **Configuración → Legislación Dominicana → Escala de riesgo laboral**.\n\nCatálogo de clases de riesgo con su porcentaje. La clase de la compañía se elige en los Ajustes (paso 1).",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_occupational_risk_type_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "05-escalas-isr",
+      "title": "5. Escala de retención ISR",
+      "description": "Ruta: **Configuración → Legislación Dominicana → Escala de Retención**.\n\nTramos anuales del Impuesto Sobre la Renta publicados por la DGII (exento, 15 %, 20 % y 25 %, con su monto fijo). Cuando la DGII cambie la escala, edite los montos aquí; no hace falta cambiar ninguna regla.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.l10n_do_hr_retention_scale_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "06-estructura",
+      "title": "6. Estructura salarial",
+      "description": "Ruta: **Configuración → Estructuras → Nómina de Empleados Internos**.\n\n- **Tipo**: *Dominican Employee* (con pago programado **quincenal**).\n- **Diario de salarios**: diario contable donde se registran los asientos de nómina. Es obligatorio.\n- Pestaña **Reglas salariales**: todas las reglas que se calculan en el recibo (salario, horas extra, TSS, ISR, descuentos…). Una misma regla puede estar en varias estructuras.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payroll_structure_list_form/2"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "07-regla-entrada",
+      "title": "7. Reglas que se capturan en el recibo (entradas)",
+      "description": "Ruta: **Configuración → Reglas**, abra una regla, por ejemplo **Incentivos (INC)**.\n\n- **Inputtable on → Recibo de nómina** marcado: la regla se puede agregar como entrada en el recibo y usarse en un ajuste de nómina (paso 9).\n- Pestaña **Input Options**: nombre que se muestra en el recibo, sección y si se agrega sola a cada recibo nuevo (*Seleccionada de forma predeterminada*).\n\nTodas las entradas dominicanas ya vienen marcadas: INC, INCCER, HEL, HEF, HEN, HNI, VAC, BVAC, DLAB, NLAB, PRE, COOP, COOA, ALM, COMB, UNIF, CAJA, SEC, SEV, DDSL, REEM, INEX, ISRCRED, REPA, PREA, CESA, VACL, DTER, PALIM, entre otras. Para **Salario Real (REAL)**, **Comisiones por Venta (COMV)**, **Comisiones por Cobro (COMC)** y **Bonificaciones (BONO)** existe una regla de captura que no genera línea propia: su valor lo usan otras reglas.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_salary_rule_form/14"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Input Options')"
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "screenshotEl": ".o_form_sheet"
+    },
+    {
+      "id": "08-empleado",
+      "title": "8. Datos de nómina del empleado",
+      "description": "Ruta: **Empleados → (empleado) → pestaña Nómina**.\n\n- **Salario** y **Tipo de salario** del contrato.\n- **Categoría del pago**: debe ser *Dominican Employee* para usar la estructura dominicana.\n- **Law Retentions** (retenciones de ley): *Distributed* reparte TSS e ISR entre las quincenas; *End of month* las descuenta completas en la última quincena.\n- **Works in two companies / Single Withholding Agent**: para empleados con otro empleador que actúa como agente de retención único del ISR.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr.open_view_employee_list_my/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Nómina')"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "screenshotEl": ".o_notebook"
+    },
+    {
+      "id": "09-ajustes-lista",
+      "title": "9. Ajustes de nómina del empleado (Payslip Adjustments)",
+      "description": "Ruta: **Empleados → (empleado) → pestaña Payslip Adjustments**.\n\nAquí se registran los montos que deben entrar solos en los recibos del empleado: préstamos, cooperativa, faltantes de caja, incentivos fijos, etc. Pulse **Add an adjustment** para crear uno.\n\n> Con el modo desarrollador activo también existe la lista completa en **Nómina → Empleados → Payslip Adjustments**.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr.open_view_employee_list_my/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Payslip Adjustments')"
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "screenshotEl": ".o_notebook"
+    },
+    {
+      "id": "10-ajuste-recurrente",
+      "title": "10. Ajuste que se repite (ej. préstamo en cuotas)",
+      "description": "En la pestaña **Payslip Adjustments** del empleado pulse **Add an adjustment** y complete:\n\n1. **Empleado** y **Regla salarial** (ej. *Préstamos*).\n2. **Importe**: monto que se descuenta en **cada** recibo (la cuota).\n3. **Fecha de inicio**.\n4. Marque **Repeat** y, en **Until**, la fecha de la última cuota. Si lo deja vacío se repite hasta que lo pause.\n5. **Apply on** (solo empleados quincenales): *All payslips* (ambas quincenas), *First fortnight* o *Second fortnight*.\n6. **Nota**: referencia opcional.\n\nEn el ejemplo, Ana paga RD$ 2,000 de préstamo solo en la segunda quincena, de agosto a noviembre.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.hr_salary_attachment_action/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "screenshotEl": ".o_form_sheet"
+    },
+    {
+      "id": "11-ajuste-unico",
+      "title": "11. Ajuste de una sola vez (ej. faltante de caja)",
+      "description": "Igual que el anterior, pero **sin** marcar *Repeat*. El importe completo entra en el siguiente recibo y, al validarlo, el ajuste se cierra solo.\n\nLos botones **Pause** y **Restart** detienen o reanudan un ajuste sin borrarlo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.hr_salary_attachment_action/2"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "screenshotEl": ".o_form_sheet"
+    },
+    {
+      "id": "12-periodos",
+      "title": "12. Periodos de nómina",
+      "description": "Ruta: **Nómina → Recibos de nómina → Periodos de nómina**.\n\nCada tarjeta es un periodo. Las etiquetas de color indican el tipo: **Royalty Payroll** (Regalía Pascual), **Extraordinary Payroll** y **Liquidation Payroll**. El botón **Validar** aparece cuando los recibos están listos.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "13-nuevo-periodo",
+      "title": "13. Crear un periodo",
+      "description": "Pulse **Nuevo** y complete:\n\n- **Nombre** y **Periodo** (fechas de la quincena o del mes).\n- **Estructura de pagos**: *Nómina de Empleados Internos*.\n- Active **Nómina de Regalía** para la Regalía Pascual, **Nómina Extraordinaria** para pagos fuera del ciclo (no aplica los ajustes ni el salario regular) o **Liquidation Payroll** para prestaciones.\n\nPulse **Siguiente**, elija los empleados y Odoo genera un recibo por cada uno.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_control_panel button:has-text('Nuevo')"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 20000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "screenshotEl": ".modal-content"
+    },
+    {
+      "id": "14-recibos-periodo",
+      "title": "14. Recibos del periodo",
+      "description": "Al abrir un periodo se ven sus recibos con el costo total y el salario neto de cada empleado. Desde aquí se **Valida** todo el periodo o se abre un recibo para revisarlo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_kanban_record:has-text('2da quincena')"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "15-recibo-entradas",
+      "title": "15. Recibo: entradas salariales",
+      "description": "En el recibo, pestaña **Entradas salariales**:\n\n- Las líneas de los **ajustes** (pasos 10 y 11) aparecen solas, con su nota como descripción (aquí, *Préstamo personal*).\n- Para agregar un valor solo a este recibo pulse **Agregar una línea**, elija la **Regla salarial** (ej. *Incentivos*) y escriba el **Valor**. Para horas extra (HEL, HEF, HEN, HNI) el valor es la cantidad de horas; para *Días Laborados* (DLAB) y *Ausencias* (NLAB), los días.\n\nPulse **Calcular** después de cambiar las entradas.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Entradas salariales')"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "screenshotEl": ".o_form_sheet"
+    },
+    {
+      "id": "16-recibo-calculo",
+      "title": "16. Recibo: cálculo del salario",
+      "description": "Pestaña **Cálculo del salario**: todas las líneas calculadas — salario a pagar, incentivos, salario bruto, retenciones SFS y AFP, ISR, descuentos y **Salario Neto**.\n\nSi todo está correcto pulse **Validar** (en el recibo o en el periodo). Un recibo validado se puede devolver con **Establecer como borrador**; en ese caso lo cobrado de los ajustes se revierte.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_view_hr_payslip_month_form/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text('Cálculo del salario')"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "screenshotEl": ".o_form_sheet"
+    },
+    {
+      "id": "17-reporte",
+      "title": "17. Análisis de recibos por regla salarial",
+      "description": "Ruta: **Nómina → Reportes → Payslip Analysis by Salary Rule**.\n\nTabla dinámica con el monto de cada regla por departamento y empleado. Use los filtros (*Este año*, *Aparece en recibo*) y agrupe por periodo, empleado o mes. **Hoja de cálculo** y el botón de descarga exportan la tabla.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll.action_payslip_report_all"
+        },
+        {
+          "waitFor": ".o_pivot_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    }
+  ],
+  "notes": "**Preguntas frecuentes**\n\n- *No veo el menú Legislación Dominicana*: al usuario le falta el grupo **Manager Configuration** (ver Requisitos).\n- *Un ajuste no aparece en el recibo*: revise que esté **En curso**, que la fecha de inicio sea anterior al fin del periodo, que *Until* no haya pasado y, si el empleado es quincenal, que *Apply on* corresponda a esa quincena. En una **Nómina Extraordinaria** los ajustes nunca se aplican.\n- *La regla que quiero no sale al agregar una entrada*: la regla debe estar en la estructura del recibo y tener marcado **Recibo de nómina** (paso 7).\n- *Cambió la escala del ISR*: actualice los tramos en **Escalas de retención** (paso 5)."
+}

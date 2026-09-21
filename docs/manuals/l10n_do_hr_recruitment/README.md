@@ -1,6 +1,6 @@
 # Solicitud de Vacante — Manual de usuario (l10n_do_hr_recruitment)
 
-> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v19_<módulo>`.
+> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v20_<módulo>`.
 
 Este módulo agrega al reclutamiento de Odoo la pieza que la práctica dominicana exige y que Odoo nativo no tiene: la **Solicitud de Vacante** (*requisición de personal*).
 
@@ -18,8 +18,8 @@ Depende de `hr_recruitment` y de `l10n_do_hr`; no reemplaza nada del reclutamien
 
 ## Requisitos previos
 
-- Módulo **`l10n_do_hr_recruitment`** instalado (v `19.0.1.0.0`).
-- Dependencias: **`hr_recruitment`** (Reclutamiento) y **`l10n_do_hr`** (localización RD de empleados).
+- Módulo **`l10n_do_hr_recruitment`** instalado (v `19.5.2.0.0`, línea 20.0 / `master`). Odoo `master` se autodeclara `19.5`, por eso el prefijo de versión.
+- Dependencias: **`hr_recruitment`** (Reclutamiento) y **`l10n_do_hr`** (localización RD de empleados, v `19.5.2.0.0`).
 - Permisos: **Reclutamiento / Usuario** (`hr_recruitment.group_hr_recruitment_user`) para crear solicitudes; **Reclutamiento / Administrador** (`hr_recruitment.group_hr_recruitment_manager`) para **Aprobar** y **Rechazar**.
 - El solicitante debe existir como **Empleado** (`hr.employee`) y estar ligado a su usuario si se quiere que el campo *Solicitante* venga por defecto.
 - La secuencia **VAC** (`hr.vacancy.application`) se crea al instalar y se replica sola en cada compañía nueva.
@@ -226,9 +226,11 @@ Las requisiciones son **por compañía** (`company_id`, requerido) y cada compa�
 4. **`interviewer_ids` de la solicitud son empleados** (`hr.employee`), mientras que los del puesto son **usuarios** (`res.users`). El *onchange* del puesto traduce usuario → empleado; un entrevistador sin empleado ligado no se copia.
 5. **La regla del usuario compara contra `user.employee_id`**: un usuario de reclutamiento sin empleado ligado solo verá las solicitudes sin solicitante asignado.
 6. **Traducción es_DO incompleta.** El `i18n/es_DO.po` viene de la versión anterior del módulo y no cubre los campos y grupos nuevos. En las capturas se ve en inglés: *Recruitment Responsible*, *Interviewers*, *Approval Date*, *Opening Date*, *Closing Date*, *Time to Approve / Open / Close (days)*, *Vacancy Type* (y sus opciones *New Position* / *Replacement* / *Headcount Expansion*), *Coverage Type* (*Internal* / *External* / *Mixed*), *Selected Employees*, *Priority*, y los títulos de grupo *IDENTIFICATION*, *RESPONSIBLES*, *DATES*, *Vacancy Details*, *CONTEXT*, *COVERAGE*.
-7. **Columna «Activo» visible en el listado.** La vista lista declara `<field name="active" invisible="1"/>`; en Odoo 19 eso oculta las celdas pero **no** el encabezado, así que queda una columna *Activo* vacía. Lo correcto en v19 es `column_invisible="1"`.
-8. **`create()` usa el contexto `force_company`**, que Odoo 19 ya no soporta: al crear una requisición se registra un `DeprecationWarning` («Since 19.0, context key 'force_company' is no longer supported. Use with_company(company) instead»). No rompe nada — la secuencia se asigna igual — pero conviene migrarlo a `with_company()`.
-9. **`hr.job._compute_l10n_do_vacancy_application_count` usa el `read_group` viejo** (API deprecada en v19). Funciona por la capa de compatibilidad; la forma nueva es `_read_group(domain, groupby, aggregates)`.
+7. **La columna «Activo» del listado ya no aparece.** La vista lista usaba `<field name="active" invisible="1"/>`, que oculta las celdas pero **no** el encabezado: quedaba una columna *Activo* vacía. La migración a 20.0 lo cambió a `column_invisible="1"`.
+8. **El reclutador del puesto cambió de usuario a empleado.** En `master`, `hr.job.user_id` (un `res.users`) pasó a llamarse `hr.job.recruiter_id` y ahora es un `hr.employee`. El *onchange* del puesto ya no traduce usuario → empleado para el **Recruitment Responsible**: lo copia directo. Los **Interviewers** del puesto siguen siendo usuarios (`res.users`), así que ahí la traducción a empleado se mantiene — un entrevistador sin empleado ligado no se copia.
+9. **Seguridad reescrita a `ir.access`.** Odoo `master` fusionó `ir.model.access` e `ir.rule` en el modelo único **`ir.access`**; ambos modelos viejos desaparecieron. El módulo ya no trae `security/ir.model.access.csv` ni el XML de reglas: los reemplaza **`security/ir.access.csv`**, con las mismas dos reglas (usuario ve las propias, administrador ve todas) expresadas como `operation=crud` + `domain`. Un script `migrations/2.0.0/pre-migrate.py` limpia los `ir_model_data` viejos para que la actualización desde 19.0 no choque.
+10. **`force_company` y el `read_group` viejo quedaron fuera.** El `create()` ahora usa `with_company()` para resolver la secuencia **VAC** de la compañía, y `hr.job._compute_l10n_do_vacancy_application_count` usa `_read_group(domain, groupby, aggregates=['__count'])` — la firma vieja de `read_group()` ya no existe en `master`.
+11. **`res.company.create()` corregido.** Estaba decorado con `@api.model_create_multi` pero trataba el resultado como un solo registro, así que al crear varias compañías de golpe solo la primera recibía su secuencia **VAC**. Ahora itera el recordset.
 
 ### Reproducir este manual
 
@@ -239,4 +241,4 @@ cd tools/manual-generator
 
 El seed (`configs/l10n_do_hr_recruitment.seed.py`) arma, sobre una base limpia: compañía RD en español, tres departamentos con gerentes, cinco empleados, dos puestos con grados académicos, **cuatro solicitudes de vacante** (una por estado: en proceso, por aprobar, finalizada, rechazada) y **tres candidatos** colgados de la requisición en proceso, uno con el reporte de entrevista lleno.
 
-`--keep-db` conserva la base `test_v19_l10n_do_hr_recruitment` para seguir explorando; `--headed` muestra el navegador durante las capturas.
+`--keep-db` conserva la base `test_v20_l10n_do_hr_recruitment` para seguir explorando; `--headed` muestra el navegador durante las capturas.

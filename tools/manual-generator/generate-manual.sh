@@ -10,6 +10,7 @@
 # Uso:
 #   ./generate-manual.sh --module=report_zpl_direct_print
 #   ./generate-manual.sh --module=report_zpl_direct_print --keep-db --headed
+#   ./generate-manual.sh --module=foo --addons-path=/mnt/extra-addons,/mnt/extra-addons-pro
 #
 # Para documentar un modulo nuevo: crea configs/<modulo>.json (y opcional
 # configs/<modulo>.seed.py) y corre el script con --module=<modulo>.
@@ -36,6 +37,10 @@ MODULE=""
 KEEP_DB=false
 HEADED=""
 BASE_URL_OVERRIDE=""
+# Optional --addons-path override. Useful when a checkout in the container's
+# default addons_path is out of step with the image's core and breaks an
+# auto-installed module the documented one does not need.
+ADDONS_PATH_OVERRIDE=""
 CAPTURE_PORT="8071"
 
 for arg in "$@"; do
@@ -44,6 +49,7 @@ for arg in "$@"; do
     --keep-db)    KEEP_DB=true ;;
     --headed)     HEADED="--headed" ;;
     --base-url=*) BASE_URL_OVERRIDE="${arg#--base-url=}" ;;
+    --addons-path=*) ADDONS_PATH_OVERRIDE="${arg#--addons-path=}" ;;
     --port=*)     CAPTURE_PORT="${arg#--port=}" ;;
   esac
 done
@@ -59,6 +65,9 @@ SEED="$SCRIPT_DIR/configs/${MODULE}.seed.py"
 EXTRA_MODULES="$(python3 -c "import json;print(','.join(json.load(open('$CONFIG')).get('extra_modules',[])))" 2>/dev/null || true)"
 INSTALL_LIST="$MODULE"
 [[ -n "$EXTRA_MODULES" ]] && INSTALL_LIST="$MODULE,$EXTRA_MODULES"
+
+ADDONS_ARG=()
+[[ -n "$ADDONS_PATH_OVERRIDE" ]] && ADDONS_ARG=(--addons-path="$ADDONS_PATH_OVERRIDE")
 
 DB="test_v20_${MODULE}"
 OUT_DIR="$ROOT_DIR/docs/manuals/${MODULE}"
@@ -115,6 +124,7 @@ docker exec "$CONTAINER" odoo \
   --db_host="$DB_HOST" --db_port="$DB_PORT" \
   --db_user="$DB_USER" --db_password="$DB_PASS" \
   --without-demo=all --log-level=warn --stop-after-init --no-http \
+  "${ADDONS_ARG[@]}" \
   -i "$INSTALL_LIST" \
   2>&1 | grep -E "loading module|modules loaded|ERROR|Module.*failed" || true
 
@@ -125,7 +135,7 @@ if [[ -f "$SEED" ]]; then
     -d "$DB" \
     --db_host="$DB_HOST" --db_port="$DB_PORT" \
     --db_user="$DB_USER" --db_password="$DB_PASS" \
-    --log-level=error --no-http < "$SEED" 2>&1 | grep -E "SEED OK|Error|Traceback" || true
+    --log-level=error --no-http "${ADDONS_ARG[@]}" < "$SEED" 2>&1 | grep -E "SEED OK|Error|Traceback" || true
 else
   echo "[2/4] Sin seed (configs/${MODULE}.seed.py no existe). Continuo."
 fi
@@ -164,6 +174,7 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
     --db_host="$DB_HOST" --db_port="$DB_PORT" \
     --db_user="$DB_USER" --db_password="$DB_PASS" \
     --db-filter="^${DB}$" --http-port=8069 --workers=0 --max-cron-threads=0 \
+    "${ADDONS_ARG[@]}" \
     >/dev/null
 
   echo "   Esperando HTTP del servidor efimero..."

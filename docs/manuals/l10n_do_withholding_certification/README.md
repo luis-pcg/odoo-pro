@@ -1,0 +1,184 @@
+# Certificado de Retención (RD) — Manual de usuario (l10n_do_withholding_certification)
+
+> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v20_<módulo>`.
+
+Cuando una empresa dominicana retiene ITBIS o ISR al pagarle a un suplidor, la DGII espera que le entregue un **certificado de retención**: un documento firmado que dice a quién se le retuvo, cuánto, y bajo qué norma.
+
+Este módulo genera ese documento desde el pago. Agrega un botón **Imprimir Certificación** en el formulario de pago, que sólo aparece cuando el pago realmente lleva retención, y produce el PDF con el texto legal armado a partir de los datos del propio pago.
+
+De dónde saca cada dato:
+
+| Dato del certificado | De dónde sale |
+|---|---|
+| Nombre del impuesto (*ITBIS*, *ISR*) | `l10n_do_tax_name` en la **cuenta contable** de la retención |
+| Base legal (*«la Norma 02-05»*) | `l10n_do_legal_base` en esa misma cuenta |
+| Montos retenidos | las líneas de retención del pago, o los impuestos de retención de la factura |
+| Monto en letras | `num2words` en español |
+| Encabezado y firmas | configuración por compañía |
+
+Reconoce **dos formas** de registrar la retención, porque ambas existen en bases reales: las líneas de retención del pago (el flujo nativo desde 19.0) y los impuestos de retención asentados en la propia factura (la práctica dominicana anterior, que sobrevive en bases migradas desde v17). Un mismo pago puede llevar las dos, y ninguna tapa a la otra.
+
+## Requisitos previos
+
+- Módulo **`l10n_do_withholding_certification`** instalado (v `19.5.2.0.0`, línea 20.0 / `master`). Odoo `master` se autodeclara `19.5`, por eso el prefijo de versión.
+- Dependencia: **`l10n_do_account_withholding_tax`** (v `19.5.2.0.0`), que a su vez trae `l10n_do_accounting`, `l10n_account_withholding_tax`, `l10n_do` y `l10n_latam_invoice_document`.
+- Dependencia externa de Python: **`num2words`**, para el monto en letras. Viene en la imagen de Odoo 20.
+- La compañía debe tener **país fiscal República Dominicana**: el cómputo de `has_l10n_do_withholding` sólo marca pagos de compañías con `account_fiscal_country_id.code == "DO"`.
+- Las cuentas de retención deben llevar **Nombre del impuesto** y **Base legal**; sin ellas el certificado sale con los espacios en blanco. Ver el paso 1.
+
+## 1. Punto de partida: las cuentas de retención
+
+El texto legal del certificado no está escrito en el módulo: sale de la **cuenta contable** de cada retención. El módulo agrega tres campos al plan de cuentas:
+
+| Campo | Para qué sirve |
+|---|---|
+| **Es cuenta de retención** (`is_l10n_do_withholding_account`) | marca la cuenta, y sirve además para reconocer retenciones en bases migradas desde v17 |
+| **Nombre del impuesto** (`l10n_do_tax_name`) | lo que aparece en el certificado y en el encabezado de la columna: *ITBIS*, *ISR* |
+| **Base legal** (`l10n_do_legal_base`) | la norma que se cita: *«la Norma General 02-05 de la DGII»* |
+
+Los dos últimos sólo se ven cuando el primero está encendido.
+
+Esta es la cuenta **ITBIS Retenido a Persona Jurídica**, que es donde aterriza la retención de ITBIS. La cuenta se resuelve desde la línea de repartición del impuesto, así que basta configurarla una vez.
+
+Si estos campos quedan vacíos el certificado igual se imprime, pero dice *«recibió ingresos … de los cuales se le realizó la retención de  por un monto de …»* con el nombre en blanco, y sin citar norma alguna.
+
+![1. Punto de partida: las cuentas de retención](img/01-cuenta.png)
+
+## 2. El pago con retención
+
+Pago de la factura **B0100000001** de ITERATIVO SRL: RD$800 de subtotal, RD$144 de ITBIS, RD$944 de total. Al registrarlo se retuvieron RD$144 de ITBIS (el 100%) y RD$80 de ISR (el 10% del subtotal), así que al proveedor le salieron RD$720.
+
+El botón **Imprimir Certificación** aparece en la barra superior. No está siempre: el campo `has_l10n_do_withholding` lo controla, y se calcula como
+
+> compañía con país fiscal DO **y** el pago no está en borrador ni cancelado **y** hay retención (líneas de retención en el pago **o** impuestos de retención en las facturas que salda)
+
+Además el botón sólo se muestra en pagos **salientes**: se certifica lo que uno retiene a un tercero, no lo que le retienen.
+
+![2. El pago con retención](img/02-pago.png)
+
+## 3. Encontrar los pagos que llevan retención
+
+El módulo agrega el filtro **Has Withholding** al buscador de pagos, sobre el mismo campo calculado. Es la forma práctica de sacar, a fin de mes, todos los pagos a los que hay que emitirle certificado.
+
+Como `has_l10n_do_withholding` está **almacenado**, el filtro es una consulta directa sobre la columna y no recalcula nada — pero por eso mismo depende de que el valor guardado esté al día, que es justo lo que arregla el script de migración de este port (ver las notas al final).
+
+![3. Encontrar los pagos que llevan retención](img/03-listado.png)
+
+## 4. El certificado
+
+Al pulsar **Imprimir Certificación** el módulo hace dos cosas: genera el PDF y lo **adjunta al chatter del pago** con el mensaje *«Nueva Certificación de Retención generada»*, de modo que queda constancia de cuándo se emitió y con qué cifras.
+
+El documento dice, en resumen:
+
+> Por medio de la presente **CERTIFICAMOS** que **ITERATIVO SRL** con RNC/Céd **131566332**, recibió ingresos por un monto de *Setecientos Veinte Pesos con 0/100* RD$720.00, de los cuales se le realizó la retención de **ITBIS** por un monto de RD$144.00, **ISR** por un monto de RD$80.00, según está estipulado en la Norma General 02-05 de la DGII y el Art. 309 del Código Tributario, respectivamente.
+
+Y debajo, la tabla de detalle: una fila por factura, una columna por impuesto retenido, con el bruto y el neto.
+
+El *«y»* antes de la última norma y el *«, respectivamente»* del final los arma `get_l10n_do_legal_base_string()` según cuántas retenciones haya: con una sola no escribe ninguno de los dos.
+
+## 5. Configurar el formato: Ajustes → Compañías
+
+El módulo agrega **Withholding Certification** al bloque *Companies* de los ajustes generales, con un botón **Setup document layout** que abre un asistente de configuración por compañía.
+
+Lo que se decide ahí:
+
+| Opción | Qué hace |
+|---|---|
+| **Tipo de certificación** | *Private Company* o *Public Sector*; elige cuál de las dos plantillas se usa |
+| **Mostrar encabezado / pie** | sólo para el sector público, que lleva escudo y datos institucionales |
+| **Lema del año** | el *«AÑO DE …»* que encabeza los documentos oficiales |
+| **Tabla de firmas** | HTML libre con los nombres y cargos que firman |
+
+La diferencia entre las dos plantillas es de forma, no de fondo: la del sector público usa un encabezado propio con el escudo nacional y el lema del año; la privada se apoya en el `web.external_layout` estándar de Odoo. Las cifras y el texto legal son los mismos.
+
+Si no hay tipo de certificación seleccionado, el botón de imprimir corta con *«No se encontró un Tipo de Certificación. Seleccione una desde la configuración de la compañía»*.
+
+![5. Configurar el formato: Ajustes → Compañías](img/05-ajustes.png)
+
+## 6. Las dos formas de registrar la retención
+
+El módulo suma las dos y no deja que una tape a la otra:
+
+| Forma | Dónde vive el dato | Base típica |
+|---|---|---|
+| **Líneas de retención del pago** | `account.payment.withholding.line` | instalaciones nuevas, desde 19.0 |
+| **Impuestos de retención en la factura** | líneas de impuesto de `account.move` | bases migradas desde v17 |
+
+Para la primera, la cuenta se toma de la línea de repartición del impuesto. Para la segunda, de la propia línea de impuesto de la factura. En ambos casos es una cuenta con `l10n_do_tax_name` y `l10n_do_legal_base`, que es lo que el certificado necesita.
+
+Hay un detalle de cálculo que conviene conocer: cuando la retención viene en las líneas del pago, se **reparte entre las facturas saldadas en proporción a su total**, porque el pago no dice a qué factura corresponde cada peso retenido. Cuando viene en los impuestos de la factura, se usa tal cual, sin repartir.
+
+Y el bruto se reconstruye: una retención asentada en la factura ya bajó su total, así que `get_certification_data()` se la vuelve a sumar para que la columna *Total bruto* muestre lo facturado y no lo pagado.
+
+## 7. Lo que conviene saber antes de usarlo
+
+| Punto | Detalle |
+|---|---|
+| **Un certificado por pago** | el reporte se emite sobre `account.payment`. Varias facturas en un mismo pago salen como varias filas de un solo certificado; varios pagos al mismo proveedor son varios certificados. |
+| **Sólo pagos salientes** | el botón está condicionado a `payment_type == 'outbound'`. |
+| **El flag está almacenado** | `has_l10n_do_withholding` se guarda en base. Es lo que hace rápido el filtro, y también lo que obliga a recalcularlo en las migraciones. |
+| **El monto en letras es en pesos** | `get_amount_in_words()` fija *«Pesos con NN/100»*. Un pago en otra moneda saldría con la cifra correcta pero la palabra *Pesos*. |
+| **La fecha del texto es la de impresión** | el párrafo de cierre usa `datetime.now()`, no la fecha del pago: reimprimir un certificado viejo lo fecha hoy. |
+
+Los dos últimos son comportamiento heredado, no defectos introducidos por este port; se dejan tal cual y quedan anotados para el responsable funcional.
+
+## Notas
+
+### Qué agrega el módulo
+
+| Modelo | Campo / método | Nota |
+|---|---|---|
+| `account.account` | `is_l10n_do_withholding_account`, `l10n_do_tax_name`, `l10n_do_legal_base` | de aquí sale el texto legal del certificado |
+| `account.payment` | `has_l10n_do_withholding` | booleano **almacenado**; controla el botón y el filtro |
+| `account.payment` | `withholding_print()` | genera el PDF y lo adjunta al chatter |
+| `account.payment` | `get_certification_data()` | arma el contexto de la plantilla: bruto, neto, filas y columnas |
+| `account.payment` | `_get_withholding_by_account()` / `_get_invoice_withholding_lines()` | las dos formas de leer la retención |
+| `account.payment` | `get_amount_in_words()`, `get_date_string()` | monto y fecha en español |
+| `res.company` | `l10n_do_withholding_cert_type` y el formato del documento | configuración por compañía |
+| `withholding.layout.setup.wizard` | — | asistente de configuración del formato |
+
+### Notas de la migración a la línea 20.0 (`master`)
+
+Este port tuvo **seis roturas**, tres de ellas capaces de impedir la instalación.
+
+1. **`ir.model.access` + `ir.rule` se fusionaron en `ir.access`.** El `security/ir.model.access.csv` se convirtió con el rewriter oficial de Odoo (`19.4-00-ir-access`) a `security/ir.access.csv`, con el nombre punteado del modelo en `model_id` y `operation` = `cru`.
+2. **`ir.actions.report.report_file` fue eliminado.** El `<field name="report_file">` del XML rompía la instalación con *«Invalid field 'report_file' in 'ir.actions.report'»*, y `_get_rendered_report()` lo pasaba a `_render_qweb_pdf()`. Ahora usa `report_name`.
+3. **El filtro `state_sent` de la vista de búsqueda de pagos desapareció.** Era el ancla del xpath que inserta *Has Withholding*, así que la instalación moría con *«Element '<filter name="state_sent">' cannot be located in parent view»*. Se reancló en `state_paid`, que existe tanto en el core de la imagen como en el `master` más reciente.
+4. **`account.tax.is_withholding_tax_on_payment` → `is_withholding_tax`.** Lo usa `_get_invoice_withholding_lines()` para reconocer la retención asentada en la factura.
+5. **`odoo.tools.ustr` ya no existe.** Rompía `get_amount_in_words()` con un `AttributeError`, y con él los tres caminos que arman el certificado. `num2words` ya devuelve `str`, así que la envoltura sobraba.
+6. **`res.partner.company_type` fue eliminado** (queda `is_company`). Las dos plantillas lo usaban para decidir si escribir *«el/la»* antes del nombre, de modo que el PDF fallaba al renderizar con *«'res.partner' object has no attribute 'company_type'»*.
+
+Además, el `es_DO.po` estaba en el formato anterior a 16.0: **sin el comentario `#. odoo-python`**, que desde esa versión es lo que le dice a `CodeTranslations._load_python_translations()` que una entrada traduce código. Sin él **ningún** mensaje Python del módulo se traducía, en silencio. Se añadió a las cinco entradas de código y se quitó el `#, python-format` heredado.
+
+### Pruebas
+
+La suite anterior estaba **muerta**: sus tres pruebas afirmaban sobre `payment.l10n_do_withholding_type`, un campo que el port a 19.0 había eliminado (su propio script de migración lo borra de la tabla). Se reescribió completa contra el modelo actual — 8 pruebas que cubren el flag en sus dos formas, el agrupado por cuenta, el cuadre bruto/retenido/neto, el texto legal y el renderizado del reporte de punta a punta. Pasan 8 de 8.
+
+### Migración de datos
+
+`migrations/2.0.0/post-migrate.py`, **probado con la carpeta desactivada y activada** sobre una base con la forma heredada de v17 (retención asentada en la factura, sin líneas de retención en el pago):
+
+- **Sin el script**: 0 pagos marcados. El botón *Imprimir Certificación* no aparece y el reporte sale en blanco, porque toda la plantilla está envuelta en `t-if="o.has_l10n_do_withholding"`.
+- **Con el script**: el pago queda marcado. Volver a correrlo no cambia nada.
+
+La causa: `has_l10n_do_withholding` es un cómputo **almacenado**, y Odoo sólo recalcula esos campos en una actualización cuando la columna es nueva. El script de 19.0 que lo recalculaba lee `is_withholding_tax_on_payment` y, al no existir ya esa columna, degrada a `FALSE` — con lo que la rama de «retención en la factura» deja de encontrar nada.
+
+Las carpetas `upgrades/14.0.0.0.0/`, `upgrades/19.0.1.0.0/` y `upgrades/19.0.1.1.0/` **no se tocaron**: son de series terminadas. Quedan excluidas del linter (`.ruff.toml` y el hook `pylint_odoo`) en vez de reformatearlas.
+
+### Pendiente / decisión funcional
+
+- **El monto en letras dice siempre «Pesos».** `get_amount_in_words()` fija la palabra; un pago en USD saldría con la cifra correcta y la moneda equivocada en el texto. Heredado, no se tocó.
+- **La fecha del párrafo de cierre es la de impresión**, no la del pago: reimprimir un certificado de hace seis meses lo fecha hoy. Heredado.
+- **El plan dominicano no marca sus retenciones** (`is_withholding_tax` llega apagado) ni rellena `l10n_do_tax_name` / `l10n_do_legal_base`. Hay que configurarlo una vez por compañía, como muestra el paso 1.
+
+### Reproducir este manual
+
+```bash
+cd tools/manual-generator
+./generate-manual.sh --module=l10n_do_withholding_certification \
+  --addons-path=/mnt/extra-addons-pro,/mnt/extra-addons-pro/store-addons
+```
+
+El `--addons-path` saca `enterprise` de la ruta: ese checkout va por delante del core de la imagen de desarrollo y su módulo autoinstalable `ai_auto_install` revienta con `ImportError: cannot import name '_check_jwt'`. Es un problema del entorno, ajeno a este módulo, que no necesita ningún addon de enterprise.
+
+El seed (`configs/l10n_do_withholding_certification.seed.py`) arma, sobre una base limpia: compañía INDEXA SRL (RNC 131793916) con plan contable dominicano en español, las dos retenciones habilitadas con su nombre y base legal, el proveedor ITERATIVO SRL, la factura B0100000001 de RD$800 + ITBIS y su pago con RD$224 retenidos.

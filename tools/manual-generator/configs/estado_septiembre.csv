@@ -1,0 +1,5 @@
+date,payment_ref,amount,balance
+2026-09-01,Deposito cliente Ferreteria Central,45000.00,165000.00
+2026-09-02,Comision mantenimiento de cuenta,-350.00,164650.00
+2026-09-03,Pago proveedor Distribuidora Caribe,-18200.00,146450.00
+2026-09-04,Transferencia recibida Colmado Rosa,12750.00,159200.00

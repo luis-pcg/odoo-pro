@@ -82,6 +82,9 @@ async function runStep(step) {
         const opt = step.label !== undefined ? { label: step.label } : { value: step.value };
         await page.selectOption(step.selectOption, opt, { timeout });
     }
+    if (step.evaluate) {
+        await page.evaluate(step.evaluate);
+    }
     if (step.click) {
         await page.click(step.click, { timeout });
     }

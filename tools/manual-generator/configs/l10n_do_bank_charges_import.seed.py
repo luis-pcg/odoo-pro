@@ -1,83 +1,186 @@
-# Seed for the manual of l10n_do_bank_charges_import (Importación de Cargos
-# Bancarios RD). Builds, from a CLEAN DB, a Dominican company with:
+# Seed for the manual of l10n_do_bank_charges_import.
 #
-#   * Chart of accounts 'do' (moneda DOP) + diario de compras fiscal con
-#     documentos (NCF/e-CF).
-#   * Un diario de banco "Cuenta Corriente BPD" apuntando al Banco Popular
-#     Dominicano (l10n_do_bank = 'bpd') con la cuenta 0000809972854 — la misma
-#     cuenta del archivo de ejemplo bpd_chrgs.csv que se sube en las capturas.
-#   * Un producto de servicio "Comisiones bancarias" para asignar a las líneas
-#     del asistente.
+# Builds, from a CLEAN DB:
+#   * a Dominican company with the DO chart of accounts, which is what brings
+#     the fiscal purchase journals and the e-CF document types
+#   * a bank journal and a charge product
+#   * one completed import whose charge reference is an e-CF (E31), run through
+#     the module's own code with only the file parsing stubbed, so the manual
+#     can show the fiscal fields this module stamps on the bill
 #
-# El proveedor (el banco) NO se siembra: el asistente lo crea automáticamente
-# con su RNC al importar, y eso se documenta en el manual. Ejecutado dentro de
-# `odoo shell` (`env` disponible). Termina con env.cr.commit().
+# Runs inside `odoo shell` (`env` is available). Ends with a commit.
+
+from datetime import date
+from unittest.mock import patch
+
+import odoo
+
+env = odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, {})
 
 company = env.ref("base.main_company")
 do = env.ref("base.do")
 
-# ── 0. Español ────────────────────────────────────────────────────────────────
+# -- 0. Espanol --------------------------------------------------------------
 es = env["res.lang"]._activate_lang("es_DO")
 try:
-    env["base.language.install"].create(
-        {"lang_ids": [(6, 0, [es.id])], "overwrite": True}
-    ).lang_install()
+    env["base.language.install"].create({"lang_ids": [(6, 0, [es.id])], "overwrite": True}).lang_install()
 except Exception:
     env.cr.rollback()
 env.ref("base.user_admin").lang = "es_DO"
 env = env(context=dict(env.context, lang="es_DO"))
 
-# ── 1. Compañía RD + plan contable dominicano ────────────────────────────────
-company.write({"name": "Empresa Dominicana SRL", "country_id": do.id, "vat": "131793916"})
-company.partner_id.lang = "es_DO"
+env["ir.module.module"].search(
+    [
+        (
+            "name",
+            "in",
+            [
+                "l10n_do_bank_charges_import",
+                "account_bank_charge_import_base",
+                "l10n_do_accounting",
+                "l10n_do",
+                "account",
+            ],
+        ),
+        ("state", "=", "installed"),
+    ]
+)._update_translations(filter_lang="es_DO", overwrite=True)
+
+# -- 1. Compania dominicana con su plan contable -----------------------------
+company.write(
+    {
+        "name": "INDEXA SRL",
+        "country_id": do.id,
+        "vat": "131793916",
+        "street": "Av. Winston Churchill 1099",
+        "city": "Santo Domingo",
+    }
+)
 env["account.chart.template"].try_loading("do", company=company, install_demo=False)
 
-# ── 2. Diarios de compras fiscales (documentos NCF/e-CF) ─────────────────────
-# Dos diarios fiscales para que el asistente muestre el campo "Diario de
-# Compra" (solo aparece cuando hay más de uno).
-purchase_journal = env["account.journal"].search(
-    [("type", "=", "purchase"), ("company_id", "=", company.id)], limit=1
-)
-purchase_journal.write({"name": "Compras Fiscales", "l10n_latam_use_documents": True})
-env["account.journal"].create(
-    {
-        "name": "Compras Informales",
-        "code": "CINF",
-        "type": "purchase",
-        "company_id": company.id,
-        "l10n_latam_use_documents": True,
-    }
-)
+admin = env.ref("base.user_admin")
+admin.group_ids = [
+    (4, env.ref("account.group_account_basic").id),
+    (4, env.ref("account.group_account_user").id),
+    (4, env.ref("account.group_account_manager").id),
+]
 
-# ── 3. Banco Popular + diario de banco de la cuenta del archivo ──────────────
-bank = env["res.bank"].search([("l10n_do_bank", "=", "bpd")], limit=1)
-if not bank:
-    bank = env["res.bank"].create(
-        {"name": "Banco Popular Dominicano", "bic": "BPDODOSX", "l10n_do_bank": "bpd"}
+# -- 2. Diario de banco y diarios fiscales de compra -------------------------
+journal = env["account.journal"].search([("type", "=", "bank"), ("company_id", "=", company.id)], limit=1)
+if not journal:
+    journal = env["account.journal"].create({"name": "Banco", "code": "BNK1", "type": "bank"})
+journal.name = "Banco - Cuenta Operativa"
+if not journal.bank_account_id:
+    journal.set_bank_account("0011223344")
+
+purchase_journals = env["account.journal"].search(
+    [("type", "=", "purchase"), ("l10n_latam_use_documents", "=", True), ("company_id", "=", company.id)]
+)
+# The extra journal is what makes the module's field show up in the wizard.
+if len(purchase_journals) < 2:
+    env["account.journal"].create(
+        {
+            "name": "Compras Fiscales - Gastos Menores",
+            "code": "CFGM",
+            "type": "purchase",
+            "company_id": company.id,
+            "l10n_latam_use_documents": True,
+        }
     )
-bank_journal = env["account.journal"].create(
-    {
-        "name": "Cuenta Corriente BPD",
-        "type": "bank",
-        "code": "BPD1",
-        "company_id": company.id,
-    }
+purchase_journal = env["account.journal"].search(
+    [("type", "=", "purchase"), ("l10n_latam_use_documents", "=", True), ("company_id", "=", company.id)],
+    limit=1,
 )
-bank_journal.set_bank_account("0000809972854")
-# journal.bank_id is related to bank_account_id.bank_id, so it must be set on
-# the res.partner.bank AFTER set_bank_account (writing it at create is lost).
-# Without it _is_bpd_bank() is False and the file is never recognized.
-bank_journal.bank_account_id.bank_id = bank.id
 
-# ── 4. Producto de servicio para las líneas de cargos ────────────────────────
-env["product.product"].create(
+# -- 3. Producto de cargo ----------------------------------------------------
+expense = env["account.account"].search([("account_type", "=", "expense"), ("company_ids", "=", company.id)], limit=1)
+product = env["product.product"].create(
     {
         "name": "Comisiones bancarias",
         "type": "service",
-        "purchase_ok": True,
-        "supplier_taxes_id": [(5, 0, 0)],
+        "supplier_taxes_id": False,
+        "property_account_expense_id": expense.id,
     }
 )
 
+# -- 4. Importacion con una referencia e-CF ----------------------------------
+CHARGES = {
+    "E310000000123": {
+        "type": "in_invoice",
+        "origin": "",
+        "payments": [
+            {"date": date(2026, 3, 9), "reference": "COMISION MANEJO DE CUENTA", "amount": 350.0},
+            {"date": date(2026, 3, 24), "reference": "COMISION TRANSFERENCIA LBTR", "amount": 1250.0},
+        ],
+    },
+}
+
+bank_partner = env["res.partner"].create(
+    {
+        "name": "BANCO MULTIPLE BHD SA",
+        "vat": "101136792",
+        "country_id": do.id,
+        "street": "Calle Luis F. Thomen",
+        "city": "Santo Domingo",
+    }
+)
+
+wizard = env["account.bank.charge.import_wizard"].create(
+    {
+        "company_id": company.id,
+        "journal_id": journal.id,
+        "purchase_journal_id": purchase_journal.id,
+        "invoice_product_ids": [
+            (0, 0, {"reference": "E310000000123", "product_id": product.id, "name": "Comisiones de marzo"})
+        ],
+    }
+)
+
+BASE = "odoo.addons.account_bank_charge_import_base.wizard.account_bank_charge_import_wizard"
+with (
+    patch(f"{BASE}.AccountBankChargeImportWizard._parse_file", return_value=("DOP", None, CHARGES)),
+    patch(f"{BASE}.AccountBankChargeImportWizard._get_bank_partner_id", return_value=bank_partner),
+):
+    wizard.import_bank_charges()
+
+invoice = env["account.move"].search([("ref", "=", "E310000000123")], limit=1)
+
+# -- 5. Acciones demo para las capturas --------------------------------------
+MODULE = "l10n_do_bank_charges_import"
+
+
+def demo_action(xmlid, vals):
+    existing = env.ref("%s.%s" % (MODULE, xmlid), raise_if_not_found=False)
+    if existing:
+        return existing
+    act = env["ir.actions.act_window"].create(vals)
+    env["ir.model.data"].create(
+        {"module": MODULE, "name": xmlid, "model": "ir.actions.act_window", "res_id": act.id, "noupdate": True}
+    )
+    return act
+
+
+demo_action("demo_invoice", {
+    "name": "Factura fiscal de cargos bancarios",
+    "res_model": "account.move",
+    "view_mode": "form",
+    "res_id": invoice.id,
+})
+demo_action("demo_journals", {
+    "name": "Diarios fiscales de compra",
+    "res_model": "account.journal",
+    "view_mode": "list,form",
+    "domain": "[('type', '=', 'purchase'), ('l10n_latam_use_documents', '=', True)]",
+})
+
 env.cr.commit()
-print("SEED OK")
+print(
+    "SEED OK: %s, diario %s, tipo doc %s, ncf %s, gasto %s"
+    % (
+        invoice.name,
+        invoice.journal_id.name,
+        invoice.l10n_latam_document_type_id.doc_code_prefix,
+        invoice.l10n_latam_document_number,
+        invoice.l10n_do_expense_type,
+    )
+)
