@@ -149,7 +149,7 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
             </tr>
             <tr>
                 <th>Versión</th>
-                <td><div>19.0.1.0.0</div></td>
+                <td><div>19.0.1.1.0</div></td>
             </tr></table>
 
 <div class="intro"><p>Sus proveedores emiten facturas electrónicas (e-CF) y se las reportan a la DGII. Este módulo las trae solas a Odoo todas las noches y las deja en una bandeja.</p>
@@ -192,6 +192,34 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
 <p>La factura nace en <strong>borrador</strong>, con el e-NCF, el código de seguridad y el XML del proveedor. Revísela y contabilícela como cualquier otra.</p>
         <figure><img src="img/u04-crear.png" alt="Cree la orden o la factura" /></figure>
     </div>
+    <div class="flow">
+        <h3><span class="flow-letter">e.</span> ¿Ya tenía la orden de compra o la factura? Vincúlela</h3>
+        <p>Si a ese proveedor ya le había hecho la orden de compra o ya había digitado su factura (en borrador), no vincule las líneas una por una: dé <strong>Vincular OC o factura</strong> y escoja en <strong>Vincular a</strong> si es una <strong>Orden de compra</strong> o una <strong>Factura de proveedor</strong>.</p>
+<p>Odoo le sugiere la orden que el proveedor puso en su factura, o la factura que tiene el e-NCF en la referencia; si no, la única que coincide. Si no sugiere ninguna, escójala usted: sólo aparecen documentos de ese proveedor y en la misma moneda.</p>
+<p>Abajo verá cada artículo de la factura del proveedor al lado de la línea de su orden que le tocó. Odoo los empareja por producto, código o nombre; y si su orden llama al artículo de otra forma (<em>Mantenimiento</em> donde el proveedor puso <em>Servicio de instalación</em>), por <strong>precio, ITBIS y cantidad</strong>.</p>
+<p>Con el aviso verde, dé <strong>Vincular</strong>: las líneas toman los productos del otro documento y Odoo los recuerda para la próxima vez.</p>
+<ul class="plain"><li><strong>Con una orden</strong>, el documento pasa a <strong>Listo</strong>; dé <strong>Recibir y facturar</strong>. Se recibe y se factura sólo lo que trae la factura del proveedor; si la orden pedía más, el resto queda pendiente para la próxima.</li><li><strong>Con una factura</strong>, la factura recibe el e-NCF, el código de seguridad y el XML del proveedor, y el documento queda en <strong>Hecho</strong>.</li></ul>
+<p>Una misma orden puede recibir <strong>varias facturas</strong> del proveedor: cada una se vincula sólo con lo que trae. Lo que ya tomó otra factura vinculada no se le ofrece a la siguiente.</p>
+        <figure><img src="img/u09-vincular-oc.png" alt="¿Ya tenía la orden de compra o la factura? Vincúlela" /></figure>
+    </div>
+    <div class="flow">
+        <h3><span class="flow-letter">f.</span> Si Odoo no sabe cuál línea de la orden es, escójala usted</h3>
+        <p>Cuando dos líneas de su orden tienen el mismo precio, ITBIS y cantidad, Odoo no adivina: el artículo queda en rojo y el botón <strong>Vincular</strong> no aparece.</p>
+<p>Haga clic en la columna <strong>Línea de la orden</strong> de ese artículo y escoja la línea correcta. El aviso pasa a verde y ya puede dar <strong>Vincular</strong>. Con esa misma columna puede corregir cualquier línea que Odoo haya emparejado mal.</p>
+        <figure><img src="img/u13-elegir-linea.png" alt="Si Odoo no sabe cuál línea de la orden es, escójala usted" /></figure>
+    </div>
+    <div class="flow">
+        <h3><span class="flow-letter">g.</span> Vincular la factura que ya había digitado</h3>
+        <p>Si digitó la factura del proveedor antes de que llegara el e-CF y la dejó en <strong>borrador</strong>, escoja <strong>Factura de proveedor</strong> en <strong>Vincular a</strong>. Si en la <strong>Referencia</strong> puso el e-NCF, Odoo se la sugiere sola.</p>
+<p>Para vincular, su factura tiene que tener exactamente las mismas líneas, cantidades, precios e ITBIS que la del proveedor, y el mismo total. Al dar <strong>Vincular</strong>, su factura recibe el e-NCF, el código de seguridad y el XML, y queda lista para contabilizar.</p>
+        <figure><img src="img/u11-vincular-factura.png" alt="Vincular la factura que ya había digitado" /></figure>
+    </div>
+    <div class="flow">
+        <h3><span class="flow-letter">h.</span> Orden que ya tenía su factura: se vinculan las dos</h3>
+        <p>Si la orden de compra ya se había facturado (factura en borrador esperando el comprobante), al vincular la orden Odoo vincula también esa factura. El documento queda en <strong>Hecho</strong> con los dos botones arriba: <strong>Compra</strong> y <strong>Factura</strong>.</p>
+<p>Y al revés: si vincula una factura que salió de una orden, la orden también queda vinculada.</p>
+        <figure><img src="img/u12-oc-y-factura.png" alt="Orden que ya tenía su factura: se vinculan las dos" /></figure>
+    </div>
     <div class="bar">Cuando Odoo le avisa</div>
     
     <div class="flow">
@@ -213,7 +241,14 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
         <figure><img src="img/u07-error.png" alt="«Los montos no cuadran»" /></figure>
     </div>
     <div class="flow">
-        <h3><span class="flow-letter">d.</span> Aprobar o rechazar ante la DGII</h3>
+        <h3><span class="flow-letter">d.</span> «La factura no coincide con la orden o la factura»</h3>
+        <p>Odoo sólo vincula si <strong>todo</strong> coincide. El aviso rojo le dice qué no coincide, línea por línea:</p>
+<ul class="plain"><li>un artículo de la factura del proveedor que <strong>no está</strong> en su orden o en su factura;</li><li>un artículo que podría ser <strong>cualquiera de dos líneas</strong> de su orden: escoja usted la correcta;</li><li>con una orden, cantidad que <strong>ya tomó otra factura</strong> del proveedor vinculada a la misma orden;</li><li>un <strong>precio</strong> o un <strong>ITBIS</strong> distinto;</li><li>con una orden, <strong>más cantidad</strong> de la que le queda por facturar;</li><li>con una factura, <strong>otra cantidad</strong>, una <strong>línea de más</strong> o <strong>otro total</strong>.</li></ul>
+<p>En ese caso el botón <strong>Vincular</strong> no aparece. Corrija su documento si el equivocado es él, o pídale al proveedor que corrija su factura.</p>
+        <figure><img src="img/u10-oc-no-coincide.png" alt="«La factura no coincide con la orden o la factura»" /></figure>
+    </div>
+    <div class="flow">
+        <h3><span class="flow-letter">e.</span> Aprobar o rechazar ante la DGII</h3>
         <p>La pestaña <strong>Aprobación comercial</strong> es su respuesta al proveedor delante de la DGII.</p>
 <ul class="plain"><li><strong>Aprobar</strong> — usted reconoce la compra.</li><li><strong>Rechazar</strong> — usted no la reconoce: la DGII avisa al proveedor, que tendrá que emitir una nota de crédito o anular el documento.</li></ul>
 <p>Hay una <strong>Fecha límite de aprobación</strong> contada desde que el documento llegó. Rechazar no toca la factura que ya se haya creado.</p>
@@ -223,6 +258,6 @@ figure img { max-width: 100%; max-height: 165mm; border: 1px solid #e2e5e9; }
 <p><strong>Cada documento sale por un solo camino.</strong> Al escoger orden o factura, los demás botones desaparecen: un e-CF termina en una sola factura, que es como la DGII lo tiene registrado.</p>
 <p><strong>Facturas con retenciones.</strong> Cuando el e-CF trae retenciones, el documento se lo avisa arriba: se muestran aquí pero no se calculan en la factura. Revíselas antes de contabilizar.</p>
 <p><strong>Si no ve un documento en la bandeja</strong>, quite el filtro de la barra de búsqueda: la lista abre mostrando sólo lo pendiente.</p>
-<p class="source">Generado con <code>node capture.mjs --config=configs/l10n_do_ecf_purchase_reception_usuario.json --db=unused</code>.</p>
+<p class="source">Generado con <code>node capture.mjs --config=configs/l10n_do_ecf_purchase_reception_usuario.json --db=test_v19_l10n_do_ecf_purchase_reception</code>.</p>
 </body>
 </html>

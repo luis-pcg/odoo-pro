@@ -26,6 +26,12 @@
 #   id 8  E310000000099  to_map      foreign currency
 #   id 9  E310000000101  ready       the product is taxed at 16%, the e-CF declares 18%
 #   id 10 E340000000203  to_map      indicators DGII does not document
+#   id 11 E310000000300  to_map      bills half of an existing PO that matches it
+#   id 12 E310000000301  to_map      names an existing PO that does not match it
+#   id 13 E310000000302  to_map      a draft bill keyed by hand matches it
+#   id 14 E310000000303  to_map      names an existing PO that already has its draft bill
+#   id 15 E310000000304  to_map      new vendor, its order names every item differently
+#   id 16 E310000000305  to_map      new vendor, its order has two lines at the same price
 #
 # Executed inside `odoo shell`; the global `env` is available. Ends with commit.
 
@@ -372,6 +378,243 @@ for line in widget_doc.line_ids:
             line.item_code or "-",
             line.map_state,
         )
+    )
+
+# =============================================================================
+title("E310000000300 / E310000000301: purchase orders created before the e-CF")
+# =============================================================================
+reception_tax = company._l10n_do_get_reception_tax
+
+
+def existing_order(lines):
+    order = env["purchase.order"].create(
+        {
+            "partner_id": vendor.id,
+            "company_id": company.id,
+            "order_line": [
+                (
+                    0,
+                    0,
+                    {
+                        "product_id": item_product.id,
+                        "name": name,
+                        "product_qty": quantity,
+                        "price_unit": price,
+                        "tax_ids": [(6, 0, taxes.ids)],
+                    },
+                )
+                for item_product, name, quantity, price, taxes in lines
+            ],
+        }
+    )
+    order.button_confirm()
+    return order
+
+
+link_order = existing_order(
+    [
+        (p_meat, "Carnes paq 2lb", 10, 100.0, reception_tax("1", "1")),
+        (p_install, "Servicio de instalación", 2, 800.0, reception_tax("1", "2")),
+        (p_cable, "Cable UTP cat6 x mtr", 100, 30.0, reception_tax("4", "1")),
+    ]
+)
+wrong_order = existing_order(
+    [
+        (p_meat, "Carnes paq 2lb", 5, 95.0, reception_tax("1", "1")),
+        (p_install, "Servicio de instalación", 1, 800.0, reception_tax("1", "2")),
+    ]
+)
+env["ir.model.data"]._update_xmlids(
+    [
+        {"xml_id": "__manual__.ecf_link_order", "record": link_order},
+        {"xml_id": "__manual__.ecf_wrong_order", "record": wrong_order},
+    ]
+)
+
+ECF_LINES = [
+    (p_meat, "Carnes paq 2lb", 5, 100.0, reception_tax("1", "1")),
+    (p_install, "Servicio de instalación", 1, 800.0, reception_tax("1", "2")),
+    (p_cable, "Cable UTP cat6 x mtr", 50, 30.0, reception_tax("4", "1")),
+]
+billed_order = existing_order(ECF_LINES)
+for picking in billed_order.picking_ids:
+    for move in picking.move_ids:
+        move.quantity = move.product_uom_qty
+        move.picked = True
+    picking.button_validate()
+billed_order.action_create_invoice()
+
+hand_bill = env["account.move"].create(
+    {
+        "move_type": "in_invoice",
+        "partner_id": vendor.id,
+        "company_id": company.id,
+        "journal_id": purchase_journal.id,
+        "ref": "E310000000302",
+        "invoice_line_ids": [
+            (
+                0,
+                0,
+                {
+                    "product_id": item_product.id,
+                    "name": name,
+                    "quantity": quantity,
+                    "price_unit": price,
+                    "tax_ids": [(6, 0, taxes.ids)],
+                },
+            )
+            for item_product, name, quantity, price, taxes in ECF_LINES
+        ],
+    }
+)
+env["ir.model.data"]._update_xmlids(
+    [
+        {"xml_id": "__manual__.ecf_billed_order", "record": billed_order},
+        {"xml_id": "__manual__.ecf_hand_bill", "record": hand_bill},
+    ]
+)
+
+NAMED_ORDER = {
+    "E310000000300": link_order.name,
+    "E310000000301": wrong_order.name,
+    "E310000000303": billed_order.name,
+}
+for encf in ("E310000000300", "E310000000301", "E310000000302", "E310000000303"):
+    xml = fixtures.ECF_31_DOP.replace("E310000000034", encf)
+    if encf in NAMED_ORDER:
+        xml = xml.replace("P00042", NAMED_ORDER[encf])
+    else:
+        xml = xml.replace("<NumeroOrdenCompra>P00042</NumeroOrdenCompra>", "")
+    fixtures.XML_BY_ENCF[encf] = xml
+FEED = [
+    fixtures.api_payload(encf, "3034.00", date_received=RECEIVED_ON)
+    for encf in ("E310000000300", "E310000000301", "E310000000302", "E310000000303")
+]
+Document._cron_fetch_received_documents()
+env.cr.commit()
+for encf in ("E310000000300", "E310000000301", "E310000000302", "E310000000303"):
+    document = get(encf)
+    show(encf, "id %s, %s, names %s" % (document.id, document.state, NAMED_ORDER.get(encf, "-")))
+show("Hand-keyed draft bill", "%s ref %s" % (hand_bill.display_name, hand_bill.ref))
+show("Order already billed", "%s -> %s" % (billed_order.name, billed_order.invoice_ids.display_name))
+
+# =============================================================================
+title("E310000000304 / E310000000305: an order that names the items its own way")
+# =============================================================================
+# A vendor with no learned links yet, so no e-CF line arrives with a product, and
+# orders typed with the buyer's own product names. Neither code nor name tells
+# the lines apart: the wizard pairs them by price, ITBIS and quantity, and when
+# two order lines share them it leaves the choice to the operator.
+OTHER_VENDOR_RNC = "130456781"
+OTHER_VENDOR_NAME = "SERVICIOS TECNICOS DEL CARIBE"
+other_vendor = env["res.partner"].create(
+    {
+        "name": OTHER_VENDOR_NAME,
+        "vat": OTHER_VENDOR_RNC,
+        "company_type": "company",
+        "supplier_rank": 1,
+        "country_id": DO.id,
+        "l10n_do_dgii_tax_payer_type": "taxpayer",
+        "l10n_do_expense_type": vendor.l10n_do_expense_type,
+    }
+)
+p_daniel, p_upkeep, p_upkeep_fix, p_wiring = Product.create(
+    [
+        {"name": "Producto Daniel", "default_code": "INT-0101", "type": "consu"},
+        {"name": "Mantenimiento", "default_code": "INT-0102", "type": "service", "purchase_method": "purchase"},
+        {
+            "name": "Mantenimiento correctivo",
+            "default_code": "INT-0103",
+            "type": "service",
+            "purchase_method": "purchase",
+        },
+        {
+            "name": "Material eléctrico",
+            "default_code": "INT-0104",
+            "type": "consu",
+            "supplier_taxes_id": [(6, 0, purchase_tax(0).ids)],
+        },
+    ]
+)
+
+
+def other_vendor_order(lines):
+    order = env["purchase.order"].create(
+        {
+            "partner_id": other_vendor.id,
+            "company_id": company.id,
+            "order_line": [
+                (
+                    0,
+                    0,
+                    {
+                        "product_id": item_product.id,
+                        "name": item_product.name,
+                        "product_qty": quantity,
+                        "price_unit": price,
+                        "tax_ids": [(6, 0, taxes.ids)],
+                    },
+                )
+                for item_product, quantity, price, taxes in lines
+            ],
+        }
+    )
+    order.button_confirm()
+    return order
+
+
+renamed_order = other_vendor_order(
+    [
+        (p_daniel, 5, 100.0, reception_tax("1", "1")),
+        (p_upkeep, 1, 800.0, reception_tax("1", "2")),
+        (p_wiring, 50, 30.0, reception_tax("4", "1")),
+    ]
+)
+twin_order = other_vendor_order(
+    [
+        (p_daniel, 5, 100.0, reception_tax("1", "1")),
+        (p_upkeep, 1, 800.0, reception_tax("1", "2")),
+        (p_upkeep_fix, 1, 800.0, reception_tax("1", "2")),
+        (p_wiring, 50, 30.0, reception_tax("4", "1")),
+    ]
+)
+env["ir.model.data"]._update_xmlids(
+    [
+        {"xml_id": "__manual__.ecf_other_vendor", "record": other_vendor},
+        {"xml_id": "__manual__.ecf_renamed_order", "record": renamed_order},
+        {"xml_id": "__manual__.ecf_twin_order", "record": twin_order},
+    ]
+)
+for encf, order in (("E310000000304", renamed_order), ("E310000000305", twin_order)):
+    fixtures.XML_BY_ENCF[encf] = (
+        fixtures.ECF_31_DOP.replace("E310000000034", encf)
+        .replace("P00042", order.name)
+        .replace(VENDOR_RNC, OTHER_VENDOR_RNC)
+        .replace("DOCUMENTOS ELECTRONICOS DE 02", OTHER_VENDOR_NAME)
+    )
+FEED = [
+    fixtures.api_payload(
+        encf,
+        "3034.00",
+        provider_rnc=OTHER_VENDOR_RNC,
+        provider_name=OTHER_VENDOR_NAME,
+        date_received=RECEIVED_ON,
+    )
+    for encf in ("E310000000304", "E310000000305")
+]
+Document._cron_fetch_received_documents()
+env.cr.commit()
+for encf in ("E310000000304", "E310000000305"):
+    document = get(encf)
+    show(
+        encf,
+        "id %s, %s, %s, %s lines without product"
+        % (
+            document.id,
+            document.state,
+            document.partner_id.display_name,
+            len(document.line_ids.filtered(lambda line: not line.product_id)),
+        ),
     )
 
 # =============================================================================

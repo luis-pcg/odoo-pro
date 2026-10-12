@@ -17,7 +17,7 @@
     },
     {
       "label": "Versión",
-      "value": "19.0.1.0.0"
+      "value": "19.0.1.1.0"
     },
     {
       "label": "Relevantes para las configuraciones",
@@ -171,7 +171,31 @@
               "ok": true
             },
             {
-              "label": "Vincular OC del XML",
+              "label": "Vincular una orden de compra o una factura existentes: sólo si todo coincide",
+              "ok": true
+            },
+            {
+              "label": "Líneas sin producto emparejadas por precio, ITBIS y cantidad; toman el producto de la orden",
+              "ok": true
+            },
+            {
+              "label": "Tabla de emparejamiento editable en el asistente",
+              "ok": true
+            },
+            {
+              "label": "Una orden en varios e-CF: lo reservado por un e-CF no se ofrece a otro",
+              "ok": true
+            },
+            {
+              "label": "Recibir y facturar sólo las cantidades del e-CF; el resto de la orden queda en backorder",
+              "ok": true
+            },
+            {
+              "label": "Orden con factura en borrador: se vinculan las dos",
+              "ok": true
+            },
+            {
+              "label": "Factura que salió de una orden: trae la orden consigo",
               "ok": true
             },
             {
@@ -366,7 +390,7 @@
       "section": "Bandeja, vinculación y memoria",
       "title": "6. Un documento por vincular",
       "fullPage": true,
-      "description": "Ficha de **E310000000202**, en estado `to_map`: el XML ya se bajó y se parseó, y de sus tres líneas sólo una tiene producto.\n\nLa pantalla está armada como la **factura de proveedor**, que es la vista que esta gente ya sabe leer: arriba el tipo de documento y el e-NCF en grande, dos columnas de datos, las líneas, y los totales abajo a la derecha.\n\n- **Proveedor**: quién emitió, con su dirección y su RNC en el propio campo, su tipo de contribuyente y el tipo de costos y gastos. Todo lo fiscal de la factura lo decide la ficha del proveedor, y si el documento se teclea a mano, elegir el proveedor rellena su RNC, razón social, moneda de compra y tipo de gasto. Debajo queda el **nombre del emisor** tal como viene en el XML, que no siempre coincide con el de la ficha.\n- **Documento**: tipo de documento fiscal, fechas, el **código de seguridad** —lo que prueba que este es el e-CF que la DGII tiene—, la OC declarada en el XML cuando la trae, la moneda y si los montos vienen con el ITBIS incluido.\n- **Totales**, bajo las líneas y alineados a la derecha como en una factura: base imponible —o *Subtotal (ITBIS incl.)* cuando el XML declara `IndicadorMontoGravado = 1`—, ITBIS, impuestos adicionales y retenciones cuando los hay, y el **Total** en negrita.\n- El cuadre entre los tres totales (líneas, calculado, API), el XML firmado y la fecha de firma viven en la pestaña **Técnico**: son evidencia forense, no datos de operación.\n\nEn la barra de botones sólo aparece lo que se puede hacer ahora: *Aprobar* / *Rechazar*. Las salidas contables —*Crear orden*, *Crear factura*, *Orden y factura*— aparecen cuando ya no falte ninguna línea, y *Vincular OC* sólo en los documentos cuyo XML trae `NumeroOrdenCompra`.\n\nLa vinculación se hace **aquí mismo, en las líneas**: se elige el producto en la columna *Producto de Odoo* y se guarda el vínculo con la varita del widget (paso 7). No hay un wizard aparte: la versión 17 traía uno y se descartó, porque son las mismas tres decisiones en la pantalla donde el operario ya está mirando.\n\nEste documento es además el caso que rompe cualquier vinculación ingenua: el proveedor manda **el mismo código `1521` en las tres líneas**, con tres nombres distintos. Sólo *Gouda Import* entró vinculada —por código **y** nombre— y las otras dos quedan pendientes: un código repetido bajo nombres distintos no identifica nada, y vincular por él pondría el producto equivocado en las demás.\n\nLas líneas son el XML tal como llegó, y el orden de columnas se lee igual que una factura: artículo del proveedor, producto de Odoo, cantidad, precio unitario, impuestos, importe y estado. El número de línea de la DGII, el código del ítem, el indicador de ITBIS, bien o servicio, el descuento, la cuenta, la unidad de medida, el origen del match y —desde esta versión— el **origen del impuesto**, la **tasa declarada** y el **ITBIS vinculado** están **ocultos por defecto** y se activan con el icono de columnas opcionales, a la derecha de la cabecera: están cuando se necesitan sin apretar la pantalla el resto del tiempo. La columna **Artículo del proveedor** lleva el widget con el icono de estado del vínculo.",
+      "description": "Ficha de **E310000000202**, en estado `to_map`: el XML ya se bajó y se parseó, y de sus tres líneas sólo una tiene producto.\n\nLa pantalla está armada como la **factura de proveedor**, que es la vista que esta gente ya sabe leer: arriba el tipo de documento y el e-NCF en grande, dos columnas de datos, las líneas, y los totales abajo a la derecha.\n\n- **Proveedor**: quién emitió, con su dirección y su RNC en el propio campo, su tipo de contribuyente y el tipo de costos y gastos. Todo lo fiscal de la factura lo decide la ficha del proveedor, y si el documento se teclea a mano, elegir el proveedor rellena su RNC, razón social, moneda de compra y tipo de gasto. Debajo queda el **nombre del emisor** tal como viene en el XML, que no siempre coincide con el de la ficha.\n- **Documento**: tipo de documento fiscal, fechas, el **código de seguridad** —lo que prueba que este es el e-CF que la DGII tiene—, la OC declarada en el XML cuando la trae, la moneda y si los montos vienen con el ITBIS incluido.\n- **Totales**, bajo las líneas y alineados a la derecha como en una factura: base imponible —o *Subtotal (ITBIS incl.)* cuando el XML declara `IndicadorMontoGravado = 1`—, ITBIS, impuestos adicionales y retenciones cuando los hay, y el **Total** en negrita.\n- El cuadre entre los tres totales (líneas, calculado, API), el XML firmado y la fecha de firma viven en la pestaña **Técnico**: son evidencia forense, no datos de operación.\n\nEn la barra de botones sólo aparece lo que se puede hacer ahora: *Aprobar* / *Rechazar*. Las salidas contables —*Crear orden*, *Crear factura*, *Orden y factura*— aparecen cuando ya no falte ninguna línea, y *Vincular OC o factura* mientras el documento no tenga orden ni factura.\n\nLa vinculación se hace **aquí mismo, en las líneas**: se elige el producto en la columna *Producto de Odoo* y se guarda el vínculo con la varita del widget (paso 7). No hay un wizard aparte: la versión 17 traía uno y se descartó, porque son las mismas tres decisiones en la pantalla donde el operario ya está mirando.\n\nEste documento es además el caso que rompe cualquier vinculación ingenua: el proveedor manda **el mismo código `1521` en las tres líneas**, con tres nombres distintos. Sólo *Gouda Import* entró vinculada —por código **y** nombre— y las otras dos quedan pendientes: un código repetido bajo nombres distintos no identifica nada, y vincular por él pondría el producto equivocado en las demás.\n\nLas líneas son el XML tal como llegó, y el orden de columnas se lee igual que una factura: artículo del proveedor, producto de Odoo, cantidad, precio unitario, impuestos, importe y estado. El número de línea de la DGII, el código del ítem, el indicador de ITBIS, bien o servicio, el descuento, la cuenta, la unidad de medida, el origen del match y —desde esta versión— el **origen del impuesto**, la **tasa declarada** y el **ITBIS vinculado** están **ocultos por defecto** y se activan con el icono de columnas opcionales, a la derecha de la cabecera: están cuando se necesitan sin apretar la pantalla el resto del tiempo. La columna **Artículo del proveedor** lleva el widget con el icono de estado del vínculo.",
       "steps": [
         {
           "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=3&view_type=form"
@@ -442,9 +466,399 @@
       ]
     },
     {
+      "id": "16-vincular-oc",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "10. Vincular el e-CF a una orden de compra que ya existe",
+      "element": ".modal-content",
+      "description": "**E310000000300** llega de un proveedor al que ya se le había hecho la orden de compra en Odoo. Dos de sus tres líneas no se resolvieron solas, así que el documento está en `to_map`. En vez de vincularlas a mano, **Vincular OC o factura** abre el asistente, que vincula el e-CF a una **orden de compra** o a una **factura de proveedor** que ya existen (el selector **Vincular a**). Aquí sugiere la orden.\n\nQué órdenes ofrece: sólo las **abiertas** (solicitud, enviada o confirmada) del **mismo proveedor**, la **misma compañía** y la **misma moneda** del e-CF. De ésas sugiere primero la que el XML nombra en `NumeroOrdenCompra`; si el XML no nombra ninguna, la **única** abierta con la que coinciden todas las líneas. Si coinciden varias, el campo queda vacío y el usuario elige.\n\nCómo se empareja cada línea del e-CF con una línea de la orden, en este orden —el mismo para órdenes y facturas—:\n\n- **mismo producto**, si la línea ya lo tenía (aquí la carne, resuelta por el vínculo aprendido);\n- **código del proveedor** contra la referencia interna del producto o el código de su lista de precios;\n- **nombre del artículo**, normalizado, contra la descripción de la línea de la orden, el nombre del producto o el nombre en la lista de precios del proveedor (aquí la instalación y el cable);\n- **precio, ITBIS y cantidad**, para la línea sin producto que nada de lo anterior emparejó, cuando una sola línea libre de la orden coincide (paso 12).\n\nDebajo, la tabla muestra cada línea del e-CF con la **línea de la orden** que le tocó, el **producto** que va a tomar y, en rojo, lo que no coincide. La columna de la línea de la orden se puede cambiar a mano (paso 14). Una línea del e-CF marcada como *ignorada* no entra en la tabla ni bloquea el vínculo.\n\nEl aviso verde dice que todo coincide y el botón **Vincular** aparece. Esta orden pide **el doble** de lo que factura el e-CF: una factura parcial es válida, siempre que no pase de lo que a la línea le queda por facturar.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=11&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "17-oc-no-coincide",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "11. Si la orden no coincide, no se vincula",
+      "element": ".modal-content",
+      "description": "**E310000000301** nombra en su `NumeroOrdenCompra` una orden que **no coincide**: la carne está a 95 en la orden y a 100 en el e-CF, y el cable no está en la orden. La instalación sí coincide, y por eso no aparece en la lista.\n\nEl asistente la sugiere igual —es la que el XML nombra— pero **lista cada diferencia** y esconde el botón **Vincular**. Bloquean el vínculo:\n\n- una línea del e-CF que **no está en la orden**;\n- **cualquier diferencia de precio** o de **tasa de ITBIS**, comparado sin impuesto y en la unidad de la orden (un e-CF con ITBIS incluido se compara contra el precio sin ITBIS de la orden);\n- una cantidad **mayor** de la que a la línea de la orden le queda por facturar;\n- otro proveedor, otra compañía, otra moneda o una orden cerrada o cancelada.\n\nLa regla se aplica también en el servidor: llamar al vínculo por RPC con una orden que no coincide termina en el mismo error con la misma lista. Lo que corresponde es corregir la orden o pedirle al proveedor que corrija el e-CF.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=12&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "24-oc-nombres-distintos",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "12. La orden nombra los artículos a su manera: se emparejan por precio e ITBIS",
+      "element": ".modal-content",
+      "description": "**E310000000304** es de **SERVICIOS TECNICOS DEL CARIBE**, un proveedor sin vínculos aprendidos: ninguna línea llega con producto. Su orden se digitó con los nombres de la casa —*Producto Daniel*, *Mantenimiento*, *Material eléctrico*— y ni el código ni el nombre del proveedor coinciden con ellos.\n\nCuando una línea **sin producto** no se empareja por código ni por nombre, el asistente busca entre las líneas de la orden que quedan libres la que tenga **el mismo precio sin ITBIS, la misma tasa de ITBIS y cantidad suficiente por facturar**. Si hay **una sola**, la empareja. Una línea que ya tenía producto no se toca: sólo se empareja con una línea de su mismo producto.\n\nLa tabla del asistente muestra cada línea del e-CF con la **línea de la orden** que le tocó y el **producto** que va a tomar. Al dar **Vincular**, las líneas del e-CF toman ese producto, su ITBIS y su unidad, y el vínculo queda aprendido: el próximo e-CF de este proveedor llega con los productos puestos.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=15&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "25-oc-lineas-gemelas",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "13. Dos líneas de la orden con el mismo precio: elige el usuario",
+      "element": ".modal-content",
+      "description": "**E310000000305**, del mismo proveedor, nombra una orden con **dos servicios a 800**: *Mantenimiento* y *Mantenimiento correctivo*. Con dos candidatas iguales en precio, ITBIS y cantidad, adivinar sería arriesgarse a poner el producto equivocado, así que el asistente **no elige**: la línea queda sin pareja y en rojo, el aviso dice *varias líneas de la orden tienen su precio, ITBIS y cantidad, elija la que factura*, y el botón **Vincular** no aparece.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=16&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "26-oc-linea-elegida",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "14. La línea elegida a mano en el asistente",
+      "element": ".modal-content",
+      "description": "La columna **Línea de la orden** se puede editar: se elige la línea correcta de la orden y el asistente vuelve a revisar todo al momento. Con la pareja elegida, el aviso pasa a verde y aparece **Vincular**.\n\nLa misma columna sirve para corregir cualquier emparejamiento automático. Las reglas no cambian por elegir a mano: el precio, el ITBIS y la cantidad tienen que coincidir, una línea de la orden no puede tomarse para dos líneas del e-CF, y una línea del e-CF que ya tiene producto sólo acepta una línea de ese mismo producto.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=16&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".modal .o_field_widget[name='line_ids'] .o_data_row:nth-child(2) td[name='purchase_line_id']"
+        },
+        {
+          "waitFor": ".modal .o_selected_row div[name='purchase_line_id'] input",
+          "timeout": 15000
+        },
+        {
+          "fill": ".modal .o_selected_row div[name='purchase_line_id'] input",
+          "value": "correctivo"
+        },
+        {
+          "waitFor": ".o-autocomplete--dropdown-item",
+          "timeout": 15000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-autocomplete--dropdown-item:first-child a"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".modal .modal-title"
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "18-oc-vinculada",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "15. El documento después de vincular",
+      "fullPage": true,
+      "description": "Al dar **Vincular**, cada línea del e-CF toma de su línea de la orden el **producto** y los **impuestos** (en la variante incluida o excluida que usa el e-CF), y queda con la referencia a esa línea en la columna opcional **Línea de compra** (oculta por defecto; se muestra desde el selector de columnas). El origen se anota como **Orden de compra**, y el producto de la línea ya no se puede cambiar a mano: lo manda la orden.\n\nLas líneas que no tenían producto **aprenden el vínculo** con el proveedor: la próxima factura de ese proveedor con esos artículos llega resuelta sola, con o sin orden.\n\nEl documento pasa a `ready`, el chatter dice con qué orden se vinculó y la cabecera ofrece sólo **Recibir y facturar**: es la misma ruta A que una orden creada desde el propio documento, ni más ni menos. Si la factura se crea desde la pantalla de compras (su botón *Crear factura*), también recibe el NCF, el código de seguridad y el XML del e-CF, y el documento pasa a `done`.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=11&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".modal button[name='action_link']"
+        },
+        {
+          "waitFor": "button[name='action_create_po_receive_invoice']",
+          "timeout": 30000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "19-oc-recepcion-parcial",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "16. Recibir y facturar sólo lo que trae el e-CF",
+      "fullPage": true,
+      "description": "**Recibir y facturar** sobre el documento vinculado confirma la orden si hace falta, **recibe** y **factura** —pero sólo las cantidades del e-CF—: 5 de las 10 carnes, 1 de las 2 instalaciones y 50 de los 100 metros de cable. Lo que la orden tiene de más queda en una **recepción pendiente (backorder)** y por facturar, esperando el próximo e-CF del proveedor.\n\nSi el almacén ya había recibido la mercancía, no se vuelve a recibir: sólo se recibe lo que falte para cubrir lo que el e-CF factura. La factura nace en borrador, por exactamente el total del e-CF (3,034.00), con su e-NCF, código de seguridad y XML; si no cuadrara, no se crea y el mensaje explica qué línea falta.\n\nEn la orden se ven las columnas **Recibido** y **Facturado** a la mitad —la instalación es un servicio, así que no tiene recepción y sólo sube lo facturado—, y el botón **Recepción** cuenta las dos: la validada y la pendiente.\n\nUna orden puede quedar repartida en **varios e-CF**: cada uno se vincula sólo con las líneas que trae, y la factura que sale de él lleva sólo esas líneas. Lo que un e-CF ya vinculado y todavía sin facturar tiene reservado **no se le ofrece a otro**: si el segundo e-CF pide más de lo que queda, el asistente lo dice y nombra el e-NCF que tiene reservada esa cantidad.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=11&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_create_po_receive_invoice']"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_widget[name='invoice_line_ids']",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "gotoXmlId": "__manual__.ecf_link_order",
+          "action": "purchase.purchase_form_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "20-vincular-factura",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "17. Vincular el e-CF a una factura de proveedor ya digitada",
+      "element": ".modal-content",
+      "description": "**E310000000302** llegó después de que alguien digitó a mano su factura de proveedor, todavía en **borrador**, con el e-NCF en la **Referencia**. Con **Factura de proveedor** en el selector, el asistente la sugiere.\n\nQué facturas ofrece: sólo **borradores** del **mismo proveedor**, **compañía** y **moneda**, del tipo que corresponde al e-CF (factura, o nota de crédito para un tipo 34) y que **no estén ya vinculadas** a otro e-CF. Sugiere primero la que lleva el e-NCF en la referencia; si no hay, la **única** que coincide en todo.\n\nUna factura es el documento fiscal entero, así que la regla es más estricta que con la orden:\n\n- cada línea del e-CF en la factura, con la **misma cantidad** (no menos), el **mismo precio** sin impuesto y la **misma tasa de ITBIS**;\n- **ninguna línea de más** en la factura;\n- el **total** de la factura igual al del e-CF.\n\nUna factura ya **contabilizada** no se ofrece: si lleva el mismo e-NCF el documento llega como **duplicado** y se resuelve con **Vincular factura**; si lleva otro, es otro comprobante.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=13&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "21-factura-vinculada",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "18. El documento vinculado a la factura",
+      "fullPage": true,
+      "description": "Al dar **Vincular**, el e-CF toma de la factura sus productos e impuestos (origen **Factura de proveedor**) y aprende el vínculo para el proveedor. La factura recibe la identidad fiscal del e-CF —tipo de comprobante, e-NCF, código de seguridad, fecha de firma y el **XML firmado**— y sus líneas quedan con la traza de la línea del e-CF. El documento pasa directamente a **Hecho** con su factura en el botón inteligente.\n\nSi las líneas de esa factura venían de **una** orden de compra, el documento se vincula también a esa orden: se ven los dos botones, **Compra** y **Factura**.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=13&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".modal button[name='action_link']"
+        },
+        {
+          "waitFor": "button[name='action_view_move']",
+          "timeout": 30000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "22-oc-con-factura",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "19. Una orden que ya tiene su factura",
+      "element": ".modal-content",
+      "description": "**E310000000303** nombra la orden **P00004**, que ya se recibió y ya se facturó desde la propia orden, con una factura que sigue en borrador porque faltaba el comprobante.\n\nEl asistente lo detecta: además del aviso verde de la orden, dice que **la factura de esa orden también se vincula**. La factura se busca entre las facturas en borrador de la orden y se exige lo mismo que al vincular una factura suelta: mismas líneas, cantidades, precios, tasas y total.\n\nOjo con la cantidad pendiente: Odoo ya cuenta esa factura en borrador como facturada, así que la orden no tendría nada «por facturar». Para la comparación se le suma de vuelta lo que factura **esa** factura; cualquier otra factura de la orden sí cuenta.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=14&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "23-oc-y-factura-vinculadas",
+      "section": "Vincular una orden de compra o una factura que ya existe",
+      "title": "20. Orden y factura vinculadas a la vez",
+      "fullPage": true,
+      "description": "Resultado: el e-CF queda con la **orden** y la **factura** —los dos botones inteligentes, **Compra** y **Factura**—, en **Hecho**. Las líneas del e-CF apuntan a las líneas de la orden, la factura recibe el e-NCF, el código de seguridad y el XML, y el chatter lo dice en las dos partes.\n\nNo se recibe ni se factura nada nuevo: la recepción y la factura ya existían, y el vínculo sólo las une al comprobante.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=14&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": "button[name='action_open_link_wizard']"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".modal button[name='action_link']"
+        },
+        {
+          "waitFor": "button[name='action_view_move']",
+          "timeout": 30000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
       "id": "10-itbis-incluido",
       "section": "Casos que la DGII manda de verdad",
-      "title": "10. Caso real: ITBIS incluido en los montos",
+      "title": "21. Caso real: ITBIS incluido en los montos",
       "fullPage": true,
       "description": "**E310000000200** declara `IndicadorMontoGravado = 1`, y en la ficha se ve como **Los montos incluyen ITBIS** marcado: cada `MontoItem` ya trae el ITBIS dentro y `MontoTotal` es la suma de las líneas —1,180.00 + 1,160.00 = 2,340.00—. Por eso el bloque de totales dice *Subtotal (ITBIS incl.)* en vez de base imponible.\n\nEl módulo no vuelve a sumar el ITBIS al cuadrar, y las líneas llevan los impuestos **con precio incluido**: 18% en la primera (indicador 1) y 16% en la segunda (indicador 2). Sumarlo encima daría una factura 18% más alta que la que la DGII ya tiene.\n\nSus dos líneas entraron vinculadas solas, por las formas `LAPICES` y `GALLETAS` ya aprendidas, y como el proveedor tiene encendida la facturación automática (paso 4) **la factura en borrador ya está creada**: el documento salió de la importación en *Hecho*, sin un clic.\n\nLas dos líneas llevan el impuesto **de su producto**: *Lápices HB caja* está configurado al 18% y *Galletas surtidas* al 16%, que es como este proveedor las factura, y el XML lo confirma declarando sus grupos por separado —`ITBIS1 = 18` e `ITBIS2 = 16`—. La columna opcional *Origen del impuesto* dice *Producto* en las dos. Que producto y documento coincidan es justamente lo que deja que la factura se cree sola: en cuanto no coinciden, el módulo se detiene y avisa (paso 11).",
       "steps": [
@@ -463,7 +877,7 @@
     {
       "id": "11-impuestos-de-la-linea",
       "section": "Casos que la DGII manda de verdad",
-      "title": "11. El impuesto lo pone el producto y el e-CF lo audita",
+      "title": "22. El impuesto lo pone el producto y el e-CF lo audita",
       "fullPage": true,
       "description": "El impuesto que lleva una línea sale del **producto**. El orden es:\n\n1. **El producto**, por sus *Impuestos de proveedor*. Es donde la contabilidad ya mantiene a cuánto tributa cada cosa, y es lo único que distingue un 18% de **bien** de un 18% de **servicio**: el `IndicadorFacturacion` sabe una tasa y nada más, y la DGII los reporta por separado.\n2. **El vínculo aprendido**, para el proveedor cuyos ítems se decidieron distinto alguna vez, y sólo si el producto no dice nada.\n3. **La tabla de indicadores** del paso 2, para la línea cuyo producto no tiene ningún impuesto de compra.\n\n**La respuesta del producto se respeta aunque contradiga al documento.** Un producto registrado al 18% en una línea que el proveedor facturó exenta es una de dos cosas: un producto mal configurado, o un proveedor que facturó la tasa equivocada. Se resuelven distinto —una corrigiendo el producto, la otra rechazando el e-CF—, así que el módulo no elige: **mantiene el impuesto del producto y avisa**. Cambiarlo en silencio sería decidirlo por máquina y enterrar la evidencia, y la diferencia reaparecería meses después en el 606.\n\nLa tasa que el documento declara sale de sus propios `Totales`, leídos **segregados por tasa**: `ITBIS<n>` es la tasa del grupo `<n>`, `MontoGravadoI<n>` su base y `TotalITBIS<n>` su impuesto, y cada ítem dice a qué grupo pertenece por su `IndicadorFacturacion`. El e-CF que no manda ninguno de esos campos —la mayoría— cae en la tabla de la DGII: 18 / 16 / 0 / exento.\n\nCuando no coinciden, el módulo lo dice **cinco veces**, que es lo que hace falta para que nadie lo firme sin verlo:\n\n- la línea sale **en rojo** y la columna opcional *Origen del impuesto* dice *Producto*;\n- la ficha muestra el aviso naranja con los dos montos de ITBIS;\n- la importación lo **escribe en el chatter** en el momento en que ocurre;\n- el widget lo dice en el propio clic que vinculó el producto;\n- el filtro *Impuestos que no coinciden* de la bandeja los junta a todos, y **Crear factura** se niega nombrando la línea culpable.\n\nEn la captura, **E310000000101**: el ítem *Servicios profesionales* entró vinculado solo, por una forma de nombrarlo ya aprendida, pero el producto está registrado al **16%** y este e-CF declara **18%**. La línea conserva el 16% del producto, el documento queda marcado, y en el chatter están las dos anotaciones que cuentan la historia completa: la diferencia de impuesto, y que la facturación automática del proveedor (paso 4) **no** creó la factura por esa misma razón.\n\nEs una pregunta **distinta** de la del paso 14: aquella compara `MontoTotal` contra el ITBIS *que el XML dice*, así que una línea vinculada a un producto con la tasa equivocada la pasa limpia y sólo aparece meses después, en el 606.\n\nEl botón **+** del widget cierra el círculo por el otro lado: el producto que nace de un artículo del proveedor nace **con la tasa que ese e-CF declara para esa línea** —el documento es lo único que sabe qué cobra este proveedor por esta cosa—, siempre en la variante de tasa excluida. Un producto creado ahí no puede contradecir a la línea que lo creó.\n\nEste documento trae además **retenciones** (`TotalITBISRetenido` 180.00 y `TotalISRRetencion` 100.00), con su propio aviso: se reportan pero no se calculan en la factura, misma política que con el ISC —detectar y avisar antes que calcular mal—.",
       "steps": [
@@ -482,7 +896,7 @@
     {
       "id": "12-impuestos-adicionales",
       "section": "Casos que la DGII manda de verdad",
-      "title": "12. Caso real: impuestos adicionales (ISC)",
+      "title": "23. Caso real: impuestos adicionales (ISC)",
       "fullPage": true,
       "description": "**E310000000201** lleva `MontoImpuestoAdicional` (impuesto selectivo al consumo). Entre el bloque de totales bajo las líneas y el cuadre de la pestaña **Técnico** se ve la cuenta completa: 3,230.00 de líneas + 713.04 de ITBIS + 731.31 de ISC = 4,674.35, que es exactamente el `MontoTotal` del XML.\n\nEse impuesto **forma parte del total pero no pertenece a ninguna línea**. El módulo lo cuenta en el cuadre —si no, el documento se marcaría como descuadrado sin serlo— y avisa en naranja, en la ficha y en el chatter: la factura que se cree desde aquí saldrá **corta por ese monto** y hay que agregarlo a mano antes de publicar. Es la misma política que con las retenciones: detectar y avisar antes que calcular mal.\n\nY es la razón por la que el cuadre de impuestos del paso 11 se mide contra lo que declaran **los ítems** y no contra `TotalITBIS`: la DGII cobra ITBIS sobre el ISC también, así que aquí `TotalITBIS` son 713.04 —el 18% de 3,230.00 + 731.31 = 3,961.31— mientras que las líneas, que sólo conocen sus propios montos, declaran 581.40. El documento no está descuadrado; el impuesto adicional simplemente no pertenece a ninguna línea.\n\nAdemás su única línea, *PTE. CJ 24/12OZ*, no tiene vínculo aprendido: es el documento donde se usa el botón **+** del widget, porque el ítem no existe en la base todavía.",
       "steps": [
@@ -501,7 +915,7 @@
     {
       "id": "13-duplicado",
       "section": "Casos que la DGII manda de verdad",
-      "title": "13. Caso real: el e-CF ya estaba digitado a mano",
+      "title": "24. Caso real: el e-CF ya estaba digitado a mano",
       "fullPage": true,
       "description": "**E340000000007** es una nota de crédito que llegó por la API, pero alguien ya había capturado ese comprobante a mano en Odoo. El módulo lo detecta antes de crear nada y lo deja en estado `duplicate`, con la cinta *DUPLICATE*, el aviso naranja y el enlace a la factura existente.\n\nAquí hay otra diferencia con Odoo 17: la búsqueda del comprobante ya digitado se hace contra el **nombre del asiento**. Desde la 19 el NCF *es* el nombre —la migración `l10n_do_accounting/upgrades/19.0.1.0.0` plegó el campo `l10n_do_fiscal_number` dentro de `name`—, así que no queda un segundo lugar donde mirar.\n\n**No bloquea la importación**: el documento entra visible y marcado. Los botones que crearían una segunda factura **no aparecen** en este estado; en su lugar se ofrece **Vincular factura**, que sólo le da al comprobante ya digitado su XML, su código de seguridad y su fecha de firma. Así el operario no pierde su trabajo manual.",
       "steps": [
@@ -520,7 +934,7 @@
     {
       "id": "14-descuadre",
       "section": "Casos que la DGII manda de verdad",
-      "title": "14. Caso real: totales que no cuadran",
+      "title": "25. Caso real: totales que no cuadran",
       "fullPage": true,
       "description": "**E310000000500** declara `MontoTotal` 9,999.00 con una línea de 1,000.00 y 180.00 de ITBIS. No cuadra, y el módulo lo deja en estado `error` con el detalle exacto en rojo —*computed 1,180.00, XML 9,999.00, API 9,999.00, tolerance 0.02*— en vez de facturarlo a ciegas. Nótese que su línea **sí** entró vinculada por vínculo aprendido: el descuadre es del documento, no de la vinculación.\n\nDesde aquí quedan dos caminos: **Retry** devuelve el documento al inicio del flujo (por si el problema fue de red o el proveedor corrigió el XML), y **Rechazar** lo rechaza comercialmente ante la DGII con su código y, en el mismo paso, **cierra el documento como descartado**: un e-CF rechazado no produce nada, así que pedirle después al operario que lo descarte era una decisión presentada como dos. El asistente ya no ofrece *Rechazar y descartar*, y el estado `rejected` desapareció; quien registra el rechazo, con su código y su motivo, es *Aprobación comercial*. Facturar no es una opción mientras no cuadre.\n\nEl otro caso de datos torcidos vive en la misma bandeja: **E340000000203** llega con `IndicadorFacturacion = 0` e `IndicadorBienoServicio = 9`, valores que la DGII no documenta. La línea se guarda igual, con el indicador vacío y una advertencia en el log, porque el documento es evidencia de lo que llegó: rechazar el valor costaba perder el documento entero, y los montos, los impuestos y el cuadre funcionan sin él.",
       "steps": [
@@ -539,7 +953,7 @@
     {
       "id": "15-tecnico",
       "section": "Casos que la DGII manda de verdad",
-      "title": "15. La pestaña Técnico: la evidencia del e-CF",
+      "title": "26. La pestaña Técnico: la evidencia del e-CF",
       "fullPage": true,
       "description": "Todo lo que es **evidencia** y no dato de operación vive aquí, fuera de la vista de quien sólo tiene que facturar: el XML firmado adjunto, su ruta en el bucket de la DGII, la fecha de firma, la tasa fija de la factura, los documentos que este e-CF produjo, y el **cuadre** de los tres totales (líneas, calculado, API) con su diferencia.\n\nEn ese mismo grupo está el cuadre de impuestos del paso 11: **ITBIS (declarado en las líneas)**, **ITBIS (impuestos vinculados)** y su **Diferencia**. Y cuando el e-CF manda sus `Totales` segregados aparece **ITBIS declarado por tasa**, con la tasa, la base y el ITBIS de cada grupo (`ITBIS<n>`, `MontoGravadoI<n>`, `TotalITBIS<n>`): eso es lo que convierte un total de documento en una expectativa por línea.\n\nAbajo, los dos payloads tal como llegaron: la respuesta del listado en JSON y el **XML firmado**, indentado para poder leerlo —la DGII lo manda todo en una sola línea—. El adjunto de arriba sigue siendo la copia byte a byte, que es la que hay que descargar cuando haya que verificar la firma; indentarlo la rompería.\n\nDos editores de código en la misma pantalla, y ahí está la trampa de versión que costó un error en producción: el widget `ace` valida el modo contra una lista cerrada, y en Odoo 19 esa lista dice `javascript` donde la 17 decía `js`. Con el valor viejo el componente no monta y **la pestaña entera se cae** con *Invalid props for component 'CodeEditor'*. Esta captura existe para que eso no vuelva a pasar sin que nadie se entere.",
       "steps": [
@@ -568,9 +982,9 @@
     {
       "id": "99-resultado",
       "section": "Resultado de la revisión",
-      "title": "16. Qué queda probado",
+      "title": "27. Qué queda probado",
       "image": false,
-      "description": "Con las capturas anteriores queda verificado que:\n\n1. La configuración es un interruptor más cinco parámetros, sin credenciales que administrar.\n2. El cron importa y deja cada documento en el estado que le corresponde: por vincular, listo, duplicado o en error.\n3. La vinculación de productos funciona en sus tres niveles y **se aprende**; sólo queda pendiente lo que ninguno de los tres pudo resolver.\n4. El widget vive en las líneas del documento, muestra el ítem del proveedor y el estado del vínculo, y resuelve la línea con un clic: la varita guarda el vínculo, el **+** crea el producto que falta y lo vincula.\n5. El impuesto de la línea sale del **producto** —después del vínculo aprendido, y por último de la tabla de indicadores— y **se conserva aunque el e-CF declare otra tasa**, con la diferencia avisada en la línea, en la ficha, en el chatter y en el filtro de la bandeja, y con la factura detenida hasta que una persona la resuelva.\n6. La **facturación automática por proveedor** convierte en factura de proveedor en borrador el e-CF que se resolvió solo, y se detiene —dejando el motivo escrito— ante todo lo que habría detenido a una persona.\n7. La memoria es **una fila por proveedor y producto** con todas sus formas de nombrarlo, legible también desde la ficha del producto.\n8. Los casos que la DGII manda de verdad y que rompen una implementación ingenua están cubiertos y visibles en pantalla: **ITBIS incluido** en los montos, **impuesto selectivo al consumo** fuera de las líneas, **un mismo código** en todas las líneas, **códigos que la DGII no documenta**, **moneda extranjera** con la tasa fija del XML, **retenciones** detectadas y avisadas, **totales que no cuadran** y un **producto cuyo impuesto contradice el e-CF**, que se conserva, se avisa y detiene la factura.\n\n9. La evidencia forense —XML firmado, cuadre de los tres totales, payload de la API— está en su propia pestaña y se abre sin errores de cliente.\n\nLo que **no** se captura aquí: la aprobación comercial (ACECF), porque escribe de verdad contra el servicio de la DGII; y la cadena OC ▸ recepción ▸ factura —con el cierre del documento cuando la factura se crea desde la pantalla de compras—, que se cubre en las **167 pruebas unitarias** del módulo, todas verdes en Odoo 19."
+      "description": "Con las capturas anteriores queda verificado que:\n\n1. La configuración es un interruptor más cinco parámetros, sin credenciales que administrar.\n2. El cron importa y deja cada documento en el estado que le corresponde: por vincular, listo, duplicado o en error.\n3. La vinculación de productos funciona en sus tres niveles y **se aprende**; sólo queda pendiente lo que ninguno de los tres pudo resolver.\n4. El widget vive en las líneas del documento, muestra el ítem del proveedor y el estado del vínculo, y resuelve la línea con un clic: la varita guarda el vínculo, el **+** crea el producto que falta y lo vincula.\n5. El impuesto de la línea sale del **producto** —después del vínculo aprendido, y por último de la tabla de indicadores— y **se conserva aunque el e-CF declare otra tasa**, con la diferencia avisada en la línea, en la ficha, en el chatter y en el filtro de la bandeja, y con la factura detenida hasta que una persona la resuelva.\n6. La **facturación automática por proveedor** convierte en factura de proveedor en borrador el e-CF que se resolvió solo, y se detiene —dejando el motivo escrito— ante todo lo que habría detenido a una persona.\n7. La memoria es **una fila por proveedor y producto** con todas sus formas de nombrarlo, legible también desde la ficha del producto.\n8. Los casos que la DGII manda de verdad y que rompen una implementación ingenua están cubiertos y visibles en pantalla: **ITBIS incluido** en los montos, **impuesto selectivo al consumo** fuera de las líneas, **un mismo código** en todas las líneas, **códigos que la DGII no documenta**, **moneda extranjera** con la tasa fija del XML, **retenciones** detectadas y avisadas, **totales que no cuadran** y un **producto cuyo impuesto contradice el e-CF**, que se conserva, se avisa y detiene la factura.\n9. Un e-CF se **vincula a una orden de compra o a una factura de proveedor que ya existen** sólo si todo coincide —proveedor, moneda, cada línea, precio y tasa de ITBIS iguales; en la orden, cantidad dentro de lo pendiente; en la factura, mismas cantidades, ninguna línea de más y el mismo total—; si no, el asistente lista las diferencias y no vincula. Al vincular, las líneas toman producto e impuestos del otro documento y aprenden el vínculo; **Recibir y facturar** recibe y factura sólo lo que trae el e-CF, dejando el resto de la orden en backorder; una orden que ya tiene su factura en borrador queda vinculada junto con esa factura, y una factura que salió de una orden trae la orden consigo.\n10. La evidencia forense —XML firmado, cuadre de los tres totales, payload de la API— está en su propia pestaña y se abre sin errores de cliente.\n\nLo que **no** se captura aquí: la aprobación comercial (ACECF), porque escribe de verdad contra el servicio de la DGII; y el cierre del documento cuando la factura se crea desde la pantalla de compras, que se cubre en las **178 pruebas unitarias** del módulo, todas verdes en Odoo 19."
     }
   ],
   "notes": "**Rutas contables exclusivas.** Un documento sale por una de dos: orden de compra (crear ▸ recibir ▸ facturar desde la orden) o factura directa sin OC. Al entrar en una, los botones de la otra desaparecen y los métodos rechazan la llamada, porque las dos terminan en la misma factura y la DGII tiene un solo documento.\n\n**La factura cierra el documento; la orden no.** El e-CF llega a `done` cuando existe una factura relacionada, no cuando se crea la orden. La factura hecha fuera de la bandeja —el botón *Crear factura* de la orden, o el autocompletado de la factura de proveedor— también estampa el NCF, el código de seguridad y el XML: la traza del e-CF viaja en las líneas de la orden, así que el documento se encuentra desde la factura sola. Una diferencia con la cadena de un clic: si esa factura **no** suma el total del e-CF —porque el operario facturó parte de la orden— no se rechaza, se enlaza y se avisa el faltante en el chatter de los dos registros. Las cantidades las escribió una persona en la pantalla de compras y hacer rollback le borraría el trabajo; lo que no puede pasar es que el faltante quede callado.\n\n**El impuesto sale del producto.** Se le pregunta al **producto** primero, luego al **vínculo aprendido**, y sólo si ninguno tiene impuesto de compra a la tabla de indicadores. Y la respuesta del producto **se conserva aunque el e-CF declare otra tasa**: esa diferencia es un producto mal configurado o un proveedor que facturó mal, y las dos cosas las resuelve una persona. La línea guarda de dónde salió el impuesto en *Origen del impuesto*.\n\n**El desacuerdo se avisa y bloquea la factura.** Mientras el ITBIS que declaran los ítems y el que cobrarían los impuestos de las líneas no coincidan, ni *Crear factura* ni *Crear orden* dejan pasar el documento, y el error nombra las líneas culpables. Se mide contra los ítems y no contra `TotalITBIS` porque la DGII cobra ITBIS también sobre los impuestos adicionales, que no pertenecen a ninguna línea.\n\n**Facturación automática.** *Facturar sus e-CF automáticamente*, en la ficha del proveedor, crea la factura en **borrador** en cuanto el documento queda con todas sus líneas vinculadas. Nunca contabiliza, nunca se salta un control, y cuando algo lo detiene el motivo queda en el chatter del documento en vez de romper la importación.\n\n**Permisos.** Los cuatro modelos del módulo y el asistente de rechazo son de `account.group_account_manager` y de nadie más. Lo que sigue funcionando para los demás es lo que no necesita la bandeja: la factura hecha desde compras o por autocompletado recibe igual su NCF y cierra igual el e-CF —esa parte corre en `sudo` a propósito—, y el botón *e-CF recibido* de la orden y el campo de la factura están detrás del mismo grupo, para no ofrecer a nadie un registro que no puede abrir.\n\n**Aprobación comercial.** Los botones **Aprobar** y **Rechazar** llaman al servicio de la DGII de verdad (`POST /acecf/?submit_to_dgii=true`). En el entorno de pruebas sigue siendo una escritura real: úsalos a conciencia. **Actualizar aprobación** vive en la pestaña *Aprobación comercial*, junto al estado y al plazo, y sólo aparece cuando ya se envió un ACECF. Los dos siguen disponibles aunque el documento ya esté facturado —el plazo de la DGII corre desde la fecha de recepción, no desde nuestra contabilidad— y un rechazo no toca la factura: queda anotado en su chatter para quien cierre el período. El documento que **no** llegó a facturarse sí lo cierra el rechazo, como `discarded`: el asistente ofrece *Rechazar* y nada más, porque rechazar ya es lo que cierra el registro. El estado `rejected` no existe; lo que guarda el rechazo, con su código y su motivo, es *Aprobación comercial*.\n\n**Sin wizard de vinculación.** La versión 17 traía un asistente línea por línea (*Vincular líneas*) y se descartó: el widget de las líneas cubre las mismas decisiones —vincular un producto existente, crear el que falta, recordar el vínculo— donde el operario ya está mirando. Lo único que el asistente hacía y hoy no tiene botón es marcar una línea como *ignorada* (gasto sin producto); el estado sigue existiendo en el modelo.\n\n**Qué cambió al pasar de Odoo 17 a Odoo 19.** Tres cosas se notan en el uso, y las tres están explicadas en el paso donde se ven: el NCF de la factura ya no vive en un campo aparte sino en el **nombre del asiento** (paso 13); la tasa fija de una factura en moneda extranjera se guarda en el campo nativo **`invoice_currency_rate`** en lugar de `l10n_do_currency_rate`, y con eso el módulo dejó de depender de `l10n_do_credit_note`; y el plan dominicano ya no trae los impuestos gemelos *con precio incluido*, así que el módulo los resuelve por tasa y crea el que falte (paso 2).\n\n**Idioma.** Las cadenas del módulo están en inglés y `i18n/es_DO.po` las traduce; una instancia en `es` plano lo lee en inglés.\n\nLa referencia técnica del módulo —modelos, campos, capas, guía de QA y problemas frecuentes— está en `odoo-pro/l10n_do_ecf_purchase_reception/README.rst`."
