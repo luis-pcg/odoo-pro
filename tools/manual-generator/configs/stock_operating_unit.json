@@ -1,0 +1,312 @@
+{
+  "module": "stock_operating_unit",
+  "title": "Inventario por unidad operativa — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "INVENTARIO POR UNIDAD OPERATIVA",
+    "version": "V19"
+  },
+  "intro": "Una **unidad operativa** es una parte de la empresa que trabaja por su cuenta dentro de la misma compañía: una sucursal, una tienda, una división. El módulo base `operating_unit` las crea y dice a qué unidades pertenece cada usuario.\n\nCon **Stock with Operating Units** el inventario se separa por unidad operativa:\n\n- Cada **almacén** y cada **ubicación interna** pertenece a una unidad operativa.\n- Cada **transferencia** toma la unidad operativa del almacén de su tipo de operación.\n- Cada usuario **sólo ve** los almacenes, ubicaciones, transferencias, movimientos y existencias de sus unidades operativas.\n\nAsí el encargado de una sucursal trabaja su inventario sin ver ni tocar el de las demás, aunque todas estén en la misma compañía.",
+  "requirements": [
+    "Odoo 19 con `stock` instalado.",
+    "Módulo `operating_unit` (OCA/operating-unit 19.0).",
+    "Módulo `stock_operating_unit` instalado (store-addons 19.0).",
+    "Para ver y editar el campo *Unidad operativa* en almacenes, ubicaciones y transferencias, el usuario necesita el grupo **Multiple Operating Unit** o **Manager of Operating Units**."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "INVENTARIO POR UNIDAD OPERATIVA"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`stock_operating_unit`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Depende de",
+      "value": "`stock`, `operating_unit`"
+    },
+    {
+      "label": "Qué hay que configurar",
+      "value": [
+        "Las unidades operativas (*Ajustes → Usuarios y compañías → Unidades operativas*)",
+        "Las unidades operativas de cada usuario y su unidad por defecto",
+        "La unidad operativa de cada almacén y de su ubicación de existencias",
+        "Al instalar, el almacén principal y su ubicación *Existencias* quedan en la unidad operativa principal"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Configuración",
+          "items": [
+            {
+              "label": "Un almacén nuevo toma la unidad operativa por defecto del usuario que lo crea",
+              "ok": true
+            },
+            {
+              "label": "Una ubicación interna puede llevar unidad operativa; una de proveedor o cliente no",
+              "ok": true
+            },
+            {
+              "label": "Una sububicación debe tener la misma unidad operativa que su ubicación padre",
+              "ok": true
+            },
+            {
+              "label": "Una regla de reabastecimiento exige que el almacén y la ubicación sean de la misma unidad operativa",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Operación y seguridad",
+          "items": [
+            {
+              "label": "La transferencia toma la unidad operativa del almacén de su tipo de operación",
+              "ok": true
+            },
+            {
+              "label": "No se puede guardar una transferencia con una unidad operativa distinta a la de su almacén",
+              "ok": true
+            },
+            {
+              "label": "El usuario de Santiago sólo ve el almacén, las transferencias y las existencias de Santiago",
+              "ok": true
+            },
+            {
+              "label": "El administrador, con las dos unidades, ve todo y puede filtrar por unidad operativa",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-unidades-operativas",
+      "section": "Configuración",
+      "title": "1. Crear las unidades operativas",
+      "description": "Entra a **Ajustes → Usuarios y compañías → Operating Units**. Cada unidad lleva un **nombre**, un **código** corto y un **contacto** (la dirección de la sucursal).\n\nEn el ejemplo hay dos: **Sucursal Santo Domingo** (SDQ), que es la unidad principal que trae el módulo renombrada, y **Sucursal Santiago** (STI).\n\nLas pantallas del módulo base `operating_unit` (OCA) todavía no están traducidas al español; por eso este menú y los campos del usuario salen en inglés.",
+      "steps": [
+        {
+          "goto": "/odoo/action-operating_unit.action_operating_unit_tree"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 520
+      }
+    },
+    {
+      "id": "02-usuario",
+      "section": "Configuración",
+      "title": "2. Asignar las unidades operativas al usuario",
+      "description": "Abre el usuario en **Ajustes → Usuarios y compañías → Usuarios**. En la pestaña **Permisos de acceso**, el bloque **Operating Units** tiene dos campos:\n\n1. **Allowed Operating Units**: las unidades cuyo inventario puede ver y operar.\n2. **Default Operating Unit**: la que se propone en los documentos nuevos (un almacén nuevo, por ejemplo).\n\nEl *Encargado Santiago* sólo tiene **Sucursal Santiago**. El administrador tiene las dos.\n\nEl bloque sólo se ve si quien edita tiene el grupo **Multiple Operating Unit** (en *Operating Units Group*). El administrador lo trae al instalar.",
+      "steps": [
+        {
+          "goto": "/odoo/action-base.action_res_users/5"
+        },
+        {
+          "waitFor": ".o_form_view [name='operating_unit_ids']",
+          "timeout": 60000
+        },
+        {
+          "scrollTo": "[name='operating_unit_ids']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-almacenes",
+      "section": "Configuración",
+      "title": "3. Un almacén por unidad operativa",
+      "description": "Entra a **Inventario → Configuración → Almacenes**. La columna **Unidad Operativa** dice a qué sucursal pertenece cada almacén.\n\nAl crear un almacén nuevo, el campo se llena con la unidad operativa por defecto de quien lo crea; se puede cambiar antes de guardar.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_warehouse_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 480
+      }
+    },
+    {
+      "id": "04-ubicacion",
+      "section": "Configuración",
+      "title": "4. La ubicación de existencias también lleva unidad operativa",
+      "description": "Entra a **Inventario → Configuración → Ubicaciones** y abre **STI/Existencias**. El campo **Unidad Operativa** está en *Información adicional*.\n\nReglas que el módulo hace cumplir:\n\n- Sólo las ubicaciones **internas** llevan unidad operativa. Las de proveedor y cliente se comparten entre todas.\n- Una sububicación (*STI/Existencias/Estante 1*) debe tener **la misma** unidad operativa que su ubicación padre.\n- Las ubicaciones de entrada, existencias y salida de un almacén deben ser de la unidad operativa del almacén.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_location_form/14"
+        },
+        {
+          "waitFor": ".o_form_view [name='operating_unit_id']",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "05-transferencias",
+      "section": "Operación",
+      "title": "5. Las transferencias quedan en la unidad de su almacén",
+      "description": "Entra a **Inventario → Operaciones → Transferencias**. La columna **Unidad Operativa Solicitante** se llena sola con la unidad operativa del almacén del tipo de operación: las recepciones de *SDQ* quedan en Santo Domingo y las de *STI* en Santiago.\n\nEn la búsqueda hay un filtro y una agrupación por unidad operativa para revisar cada sucursal por separado.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_picking_tree_all"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 560
+      }
+    },
+    {
+      "id": "06-transferencia",
+      "section": "Operación",
+      "title": "6. Detalle de una transferencia",
+      "description": "Abre la recepción **STI/IN/00002**. En **Información adicional** aparece la **Unidad Operativa Solicitante**.\n\nSi se cambia por una unidad distinta a la del almacén del tipo de operación, el sistema no deja guardar y avisa que la unidad operativa de la transferencia debe ser la misma que la del almacén del tipo de operación. Los movimientos de la transferencia también se validan: su ubicación de origen o de destino tiene que ser de esa unidad.",
+      "steps": [
+        {
+          "click": ".o_data_row:has-text('STI/IN/00002') .o_data_cell"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_notebook a:text-matches('Información adicional|Additional Info')"
+        },
+        {
+          "waitFor": "[name='operating_unit_id']",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-login-santiago",
+      "section": "Seguridad por unidad operativa",
+      "title": "7. Entrar como el encargado de Santiago",
+      "description": "Lo que sigue se ve con el usuario **Encargado Santiago**, que sólo tiene la unidad operativa *Sucursal Santiago* y el permiso normal de usuario de Inventario.",
+      "image": false
+    },
+    {
+      "id": "08-transferencias-santiago",
+      "section": "Seguridad por unidad operativa",
+      "title": "8. Sólo sus transferencias",
+      "description": "En **Inventario → Operaciones → Transferencias** el encargado ve **sólo las dos recepciones de Santiago**. Las de Santo Domingo no aparecen ni buscándolas: el filtro lo aplican las reglas de acceso del módulo, no la vista.\n\nLo mismo pasa con los almacenes, los tipos de operación, las ubicaciones internas, los movimientos y las líneas de movimiento.\n\nLa columna de unidad operativa no aparece porque el encargado no tiene el grupo *Multiple Operating Unit*: con una sola unidad no la necesita.",
+      "steps": [
+        {
+          "goto": "/web/session/logout",
+          "navbar": false
+        },
+        {
+          "waitFor": "input[name='login']",
+          "timeout": 60000
+        },
+        {
+          "fill": "input[name='login']",
+          "value": "santiago"
+        },
+        {
+          "fill": "input[name='password']",
+          "value": "santiago"
+        },
+        {
+          "click": "button[type='submit']"
+        },
+        {
+          "waitFor": ".o_main_navbar",
+          "timeout": 60000
+        },
+        {
+          "goto": "/odoo/action-stock.action_picking_tree_all"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 460
+      }
+    },
+    {
+      "id": "09-existencias-santiago",
+      "section": "Seguridad por unidad operativa",
+      "title": "9. Sólo sus existencias",
+      "description": "En **Inventario → Operaciones → Inventario físico**, quitando el filtro *Mis conteos*, el encargado ve únicamente lo que hay en **STI/Existencias**: 75 sacos de cemento, 80 varillas y 1,050 blocks. El inventario de Santo Domingo no se muestra.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_view_inventory_tree"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_searchview_facet .o_facet_remove"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 460
+      }
+    },
+    {
+      "id": "10-limites",
+      "section": "Comportamiento y límites",
+      "title": "10. Qué hace y qué no hace el módulo",
+      "description": "- **Separa por unidad operativa, no por compañía.** Las dos sucursales siguen en la misma compañía, con el mismo plan contable y los mismos productos.\n- **Lo que no tiene unidad operativa lo ven todos.** Un almacén o una ubicación interna sin unidad operativa queda visible para cualquier usuario de la compañía. Conviene asignarla en todos.\n- **Las ubicaciones de proveedor, cliente y tránsito son compartidas.** Por eso una recepción de Santiago se ve desde Santiago aunque venga de *Proveedores*.\n- **Transferencias entre sucursales.** Un movimiento es válido si su origen **o** su destino es de la unidad de la transferencia; el usuario de la otra sucursal la ve si tiene acceso al tipo de operación.\n- **Valoración y contabilidad.** Este módulo no lleva la unidad operativa a los asientos contables; para eso existe `stock_account_operating_unit`, que no forma parte de esta entrega.",
+      "image": false
+    }
+  ],
+  "database": "test_v19_stock_operating_unit",
+  "notes": "Usuarios de la base de ejemplo: **admin / admin** (las dos unidades operativas) y **santiago / santiago** (sólo Sucursal Santiago)."
+}

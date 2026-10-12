@@ -1,0 +1,299 @@
+{
+  "module": "pos_operating_unit",
+  "title": "Punto de venta por unidad operativa — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "PUNTO DE VENTA POR UNIDAD OPERATIVA",
+    "version": "V19"
+  },
+  "intro": "Una **unidad operativa** es una parte de la empresa que trabaja por su cuenta dentro de la misma compañía: una sucursal, una tienda, una división. El módulo base `operating_unit` las crea y dice a qué unidades pertenece cada usuario.\n\nCon **POS with Operating Units** cada punto de venta pertenece a una o varias unidades operativas, y todo lo que se vende en él queda marcado con esas unidades:\n\n- Las **sesiones**, **órdenes**, **líneas** y **pagos** toman las unidades operativas del punto de venta en el momento en que se crean.\n- Cada usuario **sólo ve** los puntos de venta, sesiones, órdenes, pagos y el análisis de ventas de sus unidades operativas.\n\nAsí el cajero de una sucursal abre su caja y revisa sus ventas sin ver las de las demás tiendas de la compañía.",
+  "requirements": [
+    "Odoo 19 con `point_of_sale` instalado.",
+    "Módulo `operating_unit` (OCA/operating-unit 19.0).",
+    "Módulo `pos_operating_unit` instalado (store-addons 19.0).",
+    "Para asignar unidades operativas a un punto de venta, el usuario necesita el grupo **Manager of Operating Units**. Para ver la columna de unidades en órdenes y pagos, **Multiple Operating Unit**."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "PUNTO DE VENTA POR UNIDAD OPERATIVA"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`pos_operating_unit`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Depende de",
+      "value": "`point_of_sale`, `operating_unit`"
+    },
+    {
+      "label": "Qué hay que configurar",
+      "value": [
+        "Las unidades operativas (*Ajustes → Usuarios y compañías → Operating Units*)",
+        "Las unidades operativas de cada cajero",
+        "Las unidades operativas de cada punto de venta (*Ajustes → Punto de venta*)",
+        "Un punto de venta **sin** unidades operativas lo ven todos los usuarios"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Marcado de las ventas",
+          "items": [
+            {
+              "label": "La sesión nueva toma las unidades operativas del punto de venta",
+              "ok": true
+            },
+            {
+              "label": "Cada orden, línea y pago sincronizado desde la caja toma las unidades del punto de venta",
+              "ok": true
+            },
+            {
+              "label": "Cambiar las unidades del punto de venta no cambia las órdenes ya registradas",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Seguridad",
+          "items": [
+            {
+              "label": "El cajero de Santiago sólo ve y abre el punto de venta de Santiago",
+              "ok": true
+            },
+            {
+              "label": "El cajero de Santiago sólo ve las sesiones, órdenes y pagos de Santiago",
+              "ok": true
+            },
+            {
+              "label": "El administrador, con las dos unidades, ve todo y puede agrupar por unidad operativa",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-unidades-operativas",
+      "section": "Configuración",
+      "title": "1. Las unidades operativas",
+      "description": "Las unidades operativas se crean en **Ajustes → Usuarios y compañías → Operating Units** y se asignan a cada usuario en su ficha, pestaña **Permisos de acceso**, bloque **Operating Units** (*Allowed Operating Units* y *Default Operating Unit*).\n\nEn el ejemplo hay dos: **Sucursal Santo Domingo** (SDQ) y **Sucursal Santiago** (STI). El administrador tiene las dos; el *Cajero Santiago* sólo la de Santiago.\n\nLas pantallas del módulo base `operating_unit` (OCA) todavía no están traducidas al español.",
+      "steps": [
+        {
+          "goto": "/odoo/action-operating_unit.action_operating_unit_tree"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 480
+      }
+    },
+    {
+      "id": "02-ajustes-pdv",
+      "section": "Configuración",
+      "title": "2. Asignar las unidades operativas al punto de venta",
+      "description": "Entra a **Punto de venta → Configuración → Ajustes**, elige el punto de venta arriba (aquí *Tienda Santiago*) y busca el bloque **Unidades Operativas**. Ahí se eligen las unidades a las que pertenece esa caja.\n\nPuede llevar más de una: una caja compartida por dos sucursales la ven los usuarios de cualquiera de las dos.\n\nEl campo sólo se ve y se edita con el grupo **Manager of Operating Units**.",
+      "steps": [
+        {
+          "goto": "/odoo/settings#point_of_sale"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "waitFor": "[name='pos_operating_unit_ids']",
+          "timeout": 30000
+        },
+        {
+          "click": "[name='pos_config_id'] input"
+        },
+        {
+          "fill": "[name='pos_config_id'] input",
+          "value": "Tienda Santiago"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".o-autocomplete--dropdown-item:has-text('Tienda Santiago')"
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "scrollTo": "[name='pos_operating_unit_ids']"
+        },
+        {
+          "wait": 1200
+        }
+      ]
+    },
+    {
+      "id": "03-tablero",
+      "section": "Operación",
+      "title": "3. El tablero del administrador",
+      "description": "En **Punto de venta → Tablero** el administrador, que tiene las dos unidades operativas, ve las dos cajas: **Tienda Santo Domingo** y **Tienda Santiago**, cada una con su sesión abierta.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_config_kanban"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 560
+      }
+    },
+    {
+      "id": "04-ordenes",
+      "section": "Operación",
+      "title": "4. Cada orden queda marcada con su unidad",
+      "description": "Entra a **Punto de venta → Órdenes → Órdenes**. Las columnas **Punto de venta** y **Unidades Operativas** muestran de dónde salió cada venta. La unidad se copia del punto de venta cuando la caja sincroniza la orden, y lo mismo pasa con sus líneas y sus pagos.\n\nSi después se cambian las unidades del punto de venta, las órdenes ya registradas conservan las que tenían.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_pos_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 520
+      }
+    },
+    {
+      "id": "05-pagos",
+      "section": "Operación",
+      "title": "5. Los pagos también",
+      "description": "En **Punto de venta → Órdenes → Pagos** (quitando la agrupación por método de pago) cada pago lleva el punto de venta y las unidades operativas de su orden. Sirve para cuadrar los cobros de cada sucursal por separado.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_payment_form"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_searchview_facet .o_facet_remove"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 520
+      }
+    },
+    {
+      "id": "06-login-cajero",
+      "section": "Seguridad por unidad operativa",
+      "title": "6. Entrar como el cajero de Santiago",
+      "description": "Lo que sigue se ve con el usuario **Cajero Santiago**, que sólo tiene la unidad operativa *Sucursal Santiago* y el permiso normal de usuario del punto de venta.",
+      "image": false
+    },
+    {
+      "id": "07-tablero-cajero",
+      "section": "Seguridad por unidad operativa",
+      "title": "7. Sólo su caja",
+      "description": "En el **Tablero** el cajero ve **únicamente Tienda Santiago**. La caja de Santo Domingo no aparece: no la puede abrir ni consultar.",
+      "steps": [
+        {
+          "goto": "/web/session/logout",
+          "navbar": false
+        },
+        {
+          "waitFor": "input[name='login']",
+          "timeout": 60000
+        },
+        {
+          "fill": "input[name='login']",
+          "value": "santiago"
+        },
+        {
+          "fill": "input[name='password']",
+          "value": "santiago"
+        },
+        {
+          "click": "button[type='submit']"
+        },
+        {
+          "waitFor": ".o_main_navbar",
+          "timeout": 60000
+        },
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_config_kanban"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 520
+      }
+    },
+    {
+      "id": "08-ordenes-cajero",
+      "section": "Seguridad por unidad operativa",
+      "title": "8. Sólo sus ventas",
+      "description": "En **Órdenes** el cajero ve sólo las dos ventas de Santiago. Lo mismo pasa con las sesiones, los pagos y el reporte *Análisis de ventas*: las reglas de acceso del módulo filtran por la unidad operativa del usuario, no por la vista.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_pos_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 460
+      }
+    },
+    {
+      "id": "09-limites",
+      "section": "Comportamiento y límites",
+      "title": "9. Qué hace y qué no hace el módulo",
+      "description": "- **Separa por unidad operativa, no por compañía.** Las cajas siguen en la misma compañía, con los mismos productos y el mismo plan contable.\n- **Un punto de venta sin unidades operativas lo ven todos.** Conviene asignarlas en todas las cajas.\n- **La marca se pone al crear.** Las sesiones, órdenes, líneas y pagos toman las unidades del punto de venta cuando se crean; no se recalculan si después cambia la configuración.\n- **Las reglas son de lectura.** El módulo limita lo que cada usuario ve. Quién puede crear o modificar sigue dependiendo de los permisos normales del punto de venta.\n- **Inventario y contabilidad.** Este módulo no lleva la unidad operativa a los movimientos de inventario ni a los asientos; para el inventario está `stock_operating_unit`, con su propio manual.",
+      "image": false
+    }
+  ],
+  "database": "test_v19_pos_operating_unit",
+  "notes": "Usuarios de la base de ejemplo: **admin / admin** (las dos unidades operativas) y **santiago / santiago** (sólo Sucursal Santiago)."
+}
