@@ -71,7 +71,7 @@ La factura nace en **borrador**, con el e-NCF, el código de seguridad y el XML 
 
 Si a ese proveedor ya le había hecho la orden de compra o ya había digitado su factura (en borrador), no vincule las líneas una por una: dé **Vincular OC o factura** y escoja en **Vincular a** si es una **Orden de compra** o una **Factura de proveedor**.
 
-Odoo le sugiere la orden que el proveedor puso en su factura, o la factura que tiene el e-NCF en la referencia; si no, la única que coincide. Si no sugiere ninguna, escójala usted: sólo aparecen documentos de ese proveedor y en la misma moneda.
+Odoo le sugiere la orden que el proveedor puso en su factura, o la factura que tiene el e-NCF en la referencia; si no, la única que coincide. Si no sugiere ninguna, escójala usted: sólo aparecen documentos de ese proveedor, en la misma moneda, y órdenes a las que todavía les queda algo por facturar.
 
 Abajo verá cada artículo de la factura del proveedor al lado de la línea de su orden que le tocó. Odoo los empareja por producto, código o nombre; y si su orden llama al artículo de otra forma (*Mantenimiento* donde el proveedor puso *Servicio de instalación*), por **precio, ITBIS y cantidad**.
 

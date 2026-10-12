@@ -154,7 +154,7 @@ Los **Impuestos de proveedor** de esta misma ficha son, desde esta versión, la 
 
 **E310000000300** llega de un proveedor al que ya se le había hecho la orden de compra en Odoo. Dos de sus tres líneas no se resolvieron solas, así que el documento está en `to_map`. En vez de vincularlas a mano, **Vincular OC o factura** abre el asistente, que vincula el e-CF a una **orden de compra** o a una **factura de proveedor** que ya existen (el selector **Vincular a**). Aquí sugiere la orden.
 
-Qué órdenes ofrece: sólo las **abiertas** (solicitud, enviada o confirmada) del **mismo proveedor**, la **misma compañía** y la **misma moneda** del e-CF. De ésas sugiere primero la que el XML nombra en `NumeroOrdenCompra`; si el XML no nombra ninguna, la **única** abierta con la que coinciden todas las líneas. Si coinciden varias, el campo queda vacío y el usuario elige.
+Qué órdenes ofrece: sólo las **abiertas** (solicitud, enviada o confirmada) del **mismo proveedor**, la **misma compañía** y la **misma moneda** del e-CF. Y sólo las que **todavía tienen algo por vincular**: una orden ya facturada completa, o cuyo saldo ya tomaron otros e-CF vinculados, no se ofrece. Una factura en borrador de la orden que espera su e-CF cuenta como saldo disponible. De ésas sugiere primero la que el XML nombra en `NumeroOrdenCompra`; si el XML no nombra ninguna, la **única** abierta con la que coinciden todas las líneas. Si coinciden varias, el campo queda vacío y el usuario elige.
 
 Cómo se empareja cada línea del e-CF con una línea de la orden, en este orden —el mismo para órdenes y facturas—:
 
