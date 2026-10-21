@@ -167,6 +167,7 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
     -v "$ROOT_DIR/enterprise:/mnt/extra-addons-enterprise:delegated" \
     -v "$ROOT_DIR/odoo-pro:/mnt/extra-addons-pro:delegated" \
     -v "$ROOT_DIR/conf:/etc/odoo:delegated" \
+    -v "$ROOT_DIR/odoo:/odoo-src:delegated" \
     "${DATA_MOUNT[@]}" \
     --entrypoint odoo \
     "$IMAGE" \
