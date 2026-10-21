@@ -1,0 +1,206 @@
+{
+  "module": "user_default_iot_printer",
+  "title": "User Default IoT Printer — Manual técnico",
+  "extra_modules": [
+    "account"
+  ],
+  "cover": {
+    "program": "Manual Técnico",
+    "subject": "IMPRESORA IoT POR USUARIO",
+    "version": "V19"
+  },
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "IMPRESORA IoT POR USUARIO"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`user_default_iot_printer`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Dependencias",
+      "value": "`iot` (Odoo Enterprise)"
+    },
+    {
+      "label": "Relevantes para las configuraciones",
+      "value": [
+        "Tres campos nuevos en `res.users`: `default_iot_box_id`, `default_iot_printer_ids`, `force_iot_printer_wizard`",
+        "Reemplaza el handler `iot_report_action_handler` de `ir.actions.report handlers` (registrado con `force: true`)",
+        "Sin parámetros del sistema ni ajustes de compañía: todo se configura por usuario",
+        "Base de las capturas: `test_v19_user_default_iot_printer`"
+      ]
+    }
+  ],
+  "intro": "`user_default_iot_printer` deja que cada usuario tenga una **IoT Box** y unas **impresoras IoT por defecto**. Cuando imprime un reporte vinculado a una impresora de esa misma IoT Box, Odoo manda el documento directo a sus impresoras y no abre el asistente de selección de impresora del módulo `iot`.\n\nEs el reemplazo en 19.0 de la impresión con QZ Tray (`odoo_document_printer` y `odoo_document_printer_customization_base`). El script de upgrade de `l10n_do_banks` desinstala esos módulos y fuerza la instalación de este.\n\nLas capturas salen de una base que arma el generador: `tools/manual-generator/configs/user_default_iot_printer.seed.py` crea dos IoT Box, cuatro impresoras, vincula el reporte de factura **PDF de la factura** a ellas y configura tres usuarios. No hay una IoT Box física conectada, así que la impresión real no aparece en el manual.",
+  "database": "`test_v19_user_default_iot_printer`, creada con `cd tools/manual-generator && ./generate-manual.sh --module=user_default_iot_printer --keep-db` (usuario `admin`, clave `admin`).",
+  "requirements": [
+    "Odoo Enterprise con el módulo `iot` instalado (lo arrastra la dependencia).",
+    "Al menos una IoT Box emparejada con la base de datos y sus impresoras detectadas en **IoT ▸ Dispositivos**.",
+    "El reporte que se quiere imprimir directo con sus **Dispositivos IoT** configurados (Ajustes ▸ Técnico ▸ Reportes).",
+    "Modo desarrollador para ver el menú técnico de reportes."
+  ],
+  "flows": [
+    {
+      "id": "t01-iot-boxes",
+      "section": "Lo que ya trae el módulo iot",
+      "title": "1. IoT Box emparejadas",
+      "description": "**IoT ▸ Cajas IoT.** Cada IoT Box es un equipo (o la IoT virtual de Windows) que está en la red de una sucursal y tiene las impresoras conectadas. El módulo trabaja sobre estos registros: no crea ni modifica IoT Box.",
+      "steps": [
+        {
+          "goto": "/odoo/action-iot.iot_box_action"
+        },
+        {
+          "waitFor": ".o_kanban_view, .o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "t02-iot-devices",
+      "section": "Lo que ya trae el módulo iot",
+      "title": "2. Impresoras detectadas",
+      "description": "**IoT ▸ Dispositivos.** Las impresoras aparecen con el tipo **Impresora** y la IoT Box a la que están conectadas. Sólo los dispositivos de tipo `printer` se pueden elegir como impresora por defecto del usuario.",
+      "steps": [
+        {
+          "goto": "/odoo/action-iot.iot_device_action"
+        },
+        {
+          "waitFor": ".o_kanban_view, .o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "t03-report-devices",
+      "section": "Lo que ya trae el módulo iot",
+      "title": "3. Reporte vinculado a impresoras IoT",
+      "description": "**Ajustes ▸ Técnico ▸ Acciones ▸ Reportes ▸ PDF de la factura.** El campo **Dispositivos IoT** (`device_ids`, del módulo `iot`) dice a qué impresoras puede ir el reporte. Sin este campo el reporte se descarga en PDF como siempre y el módulo no interviene.\n\nPara que la impresión sea directa, el reporte tiene que tener **al menos una impresora de la IoT Box por defecto del usuario**. Aquí el reporte tiene impresoras de las dos sucursales.",
+      "steps": [
+        {
+          "gotoXmlId": "account.account_invoices",
+          "action": "base.ir_action_report"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "t04-user-fields",
+      "section": "Lo que agrega el módulo",
+      "title": "4. Campos nuevos en el usuario",
+      "description": "**Ajustes ▸ Usuarios ▸ (usuario) ▸ Preferencias**, grupo **Impresión**. La misma sección aparece en **Mis preferencias** (`base.view_users_form_simple_modif`).\n\n- **Caja IoT por defecto** — `default_iot_box_id` (Many2one `iot.box`): la IoT Box a la que está conectado el usuario.\n- **Impresoras IoT por defecto** — `default_iot_printer_ids` (Many2many `iot.device`): impresoras por defecto; el dominio sólo deja impresoras (`type = printer`) de esa IoT Box.\n- **Mostrar siempre el asistente de impresoras** — `force_iot_printer_wizard` (Boolean): fuerza el asistente estándar aunque haya impresoras por defecto.\n\nAl cambiar la IoT Box, un `onchange` quita las impresoras que no son de la nueva IoT Box. Las impresoras sólo se ven cuando hay IoT Box, y la casilla sólo cuando hay IoT Box e impresoras.\n\nLos tres campos están en `SELF_READABLE_FIELDS` y `SELF_WRITEABLE_FIELDS`: cada usuario los puede cambiar en su perfil sin ser administrador.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.user_maria",
+          "action": "base.action_res_users"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='preferences']"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "scrollTo": ".o_field_widget[name='default_iot_box_id']"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "element": ".o_notebook"
+    },
+    {
+      "id": "t05-flow",
+      "section": "Lo que agrega el módulo",
+      "title": "5. Qué pasa al imprimir",
+      "description": "El módulo reemplaza el handler `iot_report_action_handler` (archivo `static/src/iot_report_action_patch.js`). Al imprimir un reporte con `device_ids`:\n\n1. Lee del usuario `default_iot_box_id`, `default_iot_printer_ids` y `force_iot_printer_wizard`.\n2. Si la casilla **Mostrar siempre el asistente de impresoras** está marcada, o falta la IoT Box o las impresoras, sigue con el flujo estándar.\n3. Lee los `device_ids` del reporte. Si ninguno es de la IoT Box del usuario, sigue con el flujo estándar.\n4. Toma las impresoras por defecto del usuario que son de esa IoT Box y les manda el documento con `printReport`, sin abrir ningún asistente.\n\n**Flujo estándar** = `getSelectedPrintersForReport` del módulo `iot`: usa la selección guardada en el navegador (`localStorage`) si el usuario marcó *no volver a preguntar*, y si no, abre el asistente **Selecciona impresoras**.\n\nEl documento va a las impresoras del **usuario**, no a las del reporte: basta con que el reporte tenga alguna impresora de su IoT Box. Los reportes sin `device_ids` no pasan por el handler y se descargan en PDF.",
+      "image": false
+    },
+    {
+      "id": "t06-wizard",
+      "section": "Lo que agrega el módulo",
+      "title": "6. El asistente estándar cuando se fuerza",
+      "description": "El usuario `admin` de la base de pruebas tiene **Mostrar siempre el asistente de impresoras** marcado. Al imprimir la factura con **Acciones ▸ Imprimir ▸ PDF de la factura** se abre el asistente del módulo `iot` con todas las impresoras del reporte, aunque tenga una impresora por defecto.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.invoice",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": "button[data-tooltip='Acciones']"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('Imprimir')"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('PDF de la factura')"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "element": ".modal-content"
+    },
+    {
+      "id": "t07-cases",
+      "section": "Comportamiento por caso",
+      "title": "7. Casos de la base de pruebas",
+      "description": "Al imprimir **PDF de la factura** en la base de pruebas:\n\n- **María Caja Principal** — caja IoT Sucursal Principal, impresora Epson TM-T88 Caja 2, sin asistente forzado: va directo a Caja 2.\n- **Pedro Caja Santiago** — caja IoT Sucursal Santiago, impresora Epson TM-T20 Caja Santiago, sin asistente forzado: va directo a Caja Santiago.\n- **Administrator** — caja IoT Sucursal Principal, impresora Epson TM-T88 Caja 1, con asistente forzado: abre el asistente con las cuatro impresoras del reporte.\n- **Usuario sin configurar** — flujo estándar: el asistente, o la selección guardada en el navegador.\n\nSi a **PDF de la factura** se le quitaran las impresoras de Santiago, Pedro volvería al flujo estándar: el reporte ya no tendría impresoras de su IoT Box.",
+      "image": false
+    },
+    {
+      "id": "t08-limits",
+      "section": "Comportamiento por caso",
+      "title": "8. Límites conocidos",
+      "description": "- **Una IoT Box por usuario.** Quien trabaja en dos sucursales tiene que cambiar la IoT Box en su perfil, o marcar *Mostrar siempre el asistente de impresoras*.\n- **Traducción sólo a `es_DO`.** El módulo trae `i18n/es_DO.po`; en otros idiomas las etiquetas salen en inglés.\n- **No crea reportes.** Sólo decide a qué impresora va un reporte que ya existe. Un ticket térmico propio necesita su propio `ir.actions.report`.\n- **Sin pruebas automáticas.** El módulo no trae `tests/`.",
+      "image": false
+    }
+  ],
+  "notes": "Código del módulo: `odoo-pro/user_default_iot_printer` (rama 19.0). Documentación original: `README.rst` del módulo. PR que lo creó: [indexa-git/odoo-pro#876](https://github.com/indexa-git/odoo-pro/pull/876). Tarea: [#65917 — Mejoras en módulos de impresión](https://www.progressa.group/odoo/project.task/65917)."
+}

@@ -1,0 +1,161 @@
+{
+  "module": "user_default_iot_printer",
+  "title": "Impresora IoT por usuario — Manual de usuario",
+  "extra_modules": [
+    "account"
+  ],
+  "cover": {
+    "program": "Manual de Usuario",
+    "subject": "IMPRESORA IoT POR USUARIO",
+    "version": "V19"
+  },
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "IMPRESORA IoT POR USUARIO"
+    },
+    {
+      "label": "Dónde está en Odoo",
+      "value": "Su avatar ▸ Mis preferencias ▸ Preferencias ▸ Impresión"
+    },
+    {
+      "label": "Para quién es",
+      "value": "Quien imprime facturas u otros documentos en una impresora conectada a una caja IoT"
+    },
+    {
+      "label": "Qué resuelve",
+      "value": "El documento sale directo en su impresora, sin elegirla cada vez"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    }
+  ],
+  "intro": "Cuando un documento de Odoo se imprime en una impresora conectada a una caja IoT, Odoo pregunta cada vez en qué impresora imprimir.\n\nCon este módulo usted le dice a Odoo una sola vez cuál es su caja IoT y cuál es su impresora. Desde ese momento, el documento sale directo en su impresora, sin preguntas.",
+  "requirements": [
+    "El administrador ya conectó la caja IoT de su sucursal y vinculó el documento a sus impresoras.",
+    "Usted no necesita permisos especiales: cada usuario configura su propio perfil.",
+    "Las etiquetas del módulo aparecen en inglés: **Printing**, **Caja IoT por defecto**, **Impresoras IoT por defecto** y **Mostrar siempre el asistente de impresoras**."
+  ],
+  "flows": [
+    {
+      "id": "u01-perfil",
+      "section": "Configure su impresora una sola vez",
+      "title": "Abra su perfil",
+      "description": "Haga clic en su **avatar** (arriba a la derecha) y luego en **Mis preferencias**. Entre en la pestaña **Preferencias** y busque el grupo **Impresión**.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.user_maria",
+          "action": "base.action_res_users_my"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='preferences_page']"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "scrollTo": ".o_field_widget[name='default_iot_box_id']"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "element": ".o_notebook"
+    },
+    {
+      "id": "u02-campos",
+      "section": "Configure su impresora una sola vez",
+      "title": "Escoja su IoT Box y su impresora",
+      "description": "1. En **Caja IoT por defecto**, escoja la caja IoT de su sucursal (por ejemplo, *IoT Sucursal Principal*).\n2. En **Impresoras IoT por defecto**, escoja la impresora de su caja. La lista sólo muestra las impresoras de esa caja IoT. Puede escoger más de una: el documento sale en todas.\n3. Deje **Mostrar siempre el asistente de impresoras** sin marcar.\n4. Guarde.\n\nSi cambia de caja IoT, Odoo quita sola las impresoras que no son de la nueva.",
+      "image": false
+    },
+    {
+      "id": "u03-imprimir",
+      "section": "Imprima",
+      "title": "Imprima como siempre",
+      "description": "Abra la factura y use **Acciones (engranaje) ▸ Imprimir ▸ PDF de la factura**.\n\n- **Si su impresora está configurada**, la factura sale directo en ella. No aparece ninguna ventana.\n- **Si no la configuró**, Odoo le muestra la ventana para escoger la impresora, como antes.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.invoice",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": "button[data-tooltip='Acciones']"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('Imprimir')"
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "u04-ventana",
+      "section": "Imprima",
+      "title": "Cuando quiere escoger la impresora cada vez",
+      "description": "Si usted imprime en impresoras distintas según el día, marque **Mostrar siempre el asistente de impresoras** en su perfil. Odoo le mostrará siempre esta ventana:\n\n1. En **Impresoras**, escoja dónde imprimir.\n2. Pulse **Imprimir**.\n\nSi en esta ventana marca **No volver a preguntar**, Odoo recuerda la impresora en ese navegador.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.invoice",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": "button[data-tooltip='Acciones']"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('Imprimir')"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('PDF de la factura')"
+        },
+        {
+          "waitFor": ".modal .o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "element": ".modal-content"
+    },
+    {
+      "id": "u05-problemas",
+      "section": "Si algo no sale",
+      "title": "Preguntas frecuentes",
+      "description": "- **Me sigue saliendo la ventana de impresoras.** Revise que tenga caja IoT e impresora en su perfil y que **Mostrar siempre el asistente de impresoras** esté sin marcar. Si todo está bien, pida al administrador que vincule el documento a una impresora de su caja IoT.\n- **Me cambiaron de sucursal.** Cambie la **Caja IoT por defecto** y la impresora en su perfil.\n- **El documento se descarga en PDF.** Ese documento no está vinculado a ninguna impresora IoT. Avise al administrador.\n- **No salió nada en la impresora.** Revise que la impresora esté encendida y con papel, y que la caja IoT esté conectada. Si sigue igual, avise al administrador.",
+      "image": false
+    }
+  ]
+}
