@@ -1,0 +1,125 @@
+{
+  "module": "report_zpl_direct_print",
+  "title": "Impresión directa de etiquetas — Manual de usuario",
+  "cover": {
+    "program": "Manual de Usuario",
+    "subject": "IMPRESIÓN DIRECTA DE ETIQUETAS",
+    "version": "V19"
+  },
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "IMPRESIÓN DIRECTA DE ETIQUETAS"
+    },
+    {
+      "label": "Dónde está en Odoo",
+      "value": "En cada registro: Acciones (engranaje) ▸ (etiqueta con el icono de impresora)"
+    },
+    {
+      "label": "Para quién es",
+      "value": "Quien imprime etiquetas de productos, envíos o códigos de barras en una impresora Zebra"
+    },
+    {
+      "label": "Qué resuelve",
+      "value": "La etiqueta sale directo en la Zebra, sin descargar ni abrir un PDF"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.1"
+    }
+  ],
+  "intro": "Las etiquetas que el administrador configuró para impresión directa salen en la impresora Zebra en cuanto usted las manda a imprimir. No se descarga ningún PDF.\n\nPara que funcione, su PC tiene que tener abierta la aplicación **QZ Tray**, que es la que conecta el navegador con la impresora.",
+  "requirements": [
+    "QZ Tray instalado y abierto en su PC (el icono aparece junto al reloj de Windows o en la barra de menú del Mac).",
+    "La impresora Zebra encendida, con etiquetas y conectada a su PC.",
+    "El administrador ya configuró la etiqueta para impresión directa. Usted no configura nada."
+  ],
+  "flows": [
+    {
+      "id": "u01-imprimir",
+      "section": "Imprima una etiqueta",
+      "title": "Mande la etiqueta a imprimir",
+      "description": "Abra el registro (en el ejemplo, un contacto), pulse **Acciones (engranaje)** y escoja la etiqueta, la que tiene el icono de impresora: **Etiqueta de contacto (ZPL Direct)**. Si el registro tiene varios reportes, las etiquetas están dentro de **Imprimir**.\n\nTambién puede marcar varios registros en la lista y hacer lo mismo desde **Acciones**: sale una etiqueta por registro.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.partner",
+          "action": "base.action_partner_form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": "button[data-tooltip='Acciones']"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "u02-copias",
+      "section": "Imprima una etiqueta",
+      "title": "Elija la impresora y las copias, si se lo pide",
+      "description": "Normalmente la etiqueta sale sin preguntar nada. Odoo le muestra la ventana **Select Printer** sólo en dos casos:\n\n- **La etiqueta permite varias copias.** Escriba cuántas en **Number of Copies** y pulse **Print**.\n- **No encuentra la impresora configurada** en su PC. Escoja su Zebra en **Printer** y pulse **Print**.",
+      "image": false
+    },
+    {
+      "id": "u03-sin-qz",
+      "section": "Si algo no sale",
+      "title": "Aviso: no se pudo conectar con QZ Tray",
+      "description": "Si al imprimir aparece este aviso en rojo, QZ Tray no está abierto en su PC:\n\n1. Abra **QZ Tray** desde el menú de inicio (o Aplicaciones en el Mac).\n2. Espere a que su icono aparezca junto al reloj.\n3. Vuelva a imprimir.\n\nLa primera vez, QZ Tray le pregunta si permite que el sitio de Odoo imprima: pulse **Allow** y marque **Remember this decision**.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.partner",
+          "action": "base.action_partner_form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": "button[data-tooltip='Acciones']"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('ZPL Direct')"
+        },
+        {
+          "waitFor": ".o_notification",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "u04-preguntas",
+      "section": "Si algo no sale",
+      "title": "Preguntas frecuentes",
+      "description": "- **Se descargó un PDF en lugar de imprimir.** Esa etiqueta no está configurada para impresión directa. Avise al administrador.\n- **Me pide escoger impresora cada vez.** El nombre de la impresora en Odoo no coincide con el de su PC. Avise al administrador para que lo corrija.\n- **Salió un aviso de que falta `zplgrf`.** Esa etiqueta se convierte desde un PDF y al servidor le falta una librería. Avise al administrador.\n- **No salió nada en la Zebra.** Revise que esté encendida, con etiquetas y conectada. Si sigue igual, reinicie QZ Tray y vuelva a imprimir.",
+      "image": false
+    }
+  ]
+}
