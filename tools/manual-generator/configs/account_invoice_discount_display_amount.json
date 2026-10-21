@@ -1,0 +1,368 @@
+{
+  "module": "account_invoice_discount_display_amount",
+  "title": "Descuento total en facturas — Manual de usuario",
+  "extra_modules": [
+    "l10n_do_accounting"
+  ],
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "DESCUENTO TOTAL DEBAJO DEL SUBTOTAL DE LA FACTURA",
+    "version": "V19"
+  },
+  "intro": "En Odoo 17 la factura mostraba el **monto total del descuento** con el módulo OCA `account_invoice_discount_display_amount`. Ese módulo no existe para Odoo 19, así que al migrar la fila desaparecía de la pantalla y del PDF.\n\n**Descuento total en facturas** (`account_invoice_discount_display_amount`) la recupera, ahora **debajo del Subtotal**:\n\n- En el **formulario de la factura**, una fila **Descuento** dentro del bloque de totales, entre el Subtotal y el ITBIS.\n- En el **PDF**, la misma fila en el mismo lugar, tanto en la plantilla estándar de Odoo como en la plantilla fiscal dominicana (NCF y e-CF).\n- Si la factura no tiene descuento, la fila no aparece.\n\nEl importe que se muestra es el **descuento sin impuestos**: la diferencia entre el subtotal que tendría la factura sin descuentos y el subtotal real. Se calcula con el mismo motor de impuestos que Odoo usa para los totales, así que redondea igual que el Total impreso.\n\nLas facturas fiscales dominicanas usan su propia tabla de totales; el módulo puente **Descuento total en facturas (Rep. Dominicana)** (`l10n_do_accounting_invoice_discount_display_amount`) agrega ahí la fila y se instala solo.",
+  "requirements": [
+    "Odoo 19 con `account_invoice_discount_display_amount` instalado.",
+    "Para facturas fiscales dominicanas, `l10n_do_accounting`: el puente `l10n_do_accounting_invoice_discount_display_amount` se instala solo.",
+    "La columna **Desc.%** de las líneas de factura es opcional en Odoo 19: se muestra desde el menú de columnas (⋮) a la derecha del encabezado de la tabla."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "DESCUENTO TOTAL EN FACTURAS"
+    },
+    {
+      "label": "Nombres técnicos",
+      "value": [
+        "`account_invoice_discount_display_amount` (19.0.1.0.0)",
+        "`l10n_do_accounting_invoice_discount_display_amount` (19.0.1.0.0, `auto_install`)"
+      ]
+    },
+    {
+      "label": "Depende de",
+      "value": "`account` (el puente, además, de `l10n_do_accounting`)"
+    },
+    {
+      "label": "Qué agrega",
+      "value": [
+        "Fila **Descuento** debajo del Subtotal en el formulario de la factura",
+        "Fila **Descuento** debajo del Subtotal en el PDF estándar y en el PDF fiscal dominicano (NCF y e-CF)",
+        "Campos calculados en la factura: **Total descuento sin impuestos**, **Total descuento** (con impuestos) y **Total sin descuento**"
+      ]
+    },
+    {
+      "label": "Qué no cambia",
+      "value": [
+        "Los importes de la factura: Subtotal, ITBIS y Total quedan igual",
+        "Presupuestos y órdenes de compra: la fila es sólo de facturas",
+        "Facturas ya emitidas: los campos no se guardan en la base, se calculan al abrir o imprimir, por eso la instalación no recalcula nada"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Formulario",
+          "items": [
+            {
+              "label": "Factura con descuento → fila **Descuento** entre el Subtotal y el ITBIS",
+              "ok": true
+            },
+            {
+              "label": "Factura sin descuento → no hay fila",
+              "ok": true
+            },
+            {
+              "label": "Al cambiar el **Desc.%** de una línea en borrador, la fila se actualiza sin guardar",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "PDF",
+          "items": [
+            {
+              "label": "e-CF (E31) → fila debajo del Subtotal, antes del ITBIS y del Monto Gravado",
+              "ok": true
+            },
+            {
+              "label": "NCF de crédito fiscal (B01) → misma fila en el mismo lugar",
+              "ok": true
+            },
+            {
+              "label": "Diario sin comprobantes fiscales → fila en la plantilla estándar de Odoo",
+              "ok": true
+            },
+            {
+              "label": "Factura sin descuento → el PDF no cambia",
+              "ok": true
+            },
+            {
+              "label": "El importe del PDF coincide con el del formulario",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Cálculo",
+          "items": [
+            {
+              "label": "Subtotal + Descuento = suma de cantidad × precio de las líneas",
+              "ok": true
+            },
+            {
+              "label": "Precio con impuesto incluido → el descuento se muestra sin el ITBIS",
+              "ok": true
+            },
+            {
+              "label": "Nota de crédito, factura de proveedor y moneda extranjera → importe positivo en la moneda del documento",
+              "ok": true
+            },
+            {
+              "label": "Líneas de sección y de nota no suman",
+              "ok": true
+            },
+            {
+              "label": "Asientos que no son facturas → 0",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "database": "Base de pruebas `test_v19_account_invoice_discount_display_amount`, compañía **Materiales del Cibao SRL** (RD, DOP, plan dominicano, emisora e-CF), sin datos de demostración. La siembra deja el cliente *Constructora Los Pinos SRL*, tres productos con ITBIS 18%, una factura e-CF E310000000001 y una NCF B0100000001 con descuentos, una B0100000002 sin descuento, una factura del diario *Ventas sin comprobante* y un borrador e-CF E310000000002.",
+  "flows": [
+    {
+      "id": "01-formulario-ecf",
+      "section": "La fila en el formulario",
+      "title": "1. Factura con descuento",
+      "description": "La factura e-CF **E310000000001** tiene tres líneas: el cemento con **12%** de descuento, la varilla con **8%** y el alambre sin descuento.\n\nEn el bloque de totales, debajo del **Subtotal**, aparece la fila **Descuento** con RD$ 6,184.00: lo que se descontó antes de impuestos. La cuenta cierra a la vista:\n\n- Precio bruto de las líneas: 120 × 375.00 + 40 × 245.00 + 10 × 95.00 = RD$ 55,750.00\n- Subtotal: RD$ 49,566.00\n- Descuento: RD$ 55,750.00 − RD$ 49,566.00 = **RD$ 6,184.00**\n\nEl Subtotal, el ITBIS y el Total son los mismos de siempre; el módulo sólo agrega la fila.\n\nLa columna **Desc.%** se activa desde el menú de columnas opcionales (⋮) de la tabla de líneas; Odoo la recuerda para el usuario.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_ecf",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view div[name='tax_totals']",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_field_one2many[name='invoice_line_ids'] .o_optional_columns_dropdown_toggle"
+        },
+        {
+          "click": ".o-dropdown--menu .dropdown-item:has-text('Desc.%')"
+        },
+        {
+          "click": ".o_form_view .o_form_sheet h1"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 900
+      }
+    },
+    {
+      "id": "02-totales-ecf",
+      "section": "La fila en el formulario",
+      "title": "2. Detalle del bloque de totales",
+      "description": "De cerca: **Subtotal**, **Descuento**, **18% ITBIS** y **Total**. La fila usa el mismo formato de moneda que el resto del bloque.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_ecf",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view div[name='tax_totals']",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "element": "div[name='tax_totals']"
+    },
+    {
+      "id": "03-pdf-ecf",
+      "section": "La fila en el PDF",
+      "title": "3. PDF de la factura e-CF",
+      "description": "Al imprimir la factura (**Imprimir › Facturas**) la tabla de totales fiscal muestra la fila **Descuento** justo debajo del **Subtotal** y antes del **18% ITBIS**, el **Monto Gravado** y el **Monto Exento**.\n\nEl importe es el mismo del formulario: RD$ 6,184.00.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_ecf",
+          "url": "/report/html/account.report_invoice/{id}",
+          "navbar": false
+        },
+        {
+          "waitFor": ".page",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "04-pdf-ecf-totales",
+      "section": "La fila en el PDF",
+      "title": "4. Detalle de los totales del e-CF",
+      "description": "De cerca, la tabla de totales del PDF e-CF. Es la misma disposición de la imagen de referencia del requerimiento: Subtotal, **Descuento**, ITBIS, Monto Gravado, Monto Exento y Total.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_ecf",
+          "url": "/report/html/account.report_invoice/{id}",
+          "navbar": false
+        },
+        {
+          "waitFor": ".page",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "element": "#total"
+    },
+    {
+      "id": "05-pdf-ncf",
+      "section": "La fila en el PDF",
+      "title": "5. PDF de una factura NCF de crédito fiscal (B01)",
+      "description": "Las facturas con NCF tradicional usan la misma tabla fiscal, sin Monto Gravado ni Monto Exento. La factura **B0100000001** lleva 5% de descuento en el cemento y 10% en la varilla: la fila **Descuento** muestra RD$ 3,012.50, debajo del Subtotal.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_ncf",
+          "url": "/report/html/account.report_invoice/{id}",
+          "navbar": false
+        },
+        {
+          "waitFor": ".page",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "element": "#total"
+    },
+    {
+      "id": "06-pdf-estandar",
+      "section": "La fila en el PDF",
+      "title": "6. PDF de un diario sin comprobantes fiscales",
+      "description": "Una factura del diario *Ventas sin comprobante* (sin documentos fiscales) se imprime con la **plantilla estándar de Odoo**. La fila **Descuento** aparece también ahí, debajo del Subtotal: RD$ 918.75 por el 15% de descuento en la varilla.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_plain",
+          "url": "/report/html/account.report_invoice/{id}",
+          "navbar": false
+        },
+        {
+          "waitFor": ".page",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "element": "#total"
+    },
+    {
+      "id": "07-sin-descuento",
+      "section": "Factura sin descuento",
+      "title": "7. Sin descuento no hay fila",
+      "description": "La factura **B0100000002** no tiene descuento en ninguna línea: el bloque de totales queda exactamente como en Odoo estándar, sin la fila **Descuento**.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_no_discount",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view div[name='tax_totals']",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 860
+      }
+    },
+    {
+      "id": "08-sin-descuento-pdf",
+      "section": "Factura sin descuento",
+      "title": "8. El PDF tampoco cambia",
+      "description": "En el PDF de la misma factura la tabla de totales es la de siempre: Subtotal, ITBIS y Total.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_no_discount",
+          "url": "/report/html/account.report_invoice/{id}",
+          "navbar": false
+        },
+        {
+          "waitFor": ".page",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "element": "#total"
+    },
+    {
+      "id": "09-borrador",
+      "section": "Cálculo en vivo",
+      "title": "9. Factura en borrador",
+      "description": "El borrador **E310000000002** tiene 10% de descuento en el cemento: la fila **Descuento** marca RD$ 1,875.00 (50 × 375.00 × 10%).",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_draft",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view div[name='tax_totals']",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "height": 900
+      }
+    },
+    {
+      "id": "10-borrador-editado",
+      "section": "Cálculo en vivo",
+      "title": "10. Cambiar el descuento actualiza la fila",
+      "description": "Al subir el descuento de la varilla de 0% a **20%** la fila se recalcula en el acto, antes de guardar: RD$ 1,875.00 + 20 × 245.00 × 20% = **RD$ 2,855.00**. El Subtotal baja en la misma cantidad.",
+      "steps": [
+        {
+          "gotoXmlId": "__manual__.invoice_draft",
+          "action": "account.action_move_out_invoice_type"
+        },
+        {
+          "waitFor": ".o_form_view div[name='tax_totals']",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_field_one2many[name='invoice_line_ids'] .o_data_row:nth-child(2) td[name='discount']"
+        },
+        {
+          "waitFor": ".o_field_one2many[name='invoice_line_ids'] .o_data_row:nth-child(2) td[name='discount'] input",
+          "timeout": 30000
+        },
+        {
+          "fill": ".o_field_one2many[name='invoice_line_ids'] .o_data_row:nth-child(2) td[name='discount'] input",
+          "value": "20"
+        },
+        {
+          "click": ".o_form_view div[name='tax_totals']"
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "viewport": {
+        "height": 900
+      }
+    }
+  ],
+  "notes": "- El descuento que se muestra es **sin impuestos**, porque la fila va debajo del Subtotal y el Subtotal es un monto sin impuestos. El descuento con impuestos queda disponible en el campo **Total descuento** (`discount_total`) para informes o personalizaciones.\n- Los tres campos se calculan al abrir o imprimir la factura y no se guardan en la base: instalar el módulo en una base con años de facturas no recalcula nada.\n- El módulo conserva el nombre técnico del módulo OCA de Odoo 17, así que una base migrada desde 17 lo mantiene instalado."
+}

@@ -1,0 +1,283 @@
+{
+  "module": "sale_pos_backend",
+  "title": "Punto de Ventas Backend — Manual de usuario",
+  "extra_modules": ["l10n_do"],
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "PUNTO DE VENTAS BACKEND (CAJA SOBRE PEDIDOS DE VENTA)",
+    "version": "V19"
+  },
+  "intro": "**Punto de Ventas Backend** (`sale_pos_backend`) convierte el pedido de venta del backend en una caja registradora: cada usuario abre una **sesión** sobre una **caja**, vende con pedidos de venta, cobra en el mismo asistente que crea la factura, entrega el cambio, hace devoluciones y al final del turno cuadra el efectivo por denominación y por moneda.\n\nTodo ocurre dentro del cliente web normal de Odoo (pedidos, facturas, pagos y albaranes estándar), sin la interfaz del punto de venta nativo. Este manual cubre la versión **19.0**, migrada desde la 17.0.",
+  "requirements": [
+    "Odoo 19 con `sale_pos_backend` instalado (arrastra `sale_stock`, `operating_unit`, `sale_order_rate`, `sale_stock_serial`, `account_payment_authorization_code` y `sale_partner_fields`).",
+    "Plan contable cargado, un diario de ventas y al menos un diario de **efectivo** y uno de **banco** para cobrar.",
+    "Usuarios con el grupo **Caja de Ventas / Usuario** (cajeros) o **Administrador** (supervisores).",
+    "Para el control de efectivo: las monedas/billetes configurados en *Configuración › Monedas/Billetes*."
+  ],
+  "general": [
+    { "label": "Módulo", "value": "PUNTO DE VENTAS BACKEND" },
+    { "label": "Nombre técnico", "value": "`sale_pos_backend`" },
+    { "label": "Versión", "value": "19.0.1.0.0" },
+    { "label": "Menú", "value": "**Punto de Ventas Backend** (tablero, órdenes, sesiones, productos, reportes y configuración)" },
+    {
+      "label": "Modelos principales",
+      "value": [
+        "`sale.cashier` — la caja: diarios de cobro y devolución, almacén, lista de precios, control de efectivo",
+        "`sale.cashier.session` — la sesión de un usuario sobre una caja, con saldos por moneda y detalle por denominación",
+        "`cashbox.template` — monedas y billetes para contar el efectivo",
+        "`sale.return.reason` — motivos de devolución"
+      ]
+    },
+    {
+      "label": "Qué extiende",
+      "value": [
+        "Pedido de venta: sesión, caja, formulario propio de caja y botón **Reembolso**",
+        "Asistente *Crear factura*: cobra en el mismo paso (diario, monto, moneda, notas de crédito y anticipos)",
+        "Factura: campo **Cambio** y devolución del cambio a la sesión",
+        "Pagos y conciliaciones: quedan ligados a la sesión y la caja"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Sesiones",
+          "items": [
+            { "label": "Caja sin control de efectivo → la sesión abre directamente *En progreso*", "ok": true },
+            { "label": "Caja con control de efectivo → la sesión abre en *Control de apertura* y pide el saldo por denominación", "ok": true },
+            { "label": "Saldo de apertura multimoneda: RD$ y US$ por separado, total convertido a la moneda de la compañía", "ok": true },
+            { "label": "Un usuario no puede tener dos sesiones abiertas en la misma compañía", "ok": true }
+          ]
+        },
+        {
+          "title": "Venta y cobro",
+          "items": [
+            { "label": "El pedido toma sesión, caja, cliente por defecto, lista de precios y almacén de la caja", "ok": true },
+            { "label": "*Crear factura* publica la factura y registra el pago en un solo paso", "ok": true },
+            { "label": "Pago en efectivo mayor al total → la factura guarda el **Cambio** (1,200.00 sobre 1,180.00 = 20.00)", "ok": true },
+            { "label": "Con *Auto confirmar albaranes* la entrega queda hecha al facturar", "ok": true },
+            { "label": "Pago con tarjeta/transferencia contra el diario de banco", "ok": true },
+            { "label": "La cuenta analítica de la caja se copia a la distribución analítica de las líneas", "ok": true }
+          ]
+        },
+        {
+          "title": "Devoluciones",
+          "items": [
+            { "label": "*Reembolso* tipo devolución → nota de crédito por lo devuelto y albarán de entrada", "ok": true },
+            { "label": "*Reembolso* con devolución de dinero → asiento contra el diario de devolución, nota de crédito conciliada", "ok": true },
+            { "label": "Motivo de devolución obligatorio cuando la caja lo exige", "ok": true }
+          ]
+        },
+        {
+          "title": "Cierre",
+          "items": [
+            { "label": "Saldo de cierre por denominación y moneda; diferencia calculada por moneda", "ok": true },
+            { "label": "Diferencia mayor a la autorizada → sólo cierra quien tenga *Puede cerrar sesión con diferencia de efectivo* y queda nota en el chatter", "ok": true },
+            { "label": "Pedidos sin facturar al cerrar → el asistente de cierre los cancela", "ok": true },
+            { "label": "Los 6 reportes (detalle de ventas, por caja, por factura, diarios por sesión) se generan", "ok": true }
+          ]
+        }
+      ]
+    }
+  ],
+  "database": "Base de pruebas `test_v19_sale_pos_backend`, compañía **Ferretería El Martillo** (RD, DOP, plan contable dominicano, US$ a 60.00), sin datos de demostración. La siembra crea tres cajas: **Caja Principal** (control de efectivo multimoneda, diferencia autorizada RD$ 50), **Caja Express** (sin control de efectivo, con una sesión ya cerrada) y **Caja Almacén** (sesión de Pedro Almacén esperando el saldo de apertura). En la sesión abierta de la Caja Principal hay una venta de contado con cambio, una venta con tarjeta con una devolución parcial, un pedido confirmado pendiente de cobro y una cotización.",
+  "flows": [
+    {
+      "id": "01-tablero",
+      "section": "Configuración",
+      "title": "1. El tablero de cajas",
+      "description": "**Punto de Ventas Backend › Tablero** muestra una tarjeta por caja. El botón cambia según el estado de la sesión actual:\n\n- **Nueva sesión**: la caja no tiene sesión o la última está cerrada.\n- **Abrir sesión**: la sesión espera el saldo de apertura (*Control de apertura*).\n- **Reanudar** / **Cerrar**: la sesión está en curso.\n\nEl menú de los tres puntos de la tarjeta lleva a las órdenes y sesiones de esa caja y, para administradores, a su configuración. Si la caja usa **usuarios genéricos**, *Nueva sesión* pide usuario y PIN en lugar de abrir con el usuario conectado.",
+      "steps": [
+        { "goto": "/odoo/action-sale_pos_backend.action_sale_pos_backend_root" },
+        { "waitFor": ".o_kanban_record", "timeout": 30000 },
+        { "wait": 1500 }
+      ],
+      "viewport": { "height": 520 }
+    },
+    {
+      "id": "02-caja-pagos",
+      "section": "Configuración",
+      "title": "2. La caja: métodos de pago",
+      "description": "**Configuración › Caja de Ventas**. En la pestaña de pagos se definen:\n\n- **Métodos de pago** y el **método por defecto** que propone el asistente de cobro.\n- **Métodos de devolución**: los diarios desde los que se devuelve dinero en un reembolso.\n- **Permitir cambio** (*cash back*) y **confirmación automática del cambio**, que al facturar abre directamente la ventana para devolverlo.\n- Si el cajero puede editar la **fecha del pago**, la **referencia** o la **lista de precios**, y si se exige **código de autorización** en los pagos con tarjeta.",
+      "steps": [
+        { "gotoXmlId": "__manual__.cashier_main", "action": "sale_pos_backend.action_sale_cashier_config" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "03-caja-efectivo",
+      "section": "Configuración",
+      "title": "3. La caja: control de efectivo",
+      "description": "Con **Control de efectivo** activo, la sesión no arranca hasta registrar el saldo de apertura y no cierra sin el saldo de cierre. **Control de efectivo multimoneda** permite contar billetes en otra moneda (aquí, US$ 100); sin él la caja rechaza monedas/billetes que no estén en la moneda de la compañía.\n\n**Saldo por defecto** son las denominaciones que aparecen al abrir y cerrar. **Diferencia autorizada** es el faltante que un cajero puede dejar sin permisos especiales.",
+      "steps": [
+        { "gotoXmlId": "__manual__.cashier_main", "action": "sale_pos_backend.action_sale_cashier_config" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook .nav-link >> nth=1" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-caja-inventario",
+      "section": "Configuración",
+      "title": "4. La caja: inventario y devoluciones",
+      "description": "- **Almacén** de las ventas y **almacenes** donde se aceptan devoluciones.\n- **Auto confirmar albaranes**: valida la entrega al facturar. Es incompatible con *Confirmación de cantidades entregadas*.\n- **Auto confirmar albaranes de devolución** valida la entrada de mercancía del reembolso.\n- **Editar lotes y series** desde la línea del pedido.\n- **Motivos de devolución** y si el motivo es **obligatorio**.",
+      "steps": [
+        { "gotoXmlId": "__manual__.cashier_main", "action": "sale_pos_backend.action_sale_cashier_config" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook .nav-link >> nth=2" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "05-monedas",
+      "section": "Configuración",
+      "title": "5. Monedas y billetes",
+      "description": "**Configuración › Monedas/Billetes** guarda las denominaciones que se cuentan en la apertura y el cierre. Cada línea tiene valor, moneda y la cantidad que se propone por defecto. El nombre se arma solo con el símbolo de la moneda y su valor convertido se muestra en la moneda de la compañía.\n\nEl módulo instala las denominaciones dominicanas (RD$ 1 a RD$ 2,000) en la moneda de la compañía al momento de instalar.",
+      "steps": [
+        { "goto": "/odoo/action-sale_pos_backend.action_cashbox_template_config" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ],
+      "viewport": { "height": 620 }
+    },
+    {
+      "id": "06-apertura",
+      "section": "Apertura de caja",
+      "title": "6. Saldo de apertura",
+      "description": "En una caja con control de efectivo la sesión nueva queda en **Control de apertura**. *Establecer balance de apertura* abre el conteo por denominación: se indica cuántas monedas o billetes de cada tipo hay en la gaveta y el total se convierte a la moneda de la compañía.\n\nAl guardar se crea un saldo por moneda en la pestaña *Saldo de caja* de la sesión y aparece el botón **Iniciar sesión**.",
+      "steps": [
+        { "gotoXmlId": "__manual__.session_back", "action": "sale_pos_backend.action_sale_cashier_session" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": "button[name='action_session_cashbox_open']" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "07-sesion",
+      "section": "Apertura de caja",
+      "title": "7. La sesión en curso",
+      "description": "La sesión de la Caja Principal abrió con **RD$ 2,500.00 y US$ 100.00** (RD$ 8,500.00 en total a 60.00). Los botones inteligentes cuentan los pedidos abiertos y totales, las facturas, las notas de crédito generadas y consumidas, y los pagos de la sesión.\n\nDesde aquí se crean pedidos (*Crear pedido de venta*), pagos sueltos (*Crear pago*, para abonos o anticipos) y se inicia el cierre.",
+      "steps": [
+        { "gotoXmlId": "__manual__.session_main", "action": "sale_pos_backend.action_sale_cashier_session" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "08-pedido",
+      "section": "Venta y cobro",
+      "title": "8. El pedido de caja",
+      "description": "El pedido se abre con el formulario propio de la caja: cliente por defecto de la caja (*Cliente de contado*), lista de precios, almacén y sesión ya puestos. El precio y los impuestos de la línea sólo se editan con los grupos *Puede editar precio* / *Puede editar impuesto*.\n\n*Crear cliente* abre un formulario corto que guarda el contacto y lo pone en el pedido.",
+      "steps": [
+        { "gotoXmlId": "__manual__.quotation", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "09-cobro",
+      "section": "Venta y cobro",
+      "title": "9. Cobrar y facturar en un paso",
+      "description": "En un pedido confirmado, **Crear factura** abre el asistente de cobro de la caja: método de pago (sólo los de la caja), monto, moneda, fecha y referencia. También permite aplicar **notas de crédito** y **anticipos** pendientes del cliente.\n\nAl confirmar: valida la entrega (si la caja lo indica), publica la factura, aplica las notas de crédito y anticipos, y registra el pago por la diferencia ligado a la sesión. Sin pago no se factura salvo con el grupo *Puede validar facturas sin pago*; un pago menor al total exige *Puede hacer pagos parciales*.",
+      "steps": [
+        { "gotoXmlId": "__manual__.order_to_pay", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_statusbar_buttons button.btn-primary >> nth=0" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "10-cambio",
+      "section": "Venta y cobro",
+      "title": "10. La factura con cambio",
+      "description": "La venta de contado fue de **RD$ 1,180.00** y el cliente entregó **RD$ 1,200.00**. La factura queda pagada y muestra **Cambio: 20.00** bajo el importe adeudado. El ticket de caja (*Imprimir › Factura de caja*) imprime los pagos y el cambio.\n\nCuando la factura se abre desde la caja aparece el botón **Devolver**: registra la devolución del cambio a la sesión ajustando el pago de efectivo al total de la factura. Con *Confirmación automática del cambio* esa ventana se abre sola y, para quien no es administrador, no deja salir de la factura hasta devolverlo.",
+      "steps": [
+        { "gotoXmlId": "__manual__.invoice_cash", "action": "account.action_move_out_invoice_type" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "scrollTo": ".o_form_view .oe_subtotal_footer, .o_form_view [name='amount_residual']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "11-reembolso",
+      "section": "Devoluciones",
+      "title": "11. Reembolso de un pedido",
+      "description": "En un pedido facturado y entregado, **Reembolso** (grupo *Puede reembolsar pedidos*) abre el asistente:\n\n- **Devolución de producto**: nota de crédito por lo devuelto, que queda a favor del cliente para usarla como pago en otra venta.\n- **Reembolso**: además devuelve el dinero desde el diario de devolución elegido y deja la nota de crédito conciliada.\n- Por línea se indica la **cantidad hecha** (no más de lo entregado) y las **series** cuando el producto las lleva.\n- **Devolver albarán** crea la entrada de mercancía a la ubicación elegida.",
+      "steps": [
+        { "gotoXmlId": "__manual__.order_cash", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": "button[name='action_refund']" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "12-notas-credito",
+      "section": "Devoluciones",
+      "title": "12. Notas de crédito de la sesión",
+      "description": "La venta con tarjeta tuvo una devolución de un paquete de clavos: la nota de crédito **RD$ 177.00** queda ligada a la sesión y se ve en el botón *Notas de crédito generadas*. Cuando otra venta la consume como pago, cuenta en *Notas de crédito consumidas* de la sesión donde se usó.",
+      "steps": [
+        { "gotoXmlId": "__manual__.session_main", "action": "sale_pos_backend.action_sale_cashier_session" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": "button[name='action_view_credit_note']" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ],
+      "viewport": { "height": 420 }
+    },
+    {
+      "id": "13-cierre",
+      "section": "Cierre",
+      "title": "13. Saldo de cierre",
+      "description": "*Comienzo cierre saldo* pasa la sesión a **Control de cierre** y *Establecer balance de cierre* abre el conteo final con las mismas denominaciones. La sesión compara, por moneda, lo contado contra apertura + cobros en efectivo y guarda la diferencia en *Saldo de caja*.\n\nAl **Cerrar sesión**:\n\n- Si quedan pedidos sin facturar o pagos en borrador, un asistente avisa y los cancela.\n- Un faltante mayor a la **diferencia autorizada** sólo lo puede cerrar quien tenga *Puede cerrar sesión con diferencia de efectivo*; el cierre deja la nota *Sesión cerrada con diferencia de efectivo* en el chatter.",
+      "steps": [
+        { "gotoXmlId": "__manual__.session_main", "action": "sale_pos_backend.action_sale_cashier_session" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": "button[name='action_pos_session_start_close']" },
+        { "waitFor": "button[name='action_session_cashbox_close']", "timeout": 30000 },
+        { "click": "button[name='action_session_cashbox_close']" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "14-sesiones",
+      "section": "Cierre",
+      "title": "14. Historial de sesiones",
+      "description": "**Órdenes › Sesiones** lista todas las sesiones con su caja, usuario, fechas y estado (verde en curso, amarillo en cierre, rojo cerrada).",
+      "steps": [
+        { "goto": "/odoo/action-sale_pos_backend.action_sale_cashier_session" },
+        { "waitFor": ".o_list_view", "timeout": 30000 },
+        { "wait": 1000 }
+      ],
+      "viewport": { "height": 420 }
+    },
+    {
+      "id": "15-reportes",
+      "section": "Reportes",
+      "title": "15. Reportes",
+      "description": "El menú **Reportes** trae seis informes en PDF, cada uno con un pequeño asistente (rango de fechas y cajas, o una sesión):\n\n| Reporte | Qué muestra |\n|---|---|\n| Detalles de venta | Productos vendidos, impuestos, totales y pagos por método |\n| Reporte diario | Lo mismo para una sesión |\n| Detalle por caja | Pagos por diario y moneda, notas de crédito aplicadas |\n| Diario por sesión | Pagos de una sesión |\n| Detalle de facturas por caja | Facturas y notas de crédito con su saldo |\n| Diario de facturas por sesión | Lo mismo para una sesión |",
+      "image": false
+    },
+    {
+      "id": "16-permisos",
+      "section": "Permisos",
+      "title": "16. Grupos de seguridad",
+      "description": "En el usuario, privilegio **Caja de Ventas** (*Usuario* / *Administrador*) y estos permisos sueltos, que el administrador del sistema trae por defecto:\n\n- Puede editar precio / impuesto de la orden de caja\n- Puede hacer pagos parciales\n- Puede validar facturas sin pago\n- Puede aplicar notas de crédito\n- Puede reembolsar pedidos\n- Puede cerrar una sesión\n- Puede cerrar sesión con diferencia de efectivo\n\nEl usuario de caja sólo ve las facturas y pagos donde es el vendedor; el administrador de contabilidad hereda el administrador de caja.",
+      "image": false
+    },
+    {
+      "id": "17-notas",
+      "section": "Notas técnicas",
+      "title": "17. Cambios de la migración a 19.0",
+      "description": "- Las vistas kanban usan las plantillas `card`/`menu` de v19; las listas son `list` y el chatter es `<chatter/>`.\n- Los grupos cuelgan del privilegio `res_groups_privilege_sale_cashier` (antes categoría `module_category_sale_cashier`).\n- El pedido ya no tiene cuenta analítica: la **cuenta analítica de la caja** se copia a la distribución analítica de las líneas.\n- La tasa del ticket usa el `invoice_currency_rate` nativo (en 17 venía de `account_invoice_rate`, que no existe en 19). Los campos de tasa del pedido de `sale_order_rate` tampoco existen en 19 y salieron del formulario.\n- La devolución de mercancía usa el asistente de 19 (`action_create_returns`, cantidades en `product_return_moves`).\n- Estados de pago de 19: *En proceso* / *Pagado* / *Cancelado* (antes *Publicado*).\n- El asistente de reembolso expone `_prepare_credit_note_lines(credit_note, line_vals_list)` para que la localización ajuste los impuestos de la nota de crédito.",
+      "image": false
+    }
+  ],
+  "notes": "**Si la sesión no abre:** el usuario ya tiene otra sesión sin cerrar en la misma compañía.\n\n**Si *Crear factura* no deja cobrar:** el pago es cero o menor al total y el usuario no tiene *Puede validar facturas sin pago* / *Puede hacer pagos parciales*.\n\n**Si el cierre se niega por diferencia:** contar de nuevo o pedirlo a un usuario con *Puede cerrar sesión con diferencia de efectivo*."
+}

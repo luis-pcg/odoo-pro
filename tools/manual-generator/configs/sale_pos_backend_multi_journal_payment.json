@@ -1,0 +1,100 @@
+{
+  "module": "sale_pos_backend_multi_journal_payment",
+  "title": "Punto de Ventas Backend — Pagos con varios métodos — Manual de usuario",
+  "extra_modules": ["l10n_do"],
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "PUNTO DE VENTAS BACKEND — PAGOS CON VARIOS MÉTODOS",
+    "version": "V19"
+  },
+  "intro": "**Punto de Ventas Backend — Pagos con varios métodos** (`sale_pos_backend_multi_journal_payment`) permite cobrar un pedido de caja con **varios métodos de pago a la vez** (efectivo + tarjeta, RD$ + US$…) en el mismo asistente *Crear factura*. Usa el registro de pagos múltiples de `account_multi_journal_payment`: una línea por método, y un pago por línea, todos ligados a la sesión de la caja.\n\nAdemás agrega la opción **Nota de crédito específica**: en lugar de elegir de la lista de notas de crédito del cliente, el cajero escribe el número de la nota que el cliente trae y se aplica como pago.",
+  "requirements": [
+    "Odoo 19 con `sale_pos_backend_multi_journal_payment` (instala `sale_pos_backend`, `account_multi_journal_payment` y `account_multi_journal_payment_authorization_code`).",
+    "`account_multi_journal_payment` con la corrección `ref` → `memo` (PR aparte): sin ella el cobro con varios métodos falla al crear los pagos.",
+    "La caja con **Permitir múltiples métodos de pago** activo."
+  ],
+  "general": [
+    { "label": "Módulo", "value": "PUNTO DE VENTAS BACKEND — PAGOS CON VARIOS MÉTODOS" },
+    { "label": "Nombre técnico", "value": "`sale_pos_backend_multi_journal_payment`" },
+    { "label": "Versión", "value": "19.0.1.0.0" },
+    { "label": "Depende de", "value": "`sale_pos_backend`, `account_multi_journal_payment`, `account_multi_journal_payment_authorization_code`" },
+    {
+      "label": "Qué agrega",
+      "value": [
+        "En la caja: **Permitir múltiples métodos de pago** y **Permitir nota de crédito específica**",
+        "En *Crear factura*: tabla de métodos de pago (diario, código de autorización, moneda, monto), **Monto a pagar / a devolver**, notas de crédito y anticipos",
+        "Campo **Nota de crédito** para aplicar una nota por su número"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Cobro",
+          "items": [
+            { "label": "El asistente arranca con una línea en el método por defecto de la caja por el total", "ok": true },
+            { "label": "Dos líneas (efectivo + tarjeta) → dos pagos, ambos en la sesión de caja, factura pagada", "ok": true },
+            { "label": "Línea en US$ → se convierte a la tasa del día; *Monto a pagar* muestra lo que falta o sobra", "ok": true },
+            { "label": "Pago con código de autorización obligatorio en diarios que lo requieren", "ok": true }
+          ]
+        },
+        {
+          "title": "Notas de crédito",
+          "items": [
+            { "label": "Nota de crédito específica por número → se aplica a la factura y queda consumida", "ok": true },
+            { "label": "Número inexistente o ya sin saldo → *Error! This credit note does not exist.*", "ok": true },
+            { "label": "Activar nota específica sin pagos múltiples → error de configuración", "ok": true }
+          ]
+        }
+      ]
+    }
+  ],
+  "database": "Base de pruebas `test_v19_sale_pos_backend_multi_journal_payment`: la siembra del manual de `sale_pos_backend` (Ferretería El Martillo, Caja Principal con sesión abierta y una nota de crédito RINV de RD$ 177.00) con la Caja Principal en **pagos múltiples** y **nota de crédito específica**. Un pedido de RD$ 4,720.00 se cobró con la nota de crédito, RD$ 2,000.00 en efectivo y RD$ 2,543.00 con tarjeta.",
+  "flows": [
+    {
+      "id": "01-caja",
+      "section": "Configuración",
+      "title": "1. Activar los pagos múltiples en la caja",
+      "description": "En la pestaña de pagos de la caja, bajo el método por defecto, aparecen **Permitir múltiples métodos de pago** y, con ese activo, **Permitir nota de crédito específica**. La nota específica exige pagos múltiples.",
+      "steps": [
+        { "gotoXmlId": "__manual__.cashier_main", "action": "sale_pos_backend.action_sale_cashier_config" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "02-asistente",
+      "section": "Cobro",
+      "title": "2. Cobrar con varios métodos",
+      "description": "*Crear factura* en un pedido de caja muestra la tabla **Métodos de pago** en lugar del método único. Arranca con una línea en el método por defecto por el total; se edita el monto y se agregan líneas con otros diarios (efectivo, tarjeta, transferencia), cada una con su moneda. **Monto a pagar** dice cuánto falta; si se pasa, cambia a **Monto a devolver**.\n\nDebajo están las **notas de crédito** del cliente y los **anticipos**; con *nota de crédito específica* activa, el campo **Nota de crédito** recibe el número de la nota (por ejemplo *RINV/2026/00001*) y la agrega.\n\nAl crear la factura se registra un pago por línea, todos ligados a la sesión.",
+      "steps": [
+        { "gotoXmlId": "__manual__.order_to_pay", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_statusbar_buttons button.btn-primary >> nth=0" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-factura",
+      "section": "Cobro",
+      "title": "3. La factura pagada con tres medios",
+      "description": "El pedido de RD$ 4,720.00 quedó pagado con la nota de crédito de RD$ 177.00, RD$ 2,000.00 en efectivo y RD$ 2,543.00 con tarjeta: tres conciliaciones en la factura, y los dos pagos aparecen en el botón *Pagos* de la sesión.",
+      "steps": [
+        { "gotoXmlId": "__manual__.split_invoice", "action": "account.action_move_out_invoice_type" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-notas",
+      "section": "Notas técnicas",
+      "title": "4. Notas de la migración a 19.0",
+      "description": "- Se eliminó el script de 17.0 que fusionaba `sale_pos_backend_multi_journal_payment_authorization_code`, `sale_pos_backend_specific_credit_note` y `sale_pos_features_multi_journal_payment_cash_back`: esos módulos no existen en 19.\n- La línea de pago (`account.payment.journal`) ya no tiene `payment_id`; se quitó de la vista.\n- **Dependencia corregida aparte**: `account_multi_journal_payment` creaba los pagos con `ref`, que en 19 se llama `memo`; el cobro con varios métodos fallaba con *Invalid field 'ref' in 'account.payment'* en cualquier factura, no sólo en la caja.",
+      "image": false
+    }
+  ],
+  "notes": "**Si el asistente muestra un solo método:** la caja no tiene *Permitir múltiples métodos de pago*.\n\n**Si al crear la factura sale *Invalid field 'ref' in 'account.payment'*:** falta la corrección de `account_multi_journal_payment`."
+}

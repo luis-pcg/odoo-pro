@@ -1,0 +1,209 @@
+{
+  "module": "bsc_bank_statement_import",
+  "title": "Importación del estado de cuenta CSV de Banco Santa Cruz — Validación en staging",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "IMPORTACIÓN DEL NUEVO FORMATO CSV DE BANCO SANTA CRUZ",
+    "version": "V17 / V19"
+  },
+  "intro": "Banco Santa Cruz cambió el formato del estado de cuenta CSV que descarga su banca en línea (encabezado nuevo, 8 columnas, sin fila de saldo inicial, fila *Totales:* al final y, dentro de cada día, los movimientos del más reciente al más antiguo). Odoo lo rechazaba con *«No se pudo encontrar sentido al archivo»*.\n\nEl módulo **Bank Statement Import (BSC)** (`bsc_bank_statement_import`) ahora lee el formato nuevo y sigue leyendo el anterior. Este manual documenta la prueba en las dos instancias de staging con el archivo que entregó el cliente (`Transactions-export-20260930.csv`, cuenta 11431000001331, enero 2026):\n\n- **INSUMED** — Odoo 17, diario **BSC-1331** (la misma cuenta del archivo), archivo original del cliente.\n- **NOVOMAT** — Odoo 19, diario **Cta. Corriente BSC DOP - 11241020000081**, el mismo archivo con titular, cuenta, contrapartes y números de préstamo anonimizados.",
+  "requirements": [
+    "`bsc_bank_statement_import` actualizado: 17.0.1.1.0 en INSUMED (PR #1284) y 19.0.1.1.0 en NOVOMAT (PR #1283).",
+    "Diario bancario con un banco marcado como **Banco Santa Cruz** (en 19, el campo *Banco Dominicano* = Santa Cruz en el banco de la cuenta del diario).",
+    "Usuario con permisos de contabilidad."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "BANK STATEMENT IMPORT (BSC)"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`bsc_bank_statement_import` (17.0.1.1.0 / 19.0.1.1.0)"
+    },
+    {
+      "label": "Instancias probadas",
+      "value": [
+        "odoo-insumed-staging-37707645 (Odoo 17)",
+        "odoo-novomat-test-39125228 (Odoo 19)"
+      ]
+    },
+    {
+      "label": "Archivo",
+      "value": "`Transactions-export-20260930.csv` — 38 movimientos del 07/01/2026 al 30/01/2026, retiros 957,773.69 y depósitos 948,718.40"
+    },
+    {
+      "label": "Tarea",
+      "value": "#75495 — EXTRACTO BANCARIO - BANCO SANTA CRUZ"
+    }
+  ],
+  "cases": [
+    {
+      "title": "Resultado de la prueba",
+      "groups": [
+        {
+          "title": "Importación (17 y 19)",
+          "items": [
+            {
+              "label": "El archivo nuevo se importa sin el error de formato",
+              "ok": true
+            },
+            {
+              "label": "38 líneas; la fila **Totales:** no genera línea",
+              "ok": true
+            },
+            {
+              "label": "Saldo inicial **22,330.22** y final **13,274.93**, calculados del archivo",
+              "ok": true
+            },
+            {
+              "label": "El saldo acumulado de cada línea coincide con la columna *Balance* del banco",
+              "ok": true
+            },
+            {
+              "label": "Suma de retiros y depósitos igual a la fila *Totales:* del banco",
+              "ok": true
+            },
+            {
+              "label": "Referencia del banco (*No. Referencia*) guardada en cada línea",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Reimportación",
+          "items": [
+            {
+              "label": "Subir el mismo archivo otra vez → «Ya importaste ese archivo», sin líneas duplicadas",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Observaciones",
+          "items": [
+            {
+              "label": "En 19 el nombre del extracto sale en inglés (*BSC … Bank Statement*); en 17 sale traducido",
+              "ok": false
+            },
+            {
+              "label": "Los acentos llegan dañados desde el banco (*Comisi�n*): el archivo ya trae el carácter �",
+              "ok": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "i01-tablero",
+      "section": "INSUMED — Odoo 17",
+      "title": "Diario BSC-1331 en el tablero",
+      "description": "En **Contabilidad > Tablero**, la tarjeta del diario **BSC-1331** tiene el enlace **Importar archivo**. Al pulsarlo se elige el CSV descargado de la banca en línea de Banco Santa Cruz.",
+      "steps": [
+        {
+          "goto": "/web#action=account.open_account_journal_dashboard_kanban"
+        },
+        {
+          "waitFor": ".o_kanban_record:has(span:text-is('BSC-1331'))",
+          "timeout": 60000
+        },
+        {
+          "scrollTo": ".o_kanban_record:has(span:text-is('BSC-1331'))"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "i02-importado",
+      "title": "Movimientos importados",
+      "description": "Odoo abre la **Conciliación bancaria** con el extracto **Estado Bancario BSC 2026-10-06** y sus 38 movimientos, listos para conciliar. El saldo final del extracto es **RD$ 13,274.93**, igual al último *Balance* del archivo.",
+      "steps": [],
+      "section": "INSUMED — Odoo 17"
+    },
+    {
+      "id": "i03-extracto",
+      "title": "Extracto con saldos del banco",
+      "description": "En **Contabilidad > Estados de cuenta bancarios**, el extracto del diario **BSC-1331** tiene **Balance inicial RD$ 22,330.22** y **Saldo final RD$ 13,274.93**, tomados de la columna *Balance* del archivo. Las líneas quedan en orden cronológico: dentro de cada día el banco lista primero el movimiento más reciente y el módulo las reordena.\n\nLa fila sale en rojo porque el extracto anterior de este diario en staging es una prueba previa con un archivo de 2019 (saldo final −1,586,549.83), y Odoo marca como no válido el extracto cuyo saldo inicial no coincide con el final del anterior. Con extractos consecutivos de la misma cuenta la cadena empata.",
+      "steps": [
+        {
+          "goto": "/web#action=account.action_bank_statement_tree"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "fill": ".o_searchview_input",
+          "value": "Estado Bancario BSC 2026-10-06"
+        },
+        {
+          "press": "Enter"
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "viewport": {
+        "height": 520
+      },
+      "section": "INSUMED — Odoo 17"
+    },
+    {
+      "id": "i04-reimportar",
+      "title": "Reimportar el mismo archivo",
+      "description": "Subir de nuevo el mismo archivo en el diario muestra **«Ya importaste ese archivo»** y no crea líneas: cada movimiento se identifica por su *No. Referencia*.",
+      "steps": [],
+      "section": "INSUMED — Odoo 17"
+    },
+    {
+      "id": "n01-tablero",
+      "section": "NOVOMAT — Odoo 19",
+      "title": "Diario BSC DOP en el tablero",
+      "description": "En **Contabilidad > Tablero**, el CSV se suelta sobre la tarjeta **Cta. Corriente BSC DOP - 11241020000081** (o desde el menú ⋮ de la tarjeta, **Importar archivo**).",
+      "steps": [
+        {
+          "goto": "/odoo/accounting"
+        },
+        {
+          "waitFor": ".o_kanban_record:has(span:text-is('Cta. Corriente BSC DOP - 11241020000081'))",
+          "timeout": 60000
+        },
+        {
+          "scrollTo": ".o_kanban_record:has(span:text-is('Cta. Corriente BSC DOP - 11241020000081'))"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "n02-importado",
+      "title": "Movimientos importados",
+      "description": "Odoo abre la **Conciliación bancaria** con los 38 movimientos y el saldo del extracto **RD$ 13,274.93**.\n\nLa barra superior dice *Estado(s) de cuenta no válido(s)* porque el archivo de prueba es de otra cuenta: el extracto de agosto que ya existía en este diario arranca en 6,253,614.02 y no empata con el final de enero del archivo. No ocurre con los estados de cuenta reales de la cuenta de NOVOMAT.",
+      "steps": [],
+      "section": "NOVOMAT — Odoo 19"
+    },
+    {
+      "id": "n03-extracto",
+      "title": "Extracto con saldos del banco",
+      "description": "El extracto muestra **Balance inicial RD$ 22,330.22**, **Saldo final RD$ 13,274.93** y **38 registros**; el CSV queda adjunto y se imprime como *Estado de cuenta bancario*.",
+      "steps": [],
+      "section": "NOVOMAT — Odoo 19"
+    },
+    {
+      "id": "n04-reimportar",
+      "title": "Reimportar el mismo archivo",
+      "description": "La segunda importación del mismo archivo se rechaza con **«Ya importaste ese archivo»**, sin duplicar líneas.",
+      "steps": [],
+      "section": "NOVOMAT — Odoo 19"
+    }
+  ],
+  "notes": "Validado el 2026-10-06 sobre las instancias de staging. Además de las capturas, los saldos se verificaron por consulta a la base: en las dos instancias el extracto tiene 38 líneas, el saldo acumulado de cada línea coincide con la columna *Balance* del archivo y la suma de retiros (957,773.69) y depósitos (948,718.40) es igual a la fila *Totales:* del banco.\n\nLos extractos importados quedan en los diarios de staging (INSUMED: extracto 131; NOVOMAT: extracto 10)."
+}

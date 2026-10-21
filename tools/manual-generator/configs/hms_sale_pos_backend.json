@@ -1,0 +1,118 @@
+{
+  "module": "hms_sale_pos_backend",
+  "title": "Punto de Ventas Backend — Datos médicos (HMS) — Manual de usuario",
+  "extra_modules": ["l10n_do"],
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "PUNTO DE VENTAS BACKEND — DATOS MÉDICOS (HMS)",
+    "version": "V19"
+  },
+  "intro": "**Punto de Ventas Backend — Datos médicos** (`hms_sale_pos_backend`) lleva a la caja del backend los datos clínicos de los módulos HMS:\n\n- En el formulario rápido de **cliente** de la caja: tipo de contacto (contacto, aseguradora, paciente), especialidades, expediente, ARS y número de afiliado.\n- En el **pedido de caja**: información de la ARS (expediente, aseguradora, afiliado, número de autorización) y del médico (tratante, cirujano, anestesiólogo), más el botón **Bloquear** para cotizaciones de pacientes.\n- La **factura** hereda médicos y autorización, y el **ticket de caja** imprime el médico tratante.\n\nLa lógica médica (validaciones de médicos, bloqueo, paso a la factura) viene de `hms_sales` y `hms_account`; este módulo sólo la pone en las pantallas de la caja.",
+  "requirements": [
+    "Odoo 19 con `hms_sale_pos_backend` (instala `sale_pos_backend`, `hms_sales` y `hms_account`).",
+    "Usuario con el grupo **Servicios médicos / Usuario** para ver los datos médicos.",
+    "Médicos con al menos una **especialidad** (el campo médico tratante sólo propone contactos con especialidad)."
+  ],
+  "general": [
+    { "label": "Módulo", "value": "PUNTO DE VENTAS BACKEND — DATOS MÉDICOS (HMS)" },
+    { "label": "Nombre técnico", "value": "`hms_sale_pos_backend`" },
+    { "label": "Versión", "value": "19.0.1.0.0" },
+    { "label": "Depende de", "value": "`hms_account`, `hms_sales`, `sale_pos_backend`" },
+    {
+      "label": "Qué agrega",
+      "value": [
+        "Datos médicos en el formulario rápido de cliente de la caja",
+        "Bloques *Información de la ARS* e *Información del Doctor* y botón **Bloquear** en el pedido de caja",
+        "Médico tratante en el ticket de caja"
+      ]
+    },
+    {
+      "label": "Cambio respecto a 17.0",
+      "value": [
+        "Depende también de `hms_sales`: en 19 `hms_account` ya no lo arrastra y los campos médicos del pedido viven ahí",
+        "El número de autorización se edita mientras el pedido está en cotización, igual que en el formulario de ventas de `hms_sales`"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Lo que debe pasar",
+      "groups": [
+        {
+          "title": "Pedido de caja",
+          "items": [
+            { "label": "Cliente paciente → expediente, ARS y afiliado se llenan solos desde el contacto", "ok": true },
+            { "label": "Médico tratante, cirujano y anestesiólogo editables en cotización; bloqueados al confirmar salvo con el grupo de edición", "ok": true },
+            { "label": "El anestesiólogo no puede ser el tratante ni el cirujano; el cliente no puede ser uno de los médicos", "ok": true },
+            { "label": "**Bloquear** una cotización de paciente → genera una nueva cotización con el pedido de origen y bloquea la original", "ok": true }
+          ]
+        },
+        {
+          "title": "Factura y ticket",
+          "items": [
+            { "label": "La factura de caja recibe médicos y número de autorización", "ok": true },
+            { "label": "El ticket imprime *Médico tratante*", "ok": true }
+          ]
+        }
+      ]
+    }
+  ],
+  "database": "Base de pruebas `test_v19_hms_sale_pos_backend`: la misma siembra del manual de `sale_pos_backend` (Ferretería El Martillo, Caja Principal con sesión abierta) más la ARS *ARS Humano*, la Dra. Ana Méndez (Traumatología), el Dr. Luis Castillo (Cirugía general) y el paciente *Juan Pérez* (expediente EXP-2026-0045, afiliado AF-778812). Hay un pedido del paciente facturado con autorización AUT-55120 y una cotización abierta.",
+  "flows": [
+    {
+      "id": "01-cliente",
+      "section": "Cliente",
+      "title": "1. Crear un paciente desde la caja",
+      "description": "*Crear Cliente/Proveedor* en el pedido de caja abre el formulario corto de contacto. Con este módulo trae el **tipo de contacto** (contacto, aseguradora o paciente) y, según el tipo:\n\n- **Paciente**: expediente, ARS y número de afiliado (obligatorio si tiene ARS).\n- **Aseguradora**: tipo de seguro (privado o público).\n- **Contacto**: especialidades médicas, para usarlo como médico.\n\n*Guardar y agregar al pedido* lo pone como cliente del pedido.",
+      "steps": [
+        { "gotoXmlId": "__manual__.quotation", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": "button[name='create_partner']" },
+        { "waitFor": ".modal .o_form_view", "timeout": 30000 },
+        { "click": ".modal .o_field_widget[name='medical_contact_type'] input[data-value='patient']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "02-cotizacion",
+      "section": "Pedido de caja",
+      "title": "2. Cotización de un paciente",
+      "description": "Al elegir al paciente, el bloque **Información de la ARS** toma el expediente, la aseguradora y el afiliado del contacto; el número de autorización de la ARS se escribe aquí. En **Información del Doctor** se eligen el médico tratante, el cirujano y el anestesiólogo.\n\n**Bloquear** (sólo cotizaciones de pacientes) congela la cotización y crea una copia nueva enlazada a ella como *pedido de origen*, para seguir trabajando sobre la copia.",
+      "steps": [
+        { "gotoXmlId": "__manual__.medical_quote", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "03-pedido",
+      "section": "Pedido de caja",
+      "title": "3. Pedido confirmado y facturado",
+      "description": "Confirmado el pedido, los médicos quedan de sólo lectura (salvo para el grupo *Editar datos médicos con el pedido confirmado*). El cobro y la factura siguen el flujo normal de la caja.",
+      "steps": [
+        { "gotoXmlId": "__manual__.medical_order", "action": "sale_pos_backend.action_sale_cashier_order" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-factura",
+      "section": "Factura y ticket",
+      "title": "4. La factura con los datos médicos",
+      "description": "La factura de caja recibe el médico tratante, el cirujano, el anestesiólogo y el número de autorización del pedido. El **ticket de caja** imprime *Médico tratante: Dra. Ana Méndez* en el bloque de datos de la factura.",
+      "steps": [
+        { "gotoXmlId": "__manual__.medical_invoice", "action": "account.action_move_out_invoice_type" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "05-notas",
+      "section": "Notas técnicas",
+      "title": "5. Notas de la migración a 19.0",
+      "description": "- El módulo no tiene Python: sólo vistas y la plantilla del ticket.\n- Se añadió `hms_sales` a las dependencias (los campos médicos del pedido y `action_lock` viven ahí).\n- **Bloquear** copia el pedido. En 19.0 la copia fallaba para usuarios sin el grupo de lotes porque `sale_stock_serial` copiaba `lot_id`, un campo restringido a ese grupo; se corrigió en un PR aparte de `sale_stock_serial` (`copy=False`).",
+      "image": false
+    }
+  ],
+  "notes": "**Si no aparecen los bloques médicos:** el usuario necesita el grupo *Servicios médicos / Usuario*.\n\n**Si el médico no aparece en la lista:** el contacto no tiene especialidad médica."
+}
