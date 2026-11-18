@@ -1,0 +1,25 @@
+meta {
+  name: 02 - Invoices de un proveedor
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/fe/recepcion/api/invoices
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+  start-date: {{start_date}}
+  end-date: {{end_date}}
+  provider-rnc: {{provider_rnc}}
+  buyer-rnc: {{buyer_rnc}}
+}
+
+docs {
+  Mismo listado, filtrado por un emisor. Útil para reconciliar con un proveedor
+  puntual sin recorrer todo el rango.
+}

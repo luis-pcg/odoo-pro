@@ -1,0 +1,34 @@
+meta {
+  name: 04 - XML firmado del e-CF (aquí están las líneas)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/{{encf}}/xml?issuer_rnc={{issuer_rnc}}
+  body: none
+  auth: none
+}
+
+params:query {
+  issuer_rnc: {{issuer_rnc}}
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+  Accept: application/xml
+}
+
+docs {
+  Devuelve 200 application/xml con el comprobante firmado completo: DetallesItems,
+  Totales, OtraMoneda y Signature.
+
+  TRAMPAS
+  - issuer_rnc es OBLIGATORIO; sin él responde error.
+  - Está documentado bajo el tag *Emission*, no *Reception*: por eso no salta a
+    la vista que es el camino para bajar una factura RECIBIDA.
+  - En sandbox los Item no traen TablaCodigosItem ni DescripcionItem, sólo
+    NombreItem: la vinculación tiene que funcionar sólo con el nombre.
+  - Verificado 2026-08-06 con E310000000034.
+}

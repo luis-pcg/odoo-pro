@@ -1,0 +1,17 @@
+vars {
+  base_url: https://api.fixcal.do
+  dgii_env: eCF
+  buyer_rnc: 
+  provider_rnc: 
+  issuer_rnc: 
+  encf: 
+  start_date: 
+  end_date: 
+}
+
+# La API key no se comitea: Bruno la guarda fuera de la colección. Su valor está
+# en odoo-pro/l10n_do_ecf_invoicing/lib/ecf_config.py -> ECFConfig._API_KEYS,
+# entrada ECFVersion.V3 / ECFEnvironment.PRODUCTION.
+vars:secret [
+  api_key
+]

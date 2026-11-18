@@ -1,0 +1,26 @@
+meta {
+  name: 03 - Invoices count (control de completitud)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/fe/recepcion/api/invoices/count
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+  start-date: {{start_date}}
+  end-date: {{end_date}}
+  buyer-rnc: {{buyer_rnc}}
+}
+
+docs {
+  Conteo y monto total del período. Como /invoices/all no pagina, este es el
+  único aviso de que algo quedó fuera: el cron compara total_invoices contra la
+  cantidad recibida y deja un WARNING en el log si no cuadran (no bloquea la
+  importación de lo que sí llegó).
+}

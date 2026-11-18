@@ -1,0 +1,22 @@
+meta {
+  name: 09 - Directorio de contribuyentes
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/directory/taxpayers/{{provider_rnc}}
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+}
+
+docs {
+  Razón social de un RNC. El cron lo usa para crear el res.partner del proveedor
+  cuando la factura llega de alguien que todavía no existe en Odoo, en vez de
+  fallar la importación.
+}

@@ -1,0 +1,484 @@
+{
+  "module": "l10n_do_ecf_purchase_reception",
+  "title": "Recepción de e-CF de Proveedores — Configuración y pruebas funcionales",
+  "intro": "Guía con capturas para **configurar** el módulo `l10n_do_ecf_purchase_reception` y **probar sus flujos** en Odoo 17. El módulo trae a Odoo las facturas electrónicas que nuestros proveedores nos emiten y ya reportaron a la DGII: entran a una bandeja intermedia, se vinculan sus líneas con productos de Odoo —y ese vínculo se aprende— y de ahí salen órdenes de compra y facturas de proveedor.\n\nTodas las capturas se tomaron contra **datos reales del sandbox de Fixcal**: la compañía usa el RNC `131566332`, que existe como comprador en ese entorno, así que los 6 documentos de la bandeja son los que la API devuelve de verdad.",
+  "database": "`test_ecf_purchase_reception`, creada con `python3 setup_test_ecf_purchase_reception.py --reset --inbox` (usuario `admin`, clave `admin`). Ese script siembra la compañía dominicana, los productos, tres vínculos pre-aprendidos y una factura digitada a mano, y luego corre el cron contra el sandbox real.",
+  "requirements": [
+    "Módulo instalado: `l10n_do_ecf_purchase_reception` (arrastra `l10n_do_ecf_invoicing`, `l10n_do_purchase`, `l10n_do_credit_note`, `purchase_stock`).",
+    "Compañía con RNC, país República Dominicana y plan contable `do` cargado.",
+    "Un diario de compras con documentos fiscales (`Use Documents`).",
+    "La compañía en API **v3** (`l10n_do_ecf_api_version = v3`): la recepción no existe en v1.",
+    "Sin credenciales que configurar: las URLs y API keys viven en `l10n_do_ecf_invoicing/lib/ecf_config.py`, nunca en la base de datos."
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes-recepcion",
+      "title": "1. Configuración: activar la importación",
+      "section": "Configuración del módulo",
+      "description": "**Contabilidad ▸ Ajustes**, bloque de la localización dominicana. **Importar e-CF de proveedores** es el interruptor: habilita el cron para esta compañía, que usará su RNC como `buyer-rnc`. Debajo aparecen los parámetros de la ventana de importación:\n\n- **Días hacia atrás**: días hacia atrás que abarca cada corrida, para tapar los días que el cron no corrió. El valor por defecto es **3**; en esta base de pruebas está en **120** porque los documentos del sandbox se recibieron en julio y la ventana tiene que alcanzarlos.\n- **Descargas de XML por ejecución** (50): techo de XML por corrida, para que un rezago no cuelgue la ejecución.\n- **Plazo de aprobación comercial (días)** (30): antigüedad a partir de la cual un documento pendiente sale como vencido.\n- **Diario de compras para e-CF**: diario de las facturas creadas.\n- **Tipo de Costos y Gastos por defecto** (02): tipo de costos y gastos que llevan los documentos importados cuyo proveedor no tiene uno propio. Casi ninguna ficha de proveedor lo trae, y **una factura de proveedor fiscal no se puede contabilizar sin él**, así que dejarlo vacío obliga a llenarlo a mano documento por documento.\n\nArriba del bloque, **ECF API Version** tiene que estar en **V3 (Fixcal API)**: la recepción no existe en v1 y el módulo falla con un mensaje explícito si se le pide.",
+      "steps": [
+        {
+          "goto": "/web#action=account.action_account_config"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "waitFor": ".o_setting_box:has([name='l10n_do_ecf_reception_lookback_days'])",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": ".o_setting_box:has([name='l10n_do_ecf_reception_lookback_days'])"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-impuestos-por-indicador",
+      "title": "2. Configuración: impuestos por indicador de ITBIS",
+      "section": "Configuración del módulo",
+      "description": "Acercamiento al mismo bloque de ajustes. Los impuestos de compra por `IndicadorFacturacion` de la DGII: 18% bien, 18% servicio, 16%, 0% y exento. **Dejarlos vacíos es lo normal**: el módulo toma los del plan contable dominicano. Se llenan sólo si la contabilidad necesita separar los indicadores 3 (tasa 0%) y 4 (exento), que por defecto caen en el mismo impuesto.\n\nCuando el documento declara `IndicadorMontoGravado = 1` —montos con ITBIS incluido— el módulo ignora estos campos y usa las variantes *con precio incluido* del plan (`tax_18_purch_incl`, `tax_16_purch_incl`), porque el impuesto ya viene dentro del monto de la línea.",
+      "steps": [
+        {
+          "goto": "/web#action=account.action_account_config"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "waitFor": ".o_setting_box:has([name='l10n_do_ecf_tax_itbis_18_id'])",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": ".o_setting_box:has([name='l10n_do_ecf_tax_itbis_18_id'])"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "element": ".o_setting_box:has([name='l10n_do_ecf_tax_itbis_18_id'])"
+    },
+    {
+      "id": "03-accion-planificada",
+      "title": "3. Configuración: activar la acción planificada",
+      "section": "Configuración del módulo",
+      "description": "**Ajustes ▸ Técnico ▸ Acciones planificadas ▸ e-CF de proveedores: importar documentos recibidos**. Corre diario a las **02:00 de Santo Domingo** sobre el modelo `Received Supplier e-CF`. El campo guarda **06:00 UTC**, que es la misma hora: `nextcall` se almacena en UTC y los servidores de odoo.sh corren en UTC, así que escribir 02:00 ahí lo dispararía a las 22:00 locales del día anterior.\n\nOjo al campo **Activo**: viene **desmarcado de fábrica**, porque instalar el módulo no debe disparar llamadas a la API antes de que alguien lo decida. Marcarlo es el último paso de la configuración.\n\nPara probar sin esperar al reloj está el botón **Ejecutar de forma manual**, que hace la importación en el momento.",
+      "steps": [
+        {
+          "gotoXmlId": "l10n_do_ecf_purchase_reception.ir_cron_l10n_do_fetch_received_ecf",
+          "action": "base.ir_cron_act"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "04-bandeja",
+      "title": "4. La bandeja de recepción",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "**Contabilidad ▸ Proveedores ▸ Recepciones ▸ e-CF recibido**. La vista abre filtrada en *Por vincular* + *Listo*: lo que necesita a una persona. Aquí se quitaron los filtros para ver los seis documentos que el cron trajo del sandbox, cada uno en un estado distinto.\n\nLos colores tienen significado: **rojo** `error` o rechazado comercialmente, **naranja** `to_map` o `duplicate`, **verde** `done`. La columna *Por vincular* dice cuántas líneas faltan por vincular en cada documento.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_searchview .o_facet_remove"
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "05-documento-por-vincular",
+      "title": "5. Un documento por vincular",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "Ficha de **E310000000034**, en estado `to_map`: el XML ya se bajó y se parseó, pero sus cinco líneas no tienen producto todavía.\n\nLa pantalla está armada como la **factura de proveedor**, que es la vista que esta gente ya sabe leer: arriba el tipo de documento y el e-NCF en grande, dos columnas de datos, las líneas, y los totales abajo a la derecha.\n\n- **Proveedor**: quién emitió, con su dirección y su RNC en el propio campo, su tipo de contribuyente y el tipo de costos y gastos. Todo lo fiscal de la factura lo decide la ficha del proveedor, y si el documento se teclea a mano, elegir el proveedor rellena su RNC, razón social, moneda de compra y tipo de gasto. Debajo queda el **nombre del emisor** tal como viene en el XML, que no siempre coincide con el de la ficha.\n- **Documento**: tipo de documento fiscal, fechas, el **código de seguridad** —lo que prueba que este es el e-CF que la DGII tiene—, la OC declarada en el XML, la moneda y si los montos traen el ITBIS incluido.\n- **Totales**, bajo las líneas y alineados a la derecha como en una factura: base imponible —o *Subtotal (ITBIS incl.)* cuando el XML declara `IndicadorMontoGravado = 1`—, ITBIS, impuestos adicionales y retenciones cuando los hay, y el **Total** en negrita.\n- El cuadre entre los tres totales (líneas, calculado, API), el XML firmado y la fecha de firma viven en la pestaña **Técnico**: son evidencia forense, no datos de operación.\n\nEn la barra de botones sólo aparece lo que se puede hacer ahora: *Vincular líneas*, *Aprobar* / *Rechazar*, y *Vincular OC* porque este documento trae `NumeroOrdenCompra`. Las salidas contables —*Crear orden*, *Crear factura*, *Orden y factura*— aparecen cuando ya no falte ninguna línea.\n\nLas líneas son el XML tal como llegó, y el orden de columnas se lee igual que una factura: artículo del proveedor, producto de Odoo, cantidad, precio unitario, impuestos, importe y estado. El número de línea de la DGII, el código del ítem, el indicador de ITBIS, bien o servicio, el descuento, la cuenta, la unidad de medida y el origen del match están **ocultos por defecto** y se activan con el icono de columnas opcionales, a la derecha de la cabecera: están cuando se necesitan sin apretar la pantalla el resto del tiempo. La columna **Artículo del proveedor** lleva el widget con el icono de estado del vínculo.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=3&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "06-wizard-vinculacion",
+      "title": "6. El wizard de vinculación",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "El botón **Vincular líneas** abre el wizard con una fila por línea del XML. Llega precargado con lo que ya se resolvió solo, y el operario sólo toca lo pendiente. Por línea hay tres salidas en la columna *Resultado*:\n\n- **Vincular existente**: elegir cualquier producto de la base. Es un many2one normal, no una sugerencia.\n- **Crear producto**: crear el producto desde el XML —nombre del ítem, precio, impuesto del `IndicadorFacturacion` y tipo del `IndicadorBienoServicio`.\n- **Ignorar (solo gasto)**: sin producto, directo a una cuenta de gasto.\n\nVarias líneas pueden apuntar **al mismo producto**: un proveedor nombra lo mismo de varias formas y todas se aprenden sobre el mismo vínculo. Lo que el wizard no deja es mover una forma ya decidida a otro producto; para eso hay que archivar el vínculo que la tiene.\n\nLa casilla **Recordar estos vínculos para este proveedor** viene activada: es lo que hace que la próxima factura del mismo proveedor entre sin un solo clic. El wizard se niega a aplicar mientras una línea siga sin decisión, y dice cuál.\n\nLo mismo se puede hacer sin abrir el wizard: en las líneas del documento, el botón **+** del widget crea y vincula el producto de **una** línea (paso 7). El wizard sigue siendo el camino cuando hay varias líneas que decidir de una vez.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=3&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": "button[name='action_open_mapping_wizard']"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 30000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "07-widget-en-lineas",
+      "title": "7. El widget en las líneas del documento",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "**E310000000005**, vinculado *sin* recordar los vínculos y con orden de compra ya creada. Es la pantalla donde se ve el widget haciendo su trabajo, en las líneas del documento —que es donde se toma la decisión, no en la orden ni en la factura.\n\nJunto al producto, la columna **Artículo del proveedor** muestra el ítem *tal como lo escribió el proveedor*, con un icono de estado:\n\n- **✔ verde**: el vínculo está guardado; la próxima factura entra sola.\n- **⚠ naranja + varita**: hay producto pero el vínculo no está guardado. La varita lo guarda.\n- **✖ rojo + botón +**: falta producto. El **+** lo crea a partir del propio artículo del proveedor y lo vincula.\n- **🔒 candado**: no se puede guardar porque esa forma de nombrarlo ya resuelve a otro producto. Hay que archivar ese vínculo primero.\n\nLa varita guarda **explícitamente**, a propósito: cambiar un producto en un documento no debe reescribir en silencio lo que el sistema cree sobre todas las facturas futuras de ese proveedor.\n\nEl **+** es para el ítem que no existe en la base todavía, y ahorra el viaje completo —salir del documento, abrir la ficha de producto, teclear nombre, tipo e impuesto, y volver—. Crea el producto con el nombre y el código del proveedor, el precio del XML, el impuesto del `IndicadorFacturacion` y el tipo del `IndicadorBienoServicio`, con la política de compra que ese tipo exige: un servicio facturado *por cantidades recibidas* nunca se vuelve facturable, así que se crea *por cantidades pedidas*. En el mismo clic **aprende la forma de nombrarlo** y escribe al proveedor en la lista de precios del producto: un producto que nació de la factura de un proveedor dice quién lo trajo, y queda rastreable a cómo ese proveedor lo llama aunque después alguien lo renombre aquí. Lo único que no copia es un código que el proveedor repite en toda la factura —`1521` en seis líneas con seis nombres distintos—: como referencia interna no identificaría nada.\n\nEn la cabecera se ve además la mitad de la ruta A: como ya existe la orden de compra, el único paso que queda es **Recibir y factura**. Los botones de la ruta B (factura directa) desaparecieron, porque las dos rutas terminan en la misma factura y la DGII tiene un solo documento.\n\nLa orden por sí sola **no cierra** el documento: se queda en `ready` hasta que exista una factura, porque una orden de compra no es un documento contable. Y da igual quién la cree —**Recibir y factura** desde aquí, el botón *Crear factura* de la propia orden, o el autocompletado de la factura de proveedor—: la factura recibe el NCF, el código de seguridad y el XML del e-CF, queda relacionada con el documento y éste pasa a `done`.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=5&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "08-vinculos-aprendidos",
+      "title": "8. La memoria: vínculos aprendidos",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "**Contabilidad ▸ Proveedores ▸ Recepciones ▸ Vínculos de artículos del proveedor**. Cada vinculación hecha con *Recordar* activado queda aquí, y es lo que el módulo consulta primero en la próxima factura.\n\nUna fila por **proveedor y producto**, con todas las formas de nombrarlo como etiquetas. Así se lee de un golpe a qué responde cada producto:\n\n| Proveedor | Producto | Artículos del proveedor |\n| --- | --- | --- |\n| DOCUMENTOS ELECTRONICOS DE 02 | Leche entera 1L | `LECHE` `LECHE ENTERA 1LT` |\n| DOCUMENTOS ELECTRONICOS DE 02 | Galletas surtidas | `GALLETAS` |\n\nLa clave real de búsqueda es el **nombre normalizado** (mayúsculas, sin acentos, sin puntuación, espacios colapsados): por eso `Carnes paq 2lb` y `CARNES  PAQ 2LB` son el mismo ítem, pero `Internet 20MB` y `Internet 30MB` no.\n\nUn producto admite **tantas formas como haga falta**, del mismo proveedor o de varios. Lo que no puede pasar es que una forma esté en dos vínculos activos: el importador tiene que poner un producto en la línea sin preguntar. *Veces usado* y *Último uso* miden si el aprendizaje converge, y un vínculo mal aprendido se **archiva**, no se borra.\n\nUn vínculo **se aplica al momento de crearse**: al guardar la fila —o al agregarle otra etiqueta— se resuelven las líneas que ya estaban esperando en la bandeja con esa misma forma de nombrarlo, y queda anotado en el chatter de cada documento. Teclear un vínculo aquí no es sólo una nota para la próxima factura: los documentos que nadie pudo vincular son justamente la razón por la que alguien lo está tecleando.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_product_map_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "09-producto-etiquetas",
+      "title": "9. La memoria vista desde el producto",
+      "section": "Bandeja, vinculación y memoria",
+      "description": "La misma información desde el otro lado. En la ficha del producto, pestaña **Artículos del proveedor (e-CF)** —y un botón de estadística con la cuenta—, están los vínculos que apuntan a él: qué proveedor, con qué formas lo nombra, cuántas veces se usó y cuándo.\n\nEs **de sólo lectura** ahí: los vínculos se aprenden de los e-CF recibidos, no se teclean en el producto. El botón de estadística sí abre la lista editable, con los archivados incluidos, que es donde se desarchiva uno.",
+      "steps": [
+        {
+          "goto": "/web#model=product.template&id=1&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_notebook a.nav-link:has-text('e-CF')"
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "10-itbis-incluido",
+      "title": "10. Caso real: ITBIS incluido y un código para toda la factura",
+      "section": "Casos reales del sandbox",
+      "description": "**E310000000008**, un documento real del sandbox con dos particularidades que se ven en la ficha:\n\n**Amounts include ITBIS** está marcado (`IndicadorMontoGravado = 1`): cada `MontoItem` ya trae el ITBIS dentro y `MontoTotal` es la suma de las líneas. El módulo no vuelve a sumar el ITBIS al cuadrar, y usa los impuestos *con precio incluido* del plan DO. Sumarlo encima daría una factura 18% más alta que la que la DGII ya tiene.\n\nY el proveedor manda **el mismo código `1521` en las seis líneas**, con seis nombres distintos. Por eso sólo *Gouda Import* entró vinculada —por código **y** nombre— y las otras cinco quedan pendientes: un código repetido bajo nombres distintos no identifica nada, y vincular por él pondría el producto equivocado en cinco líneas.\n\nEn el wizard, esas cinco pueden ir al mismo producto si de verdad son lo mismo: cada nombre se aprende como otra forma de nombrarlo sobre el mismo vínculo.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=4&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "11-impuestos-adicionales",
+      "title": "11. Caso real: impuestos adicionales (ISC)",
+      "section": "Casos reales del sandbox",
+      "description": "**E310000000002** lleva `MontoImpuestoAdicional` (impuesto selectivo al consumo). Entre el bloque de totales bajo las líneas y el cuadre de la pestaña **Técnico** se ve la cuenta completa: 3,230.00 de líneas + 713.04 de ITBIS + 731.32 de ISC = 4,674.36 calculado, contra 4,674.35 del XML.\n\nEse impuesto **forma parte del total pero no pertenece a ninguna línea**. El módulo lo cuenta en el cuadre —si no, el documento se marcaría como descuadrado sin serlo— y avisa en naranja: la factura que se cree desde aquí saldrá **corta por ese monto** y hay que agregarlo a mano antes de publicar. Es la misma política que con las retenciones: detectar y avisar antes que calcular mal.\n\nDe paso se ve para qué sirve la tolerancia de 0.02: la diferencia real es de **RD$ 0.01** por redondeo del ISC, y por eso el documento sigue utilizable en vez de caer en `error`.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=6&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "12-duplicado",
+      "title": "12. Caso real: el e-CF ya estaba digitado a mano",
+      "section": "Casos reales del sandbox",
+      "description": "**E330000000001** llegó del sandbox, pero alguien ya había capturado esa factura a mano en Odoo. El módulo lo detecta antes de crear nada y lo deja en estado `duplicate`, con la cinta *DUPLICATE*, el aviso naranja y el enlace a la factura existente.\n\n**No bloquea la importación**: el documento entra visible y marcado. Los botones que crearían una segunda factura **no aparecen** en este estado; en su lugar se ofrece **Vincular factura**, que sólo le da a la factura ya digitada su XML, su código de seguridad y su estado de aprobación. Así el operario no pierde su trabajo manual.\n\nLa única línea del documento entró vinculada por **vínculo aprendido** (`LECHE`), que es el otro efecto visible en esta pantalla.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=2&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "13-descuadre",
+      "title": "13. Caso real: totales que no cuadran",
+      "section": "Casos reales del sandbox",
+      "description": "**E340000000015** es una nota de crédito del sandbox con `MontoTotal` 0.00 y una línea de 1.00. No cuadra, y el módulo lo deja en estado `error` con el detalle exacto en rojo —*computed 1.0, XML 0.0, API 0.0, tolerance 0.02*— en vez de facturarlo a ciegas.\n\nSu única línea también muestra otro caso real: el indicador de ITBIS llega como **0**, un valor que la DGII no documenta. La línea se guarda igual con `0 - Not applicable (as sent)`, porque el documento es evidencia de lo que llegó; rechazar el valor costaba perder el documento entero.\n\nDesde aquí quedan dos caminos: **Retry** devuelve el documento al inicio del flujo (por si el problema fue de red o el proveedor corrigió el XML), y **Rechazar** lo rechaza comercialmente ante la DGII con su código. Facturar no es una opción mientras no cuadre.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_ecf_purchase_reception.l10n_do_ecf_received_document_action&id=1&view_type=form"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "fullPage": true
+    },
+    {
+      "id": "99-resultado",
+      "title": "14. Qué queda probado",
+      "section": "Resultado de la revisión",
+      "description": "Con las capturas anteriores queda verificado, sobre datos reales del sandbox de Fixcal, que:\n\n1. La configuración es un interruptor más cinco parámetros, sin credenciales que administrar.\n2. El cron importa y deja cada documento en el estado que le corresponde: por vincular, duplicado o en error.\n3. La vinculación de productos funciona en sus tres niveles y **se aprende**; el wizard sólo pide lo que falta.\n4. El widget vive en las líneas del documento, muestra el ítem del proveedor y el estado del vínculo, y resuelve la línea con un clic: la varita guarda el vínculo, el **+** crea el producto que falta y lo vincula.\n5. La memoria es **una fila por proveedor y producto** con todas sus formas de nombrarlo, legible también desde la ficha del producto.\n6. Los cuatro casos que la DGII manda de verdad y que rompen una implementación ingenua están cubiertos y visibles en pantalla: **ITBIS incluido** en los montos, **impuesto selectivo al consumo** fuera de las líneas, **un mismo código** en todas las líneas, y **códigos que la DGII no documenta**.\n\nLo que **no** se prueba aquí: la aprobación comercial (ACECF), porque escribe de verdad en el entorno de pruebas de la DGII; y la cadena OC ▸ recepción ▸ factura —con el cierre del documento cuando la factura se crea desde la pantalla de compras—, que se cubre en las pruebas unitarias del módulo (166 tests).",
+      "image": false
+    }
+  ],
+  "notes": "**Rutas contables exclusivas.** Un documento sale por una de dos: orden de compra (crear ▸ recibir ▸ facturar desde la orden) o factura directa sin OC. Al entrar en una, los botones de la otra desaparecen y los métodos rechazan la llamada, porque las dos terminan en la misma factura y la DGII tiene un solo documento.\n\n**La factura cierra el documento; la orden no.** El e-CF llega a `done` cuando existe una factura relacionada, no cuando se crea la orden. La factura hecha fuera de la bandeja —el botón *Crear factura* de la orden, o el autocompletado de la factura de proveedor— también estampa el NCF, el código de seguridad y el XML: la traza del e-CF viaja en las líneas de la orden, así que el documento se encuentra desde la factura sola. Una diferencia con la cadena de un clic: si esa factura **no** suma el total del e-CF —porque el operario facturó parte de la orden— no se rechaza, se enlaza y se avisa el faltante en el chatter de los dos registros. Las cantidades las escribió una persona en la pantalla de compras y hacer rollback le borraría el trabajo; lo que no puede pasar es que el faltante quede callado.\n\n**Aprobación comercial.** Los botones **Aprobar** y **Rechazar** llaman al sandbox de la DGII de verdad (`POST /acecf/?submit_to_dgii=true`). Es el entorno de pruebas, pero es una escritura real: úsalos a conciencia. **Actualizar aprobación** vive en la pestaña *Aprobación comercial*, junto al estado y al plazo, y sólo aparece cuando ya se envió un ACECF. Los dos siguen disponibles aunque el documento ya esté facturado —el plazo de la DGII corre desde la fecha de recepción, no desde nuestra contabilidad— y un rechazo no toca la factura: queda anotado en su chatter para quien cierre el período.\n\n**Idioma.** Las cadenas del módulo están en inglés y `i18n/es_DO.po` las traduce; una instancia en `es` plano lo lee en inglés.\n\nLa referencia técnica del módulo —modelos, campos, capas, guía de QA y problemas frecuentes— está en `odoo-pro/l10n_do_ecf_purchase_reception/README.rst`. Las 166 pruebas unitarias cubren lo que este manual no puede capturar en pantalla: la cadena OC ▸ recepción ▸ factura, el cierre del documento al facturar la orden desde compras, el aprendizaje entre facturas —incluido el que se dispara al crear un vínculo a mano—, la moneda extranjera y los envíos de ACECF.",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "RECEPCIÓN DE e-CF DE COMPRAS",
+    "version": "V17"
+  },
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "RECEPCIÓN DE e-CF DE COMPRAS"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`l10n_do_ecf_purchase_reception`"
+    },
+    {
+      "label": "Versión",
+      "value": "17.0.1.0.1"
+    },
+    {
+      "label": "Relevantes para las configuraciones",
+      "value": [
+        "API de recepción: sandbox Fixcal (`ECF API Version = V3`)",
+        "Credenciales: viven en `l10n_do_ecf_invoicing/lib/ecf_config.py`, no en la base de datos",
+        "Acción planificada: diaria, 02:00 Santo Domingo (06:00 UTC, que es lo que guarda el campo)",
+        "Base de las capturas: `test_ecf_purchase_reception`"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Opciones de configuración",
+      "groups": [
+        {
+          "title": "Ajustes de contabilidad, bloque de la localización dominicana",
+          "items": [
+            {
+              "label": "Importar e-CF de proveedores (interruptor por compañía)",
+              "ok": true
+            },
+            {
+              "label": "Días hacia atrás",
+              "ok": true
+            },
+            {
+              "label": "Descargas de XML por ejecución",
+              "ok": true
+            },
+            {
+              "label": "Plazo de aprobación comercial (días)",
+              "ok": true
+            },
+            {
+              "label": "Diario de compras para e-CF",
+              "ok": true
+            },
+            {
+              "label": "Tipo de Costos y Gastos por defecto",
+              "ok": true
+            },
+            {
+              "label": "Sincronizar vínculos con la lista de precios del proveedor",
+              "ok": true
+            },
+            {
+              "label": "Impuestos de compra e-CF por indicador de ITBIS",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Acción planificada",
+          "items": [
+            {
+              "label": "Nace desactivada, se prende a mano",
+              "ok": true
+            },
+            {
+              "label": "Corre diario a las 02:00 de Santo Domingo",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Flujos de recepción",
+      "groups": [
+        {
+          "title": "Bandeja y vinculación",
+          "items": [
+            {
+              "label": "Importación desde el sandbox y detección de duplicados",
+              "ok": true
+            },
+            {
+              "label": "Descarga y parseo del XML firmado",
+              "ok": true
+            },
+            {
+              "label": "Vinculación por wizard",
+              "ok": true
+            },
+            {
+              "label": "Vinculación y creación de producto desde la línea (varita y +)",
+              "ok": true
+            },
+            {
+              "label": "Aprendizaje del vínculo entre facturas",
+              "ok": true
+            },
+            {
+              "label": "Sincronización con la lista de precios del proveedor",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Salidas contables",
+          "items": [
+            {
+              "label": "Crear orden",
+              "ok": true
+            },
+            {
+              "label": "Crear factura (sin orden)",
+              "ok": true
+            },
+            {
+              "label": "Orden y factura / Recibir y factura",
+              "ok": true
+            },
+            {
+              "label": "Vincular OC del XML",
+              "ok": true
+            },
+            {
+              "label": "Vincular factura ya digitada a mano",
+              "ok": true
+            },
+            {
+              "label": "Cierre del documento al contabilizar la factura, la cree quien la cree",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Aprobación comercial (ACECF)",
+          "items": [
+            {
+              "label": "Aprobar y Rechazar contra el sandbox de la DGII",
+              "ok": true
+            },
+            {
+              "label": "Refrescar el estado de aprobación",
+              "ok": true
+            },
+            {
+              "label": "Plazo de aprobación y filtro de vencidos",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Límites conocidos de esta versión",
+          "items": [
+            {
+              "label": "Retenciones de ITBIS e ISR",
+              "ok": false,
+              "note": "se reportan en el documento, no se calculan en la factura"
+            },
+            {
+              "label": "Impuestos adicionales (ISC y similares)",
+              "ok": false,
+              "note": "forman parte de MontoTotal pero de ninguna línea: hay que agregarlos a mano"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

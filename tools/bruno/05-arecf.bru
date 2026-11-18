@@ -1,0 +1,25 @@
+meta {
+  name: 05 - ARECF (acuse de recibo firmado)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/arecf/{{encf}}?issuer_rnc={{issuer_rnc}}
+  body: none
+  auth: none
+}
+
+params:query {
+  issuer_rnc: {{issuer_rnc}}
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+}
+
+docs {
+  Acuse de recibo firmado. El módulo no lo necesita para operar; queda para
+  auditoría cuando hay que probar que el comprobante entró.
+}

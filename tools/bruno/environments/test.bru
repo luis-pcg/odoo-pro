@@ -1,0 +1,18 @@
+vars {
+  base_url: https://test.fixcal.do
+  dgii_env: TesteCF
+  buyer_rnc: 131566332
+  provider_rnc: 131880681
+  issuer_rnc: 131880681
+  encf: E310000000034
+  start_date: 01-07-2026
+  end_date: 31-07-2026
+}
+
+# La API key no se comitea, ni la de sandbox: Bruno la guarda fuera de la
+# colección. Su valor está en
+# odoo-pro/l10n_do_ecf_invoicing/lib/ecf_config.py -> ECFConfig._API_KEYS,
+# entrada ECFVersion.V3 / ECFEnvironment.TEST.
+vars:secret [
+  api_key
+]

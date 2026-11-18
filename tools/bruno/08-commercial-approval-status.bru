@@ -1,0 +1,21 @@
+meta {
+  name: 08 - Estado de la aprobación comercial
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base_url}}/fe/aprobacioncomercial/api/invoices/{{encf}}
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+}
+
+docs {
+  Estado de la aprobación comercial de un e-CF. El módulo lo usa en el botón
+  "Refresh approval" para sincronizar `approval_state` sin volver a enviar nada.
+}

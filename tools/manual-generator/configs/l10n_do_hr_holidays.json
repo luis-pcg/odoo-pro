@@ -1,0 +1,309 @@
+{
+  "module": "l10n_do_hr_holidays",
+  "title": "Tiempo Personal en días calendario — Configuración y pruebas funcionales",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "subject": "TIEMPO PERSONAL EN DÍAS CALENDARIO",
+    "version": "V17"
+  },
+  "intro": "El módulo `l10n_do_hr_holidays` agrega a cada **tipo de tiempo personal** un campo **Duración según**, que decide cómo se mide la duración de la solicitud:\n\n- **Días laborables** — comportamiento estándar de Odoo: sólo cuentan los días que el empleado debe trabajar según su horario.\n- **Días calendario** — cuentan **todos** los días entre la fecha inicial y la final: `fecha final - fecha inicial + 1`, con sábados, domingos y días festivos incluidos.\n\nEsto es lo que exige el Código de Trabajo dominicano en las licencias que la ley cuenta por días corridos (matrimonio, duelo, maternidad), mientras que las vacaciones se siguen contando en días laborables.\n\n**Lo que el módulo NO cambia:** el horario de trabajo del empleado, las ausencias del recurso, las entradas de trabajo ni los días trabajados del recibo de nómina. Contar una licencia como 5 días calendario no convierte el sábado y el domingo en días laborables pagados: las **horas** de la solicitud siguen siendo las del calendario laboral.",
+  "database": "`test_do_holidays` (usuario `admin`, clave `admin`). Preparada con `tools/manual-generator/configs/l10n_do_hr_holidays.seed.py`: compañía dominicana, jornada lunes a viernes de 8 horas, dos empleados y cinco tipos de tiempo personal.",
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "TIEMPO PERSONAL EN DÍAS CALENDARIO"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`l10n_do_hr_holidays`"
+    },
+    {
+      "label": "Versión",
+      "value": "17.0.1.0.0"
+    },
+    {
+      "label": "Depende de",
+      "value": "`hr_holidays`, `l10n_do_hr`"
+    },
+    {
+      "label": "Relevantes para las configuraciones",
+      "value": [
+        "Campo nuevo: **Duración según** en `hr.leave.type` (`l10n_do_duration_type`)",
+        "Sólo disponible en tipos que se solicitan **por día** (`request_unit = day`)",
+        "Valor por defecto: **Días laborables** — instalar el módulo no cambia ningún tipo existente",
+        "Jornada de las capturas: lunes a viernes, 8:00–12:00 / 13:00–17:00, tz `America/Santo_Domingo`",
+        "Base de las capturas: `test_do_holidays`"
+      ]
+    }
+  ],
+  "requirements": [
+    "Módulo instalado: `l10n_do_hr_holidays` (arrastra `hr_holidays` y `l10n_do_hr`).",
+    "Empleados con horario de trabajo asignado: la base de comparación son los días laborables de ese horario.",
+    "Acceso con perfil **Tiempo personal / Administrador** para configurar los tipos.",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-tipo-permiso-calendario",
+      "title": "1. Configurar un tipo en días calendario",
+      "section": "Configuración del módulo",
+      "description": "En *Tiempo personal ▸ Configuración ▸ Tipos de tiempo personal*, abre el tipo y en el bloque **Configuración** aparece **Duración según**. Aquí la *Licencia por matrimonio* está en **Días calendario**: la ley dominicana da 5 días corridos, no 5 días laborables.\n\nEl campo sólo se muestra cuando **Tomar vacaciones por** es *Día*. Si el tipo se pide por medio día o por horas, la duración vuelve a ser la estándar de Odoo y el campo se oculta.",
+      "steps": [
+        {
+          "gotoXmlId": "l10n_do_hr_holidays.demo_type_matrimonio",
+          "action": "l10n_do_hr_holidays.demo_leave_type_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "02-tipos-permiso-lista",
+      "title": "2. Ver la base de cálculo de todos los tipos",
+      "section": "Configuración del módulo",
+      "description": "La lista de tipos trae la columna opcional **Duración según** (se activa con el selector de columnas, arriba a la derecha). De un vistazo se ve qué tipos cuentan días corridos y cuáles siguen en días laborables: *Vacaciones* y *Permiso por horas* en **Días laborables**; *Licencia médica*, *Licencia por matrimonio* y *Licencia por duelo* en **Días calendario**.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_hr_holidays.demo_leave_type_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_optional_columns_dropdown_toggle",
+          "timeout": 30000
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": ".dropdown-item:has-text('Duración según')",
+          "timeout": 30000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "press": "Escape"
+        },
+        {
+          "wait": 1200
+        }
+      ]
+    },
+    {
+      "id": "03-solicitud-dias-calendario",
+      "title": "3. Solicitud contada en días calendario",
+      "section": "Solicitudes de tiempo personal",
+      "description": "*Licencia por matrimonio* de Juan Pérez, del **jueves 05/03/2026 al lunes 09/03/2026**. Como el tipo está en días calendario, la duración es **5 días**: jueves, viernes, sábado, domingo y lunes. El aviso azul al pie del formulario recuerda que el sábado y el domingo entran en la cuenta y que el horario del empleado no se toca.",
+      "steps": [
+        {
+          "gotoXmlId": "l10n_do_hr_holidays.demo_leave_matrimonio",
+          "action": "l10n_do_hr_holidays.demo_leave_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "04-solicitud-dias-laborables",
+      "title": "4. La misma semana contada en días laborables",
+      "section": "Solicitudes de tiempo personal",
+      "description": "*Vacaciones* de María Gómez, **exactamente el mismo rango de fechas**: del jueves 05/03/2026 al lunes 09/03/2026. Como *Vacaciones* se quedó en días laborables, la duración es **3 días** — jueves, viernes y lunes — porque el sábado y el domingo no son días de trabajo en su horario. Es el comportamiento estándar de Odoo, intacto.",
+      "steps": [
+        {
+          "gotoXmlId": "l10n_do_hr_holidays.demo_leave_vacaciones",
+          "action": "l10n_do_hr_holidays.demo_leave_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "05-solicitudes-lista",
+      "title": "5. Las dos solicitudes, una al lado de la otra",
+      "section": "Solicitudes de tiempo personal",
+      "description": "Mismas fechas, distinta base de cálculo, distinta duración: 5 días la licencia en días calendario, 3 días las vacaciones en días laborables. La tercera línea es la licencia médica de abril, también en días calendario.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_hr_holidays.demo_leave_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-asignacion-calendario",
+      "title": "6. La asignación se consume en días calendario",
+      "section": "Solicitudes de tiempo personal",
+      "description": "Cuando el tipo exige asignación, el saldo se descuenta con la misma unidad con la que se mide la solicitud. Balance de María Gómez: en *Vacaciones* (días laborables) figuran **3 días tomados** por la solicitud del 05/03 al 09/03, y en *Licencia médica* (días calendario) figuran **5 días tomados** por la del 02/04 al 06/04, que en días laborables habrían sido 3. El mismo rango de cinco fechas descuenta 3 o 5 días del saldo según la base de cálculo del tipo.",
+      "steps": [
+        {
+          "goto": "/web#action=l10n_do_hr_holidays.demo_balance_action"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1800
+        }
+      ]
+    },
+    {
+      "id": "99-alcance",
+      "title": "7. Alcance y límites",
+      "section": "Resultado de la revisión",
+      "image": false,
+      "description": "**Qué cambia**\n\n- La **duración en días** de la solicitud (`number_of_days`) y lo que muestra *Solicitado (Días/Horas)*.\n- El consumo de la **asignación**, que se descuenta en la misma unidad.\n- La validación de saldo: pedir más días calendario de los asignados se rechaza.\n\n**Qué NO cambia**\n\n- El **horario de trabajo** del empleado: el sábado sigue siendo día libre.\n- Las **horas** de la solicitud (`number_of_hours`), que siguen saliendo del calendario laboral porque son las que usan las entradas de trabajo y la nómina.\n- Las **entradas de trabajo** y los **días trabajados** del recibo de nómina.\n\n**Restricciones**\n\n- **Días calendario** sólo se puede usar en tipos que se solicitan por día. Si se cambia *Tomar vacaciones por* a medio día o a horas, el sistema lo impide con un mensaje de validación y, en el formulario, el campo vuelve solo a *Días laborables*.\n- El valor por defecto es **Días laborables**: instalar el módulo no altera ningún tipo ya configurado ni recalcula solicitudes existentes por sí solo."
+    }
+  ],
+  "cases": [
+    {
+      "title": "Opciones de configuración",
+      "groups": [
+        {
+          "title": "Tipo de tiempo personal (`hr.leave.type`)",
+          "items": [
+            {
+              "label": "Campo **Duración según** en el bloque Configuración",
+              "ok": true
+            },
+            {
+              "label": "Valor por defecto **Días laborables** en tipos nuevos y existentes",
+              "ok": true
+            },
+            {
+              "label": "Se oculta cuando el tipo no se solicita por día",
+              "ok": true
+            },
+            {
+              "label": "Columna opcional **Duración según** en la lista de tipos",
+              "ok": true
+            },
+            {
+              "label": "Validación: días calendario sólo con unidad *Día*",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Cálculo de la duración",
+      "groups": [
+        {
+          "title": "Días calendario",
+          "items": [
+            {
+              "label": "Lunes a domingo = 7 días",
+              "ok": true
+            },
+            {
+              "label": "Rango que cruza dos semanas = todos los días corridos",
+              "ok": true
+            },
+            {
+              "label": "Solicitud sólo de sábado y domingo = 2 días",
+              "ok": true
+            },
+            {
+              "label": "Un solo día = 1 día",
+              "ok": true
+            },
+            {
+              "label": "Los días festivos del calendario también cuentan",
+              "ok": true
+            },
+            {
+              "label": "Editar las fechas recalcula la duración",
+              "ok": true
+            },
+            {
+              "label": "Cambiar la base del tipo recalcula las solicitudes",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Días laborables (comportamiento estándar)",
+          "items": [
+            {
+              "label": "Lunes a domingo = 5 días / 40 horas",
+              "ok": true
+            },
+            {
+              "label": "Un festivo dentro del rango descuenta el día",
+              "ok": true
+            },
+            {
+              "label": "Tipos por medio día conservan 0,5 día",
+              "ok": true
+            },
+            {
+              "label": "Tipos por horas conservan su duración en horas",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Asignaciones y efectos colaterales",
+      "groups": [
+        {
+          "title": "Saldo",
+          "items": [
+            {
+              "label": "La asignación se consume en días calendario",
+              "ok": true
+            },
+            {
+              "label": "Pedir más días calendario que los asignados se rechaza",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Sin efectos sobre nómina",
+          "items": [
+            {
+              "label": "El horario de trabajo del empleado queda intacto",
+              "ok": true
+            },
+            {
+              "label": "Las horas de la solicitud siguen siendo las del calendario",
+              "ok": true
+            },
+            {
+              "label": "No aparece el aviso de *el tipo aumenta la duración*",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": "Las 17 pruebas automatizadas de `l10n_do_hr_holidays/tests/test_l10n_do_leave_duration.py` cubren uno a uno los casos de esta tabla y corren en CI.\n\nLa implementación intercepta `_get_duration` de `hr.leave` y sustituye únicamente los días; las horas se dejan tal cual las calculó Odoo. Ése es el motivo de que la nómina y las entradas de trabajo no se vean afectadas."
+}

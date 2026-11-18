@@ -1,0 +1,45 @@
+meta {
+  name: 07 - ACECF rechazar comercialmente
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/acecf/?submit_to_dgii=true
+  body: json
+  auth: none
+}
+
+params:query {
+  submit_to_dgii: true
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "issuer_rnc": "{{issuer_rnc}}",
+    "receiver_rnc": "{{buyer_rnc}}",
+    "encf": "{{encf}}",
+    "dgii_environment": "{{dgii_env}}",
+    "approval_status": 2,
+    "approval_datetime": "2026-08-12T14:30:00",
+    "rejection_code": 1,
+    "rejection_description": "Mercancía no recibida",
+    "invoice_date_issued": "2020-04-01",
+    "invoice_total_amount": 25000000.00
+  }
+}
+
+docs {
+  approval_status 2 = NO aprobado. rejection_code: 1 bienes/servicios no
+  recibidos, 2 recibidos con defectos, 3 otro (obliga rejection_description).
+
+  Esto es RECHAZO COMERCIAL, no anulación: como receptor no se puede anular el
+  comprobante del emisor (ANECF es del emisor). DGII notifica al emisor, que
+  debe emitir su nota de crédito o anular por su lado.
+}

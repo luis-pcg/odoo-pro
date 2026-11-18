@@ -1,0 +1,235 @@
+{
+  "module": "pos_picking_draft",
+  "title": "POS Picking Draft — el albarán del Punto de Venta queda sin validar",
+  "intro": "Manual corto con capturas de una venta real en el Punto de Venta y del albarán que genera. \n\nOdoo de fábrica **valida solo** el albarán de cada pedido del POS: al cobrar, la mercancía ya salió del almacén sin que nadie la tocara. Con `pos_picking_draft` instalado ese albarán se crea igual, con las cantidades ya reservadas y marcadas, pero **se queda en estado _Listo_**: el stock no se mueve hasta que el almacén le da a **Validar**.\n\nEl comportamiento es **configurable por compañía** y se puede apagar sin desinstalar el módulo, desde *Ajustes ▸ Ajustes generales ▸ Companies* (ver los dos últimos apartados). No se configura caja por caja: una sola casilla manda sobre todos los puntos de venta de la compañía. Viene **encendido** al instalar.",
+  "database": "`test_ecf_purchase_reception` (usuario `admin`, clave `admin`). Preparada con `tools/manual-generator/configs/pos_picking_draft.seed.py`: producto almacenable *Silla Ejecutiva (POS)* con 50 unidades, método de pago en efectivo, la compañía actualizando stock **en tiempo real** y el ajuste *PoS Transfers to Validate* encendido.",
+  "requirements": [
+    "Módulo instalado: `pos_picking_draft` (depende de `point_of_sale` y `base_setup`).",
+    "El ajuste **PoS Transfers to Validate** encendido en la compañía (es el valor por defecto al instalar), en *Ajustes ▸ Ajustes generales ▸ Companies*. Con el ajuste apagado, Odoo valida el albarán como siempre.",
+    "Un producto **almacenable** (`type = product`) disponible en el POS: los consumibles y servicios no generan albarán.",
+    "Un método de pago en efectivo en el punto de venta, para que la apertura pida el fondo de caja.",
+    "Funciona igual con la compañía en *Actualizar cantidades en tiempo real* (el albarán aparece al cobrar) que en *Al cerrar la sesión* (aparece al cerrar la caja). En ambos casos queda sin validar."
+  ],
+  "flows": [
+    {
+      "id": "01-panel-pos",
+      "title": "1. Punto de Venta ▸ Panel",
+      "description": "El panel con el punto de venta **Shop**. Sin sesión abierta, el botón dice **New Session**.",
+      "steps": [
+        {
+          "goto": "/web#action=point_of_sale.action_client_pos_menu"
+        },
+        {
+          "waitFor": ".o_pos_kanban",
+          "timeout": 120000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "02-apertura-caja",
+      "title": "2. Abrir la caja",
+      "description": "Al pulsar **New Session** el POS pide el **fondo de caja** (control de apertura). Se confirma el efectivo con el que arranca el turno y se entra con **Open session**. Esta es la caja del cajero: no tiene nada que ver con el almacén, pero es el punto de partida de la prueba.",
+      "steps": [
+        {
+          "click": ".o_pos_kanban button[name='open_ui']",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".opening-cash-control",
+          "timeout": 180000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "03-venta",
+      "title": "3. Hacer una venta",
+      "description": "Ya dentro del POS, se añade **Silla Ejecutiva (POS)** al pedido. Es un producto almacenable, así que este pedido sí va a generar movimiento de almacén.",
+      "steps": [
+        {
+          "click": ".opening-cash-control .button:has-text('Open session')",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".product-list-container",
+          "timeout": 180000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".product-list .product-name:has-text('Silla Ejecutiva')",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "04-pago",
+      "title": "4. Cobrar en efectivo",
+      "description": "**Payment** y método **Cash**. El botón **Validate** cierra la venta.",
+      "steps": [
+        {
+          "click": ".product-screen .pay-order-button",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".payment-screen",
+          "timeout": 60000
+        },
+        {
+          "click": ".paymentmethods .button.paymentmethod:has-text('Cash')",
+          "timeout": 60000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "05-recibo",
+      "title": "5. Venta cerrada",
+      "description": "Recibo impreso: el pedido queda **pagado**. Hasta aquí el flujo es el estándar de Odoo; la diferencia está en el almacén.",
+      "steps": [
+        {
+          "click": ".payment-screen .button.next.validation",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".receipt-screen",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    },
+    {
+      "id": "06-albaran-listo",
+      "title": "6. El albarán del POS: estado Listo, no Hecho",
+      "description": "**Inventario ▸ Transferencias**, buscando los albaranes del punto de venta y filtrando por **Ready**. El de la venta que acabamos de cobrar aparece ahí, en **Ready** (Listo), esperando a que alguien lo valide.\n\nSin el módulo esta lista saldría vacía y el albarán estaría en **Done**: Odoo llama a `_action_done()` sobre él en cuanto el pedido se paga. Ese es exactamente el paso que el módulo suprime.",
+      "steps": [
+        {
+          "goto": "/web#action=stock.action_picking_tree_all"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 120000
+        },
+        {
+          "fill": ".o_searchview_input",
+          "value": "POS"
+        },
+        {
+          "press": "Enter",
+          "sel": ".o_searchview_input"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": ".o_searchview_dropdown_toggler",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_filter_menu .dropdown-item:has-text('Ready')",
+          "timeout": 30000
+        },
+        {
+          "press": "Escape"
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "07-albaran-detalle",
+      "title": "7. El albarán, por dentro",
+      "description": "El albarán abierto. Tres cosas que confirman que el módulo hace lo suyo:\n\n- La barra de estado está en **Ready**, no en **Done**.\n- El botón **Validate** sigue disponible: el almacén es quien decide cuándo sale la mercancía.\n- La línea ya trae la cantidad reservada y marcada (`Quantity` = 1), así que validar es un solo clic — no hay que volver a teclear nada.\n\nMientras el albarán siga aquí, el stock del producto **no ha bajado**: en esta prueba la Silla Ejecutiva seguía con sus **50 unidades** en `WH/Stock` después de cobrar.",
+      "steps": [
+        {
+          "click": ".o_data_row .o_data_cell",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    },
+    {
+      "id": "08-validacion-manual",
+      "title": "8. El almacén valida cuando toca",
+      "description": "Al pulsar **Validate** el albarán pasa a **Done** y ahí sí se descuenta el stock: `WH/Stock` bajó de 50 a **49 unidades** y la unidad vendida aparece en `Partners/Customers`. El módulo no impide validar: solo quita el automatismo.",
+      "steps": [
+        {
+          "click": ".o_form_view button[name='button_validate']",
+          "timeout": 60000
+        },
+        {
+          "wait": 4000
+        }
+      ]
+    },
+    {
+      "id": "09-ajuste-pos",
+      "title": "9. Dónde se enciende y se apaga: Ajustes ▸ Ajustes generales",
+      "description": "**Ajustes ▸ Ajustes generales**, bloque **Companies**. Ahí está la casilla **PoS Transfers to Validate** (*Albaranes del POS pendientes de validar*).\n\nEstá deliberadamente **fuera de la página del Punto de Venta**: esa página se configura por caja (arriba se elige el punto de venta al que aplican los ajustes) y ahí la casilla daba a entender que había que encenderla caja por caja. No es así — el ajuste es **de la compañía** y aplica a todos sus puntos de venta a la vez; pasando el ratón por encima sale el aviso *Applies to every point of sale of the company at once; it is not set register by register*.\n\nEn una base multicompañía cada compañía decide por separado, y lo que manda es la compañía **del pedido del POS**, no la compañía activa del usuario que mira la pantalla.",
+      "steps": [
+        {
+          "goto": "/web?manual=settings#action=base_setup.action_general_configuration"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 120000
+        },
+        {
+          "waitFor": "[name='pos_picking_keep_draft']",
+          "timeout": 60000
+        },
+        {
+          "scrollTo": "[name='pos_picking_keep_draft']"
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "10-ajuste-detalle",
+      "title": "10. El ajuste de cerca",
+      "description": "Acercamiento al bloque **Companies** con la casilla marcada, que es como queda al instalar el módulo (y como sigue quedando tras actualizar: las compañías que ya existían se rellenan encendidas, así que nada cambia de comportamiento por actualizar).\n\n- **Marcada** — lo que muestran los ocho apartados anteriores: el albarán del POS espera a que el almacén lo valide.\n- **Sin marcar** — Odoo estándar: al cobrar (o al cerrar la sesión) el albarán se valida solo y el stock baja en ese momento. No hace falta desinstalar el módulo ni tocar nada más.\n\nDespués de cambiarla hay que pulsar **Save**; el cambio aplica a todas las cajas de la compañía y a los pedidos nuevos, no reabre los albaranes ya validados.",
+      "element": ".o_settings_container:has([name='pos_picking_keep_draft'])",
+      "steps": [
+        {
+          "goto": "/web?manual=settings#action=base_setup.action_general_configuration"
+        },
+        {
+          "waitFor": "[name='pos_picking_keep_draft']",
+          "timeout": 120000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "scrollTo": "[name='pos_picking_keep_draft']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "El módulo no toca los albaranes ajenos al POS: marca con una clave de contexto (`pos_picking_keep_draft`) únicamente los que crea el flujo del punto de venta, y solo para esos ignora la validación automática. Una transferencia normal de inventario se sigue validando igual que siempre.\n\nDevoluciones incluidas: una línea negativa genera su albarán de entrada, también sin validar.\n\nEl ajuste vive en `res.company.pos_picking_keep_draft` (por defecto `True`), así que se puede consultar o cambiar en masa por SQL o por `odoo shell` si hace falta, sin pasar por la pantalla de Ajustes."
+}

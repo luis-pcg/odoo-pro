@@ -1,0 +1,33 @@
+meta {
+  name: 01 - Invoices all (motor del cron)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/fe/recepcion/api/invoices/all
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{api_key}}
+  env: {{dgii_env}}
+  start-date: {{start_date}}
+  end-date: {{end_date}}
+  buyer-rnc: {{buyer_rnc}}
+}
+
+docs {
+  Todo lo que nos emitieron en el rango. Es el endpoint que mueve el cron.
+
+  TRAMPAS
+  - start-date / end-date van en HEADERS y en DD-MM-YYYY (los bodies JSON de
+    esta misma API usan ISO-8601: mezclar formatos da 422 silenciosos).
+  - NO tiene paginación: cortar por día y contrastar con /invoices/count.
+  - La respuesta NO trae líneas de detalle, sólo cabecera.
+  - total_amount viene como string ("25000000.00").
+  - date_issued puede ser años anterior a date_received (sandbox: emitida
+    2020-04-01, recibida 2026-07-21). El cron filtra por date_received.
+  - xml_gcs_path es un URI gs:// y NO se descarga por HTTP: usar el request 04.
+}

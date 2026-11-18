@@ -554,3 +554,7 @@ MigrationBackup/
 
 # Azul mTLS certs (nunca commitear la key privada)
 certs/
+
+.DS_Store
+/wt/
+/wt-*/

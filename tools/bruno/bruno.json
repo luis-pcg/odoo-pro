@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "Fixcal API v3 - Recepcion de e-CF de proveedores",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}
