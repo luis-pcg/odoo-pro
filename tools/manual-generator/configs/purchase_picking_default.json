@@ -1,0 +1,88 @@
+{
+  "module": "purchase_picking_default",
+  "title": "Almacén por proveedor en compras — Manual de usuario (purchase_picking_default, Odoo 20.0)",
+  "intro": "Este módulo permite asignar a cada **proveedor** el **almacén** donde se reciben sus compras. Con ese dato Odoo propone automáticamente la operación de recepción (*Entregar a*) de ese almacén:\n\n- al elegir el proveedor en una **solicitud de cotización** creada a mano, y\n- en las **solicitudes generadas por reabastecimiento** (reglas de abastecimiento, reabastecimiento desde ventas o MTO).\n\nOdoo 20.0 no ofrece un almacén por proveedor: la operación *Entregar a* sale siempre del almacén por defecto de la compañía o de la regla de compra, por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- En 20.0 el reabastecimiento pasa los datos del proveedor como un diccionario y el proveedor de la orden por separado. El módulo ahora toma el proveedor de la orden; sin este ajuste **cualquier reabastecimiento por compra fallaba** al generar la solicitud.\n- El campo **Almacén** sigue en la pestaña *Ventas y compras* del contacto, sección *Compra*, y es por compañía.",
+  "requirements": [
+    "Módulo **`purchase_picking_default`** `20.0.1.0.0` instalado. Depende de **`purchase_stock`**.",
+    "Inventario con **Almacenes múltiples** activado para ver y elegir el almacén en el proveedor y el campo *Entregar a* en la orden.",
+    "Cada almacén debe tener su operación de **Recepciones** (Odoo la crea al crear el almacén)."
+  ],
+  "flows": [
+    {
+      "id": "01-proveedor-almacen",
+      "title": "1. Asignar el almacén al proveedor",
+      "description": "Abra el proveedor (**Compras → Órdenes → Proveedores**) y en la pestaña **Ventas y compras**, sección *Compra*, elija el **Almacén** donde se reciben sus mercancías. El valor es por compañía: en otra compañía el mismo contacto puede tener otro almacén o ninguno.",
+      "steps": [
+        {
+          "goto": "/odoo/action-purchase_picking_default.demo_vendor"
+        },
+        {
+          "waitFor": ".o_form_view .o_notebook",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook button.nav-link[name='sales_purchases']"
+        },
+        {
+          "waitFor": "div[name='warehouse_id']",
+          "timeout": 15000
+        },
+        {
+          "wait": 1200
+        }
+      ]
+    },
+    {
+      "id": "02-rfq-manual",
+      "title": "2. Solicitud de presupuesto creada a mano",
+      "description": "En una nueva solicitud de cotización (**Compras → Órdenes → Solicitudes de cotización → Nuevo**), al elegir el proveedor el campo **Entregar a** cambia a la recepción de su almacén (aquí *Almacén Santiago: Recepciones*). Si el proveedor no tiene almacén, se mantiene la recepción por defecto. El campo se puede cambiar a mano antes de confirmar.",
+      "steps": [
+        {
+          "goto": "/odoo/action-purchase.purchase_rfq/new"
+        },
+        {
+          "waitFor": ".o_form_view div[name='partner_id'] input",
+          "timeout": 40000
+        },
+        {
+          "type": "div[name='partner_id'] input",
+          "value": "Distribuidora del Cibao"
+        },
+        {
+          "waitFor": ".o-autocomplete--dropdown-item",
+          "timeout": 15000
+        },
+        {
+          "click": ".o-autocomplete--dropdown-item:first-child a"
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "hover": ".o_breadcrumb"
+        },
+        {
+          "wait": 500
+        }
+      ]
+    },
+    {
+      "id": "03-rfq-reabastecimiento",
+      "title": "3. Solicitud generada por reabastecimiento",
+      "description": "Cuando un reabastecimiento compra al proveedor (regla de abastecimiento, venta con ruta *Comprar*, etc.), la solicitud se crea con la recepción del almacén del proveedor en **Entregar a**, aunque la regla de compra pertenezca a otro almacén.",
+      "steps": [
+        {
+          "goto": "/odoo/action-purchase_picking_default.demo_replenishment_rfq"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_x2many_list",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "- Se usa la primera operación de tipo **Recepción** del almacén del proveedor; si el almacén no tiene ninguna, la orden conserva la operación por defecto.\n- Las solicitudes de reabastecimiento se agrupan por la operación de la regla de compra; como el módulo cambia esa operación, cada reabastecimiento hacia un proveedor con almacén crea una **nueva** solicitud en lugar de añadir líneas a la existente."
+}

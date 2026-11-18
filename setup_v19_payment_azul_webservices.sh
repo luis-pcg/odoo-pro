@@ -23,7 +23,7 @@
 #   ./setup_v19_payment_azul_webservices.sh --recreate       # borra y recrea si existe
 #   ./setup_v19_payment_azul_webservices.sh --skip-install   # DB ya instalada, solo configura
 #
-#   export AZUL_CERT_DIR=/ruta/a/certs   (default: ../dev_env_odoo_pro-17/certs)
+#   export AZUL_CERT_DIR=/ruta/a/certs   (default: ../17.0/certs)
 #
 set -uo pipefail
 
@@ -36,7 +36,7 @@ DB_PORT="${DB_PORT_5432_TCP_PORT:-5432}"
 DB_USER="${DB_ENV_POSTGRES_USER:-odoo}"
 DB_PASS="${DB_ENV_POSTGRES_PASSWORD:-odoo_password}"
 MODULE="payment_azul_webservices"
-CERT_DIR="${AZUL_CERT_DIR:-$SCRIPT_DIR/../dev_env_odoo_pro-17/certs}"
+CERT_DIR="${AZUL_CERT_DIR:-$SCRIPT_DIR/../17.0/certs}"
 
 DB_NAME="v19_payment_azul_webservices"
 RECREATE=false

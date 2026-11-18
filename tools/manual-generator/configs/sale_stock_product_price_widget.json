@@ -1,0 +1,120 @@
+{
+  "module": "sale_stock_product_price_widget",
+  "title": "Precio por lista de precios en la línea de venta — Manual de usuario (sale_stock_product_price_widget)",
+  "intro": "En Odoo estándar la línea de un pedido de venta muestra solo el precio de la lista de precios del pedido. Para saber cuánto costaría el mismo producto con otra lista (mayorista, distribuidor, en otra moneda) hay que cambiar la lista del pedido o abrir cada lista por separado.\n\nEste módulo agrega un icono **$** junto a la columna *Precio unitario* de cada línea. Al pulsarlo se abre una ventana con el precio del producto **en todas las listas de precios de la compañía**, calculado con la cantidad, la unidad de medida, la fecha y el cliente de esa línea.",
+  "requirements": [
+    "Módulo **`sale_stock_product_price_widget`** instalado (versión `20.0.1.0.0`, línea 20.0). Depende de **`sale_stock`**.",
+    "La opción **Listas de precios** encendida en *Ventas › Configuración › Ajustes*.",
+    "Una **precisión decimal** elegida en el bloque *Configuración del widget de precios* (paso 1). Sin ella, el icono muestra el aviso *No se encontró la precisión decimal. Revise la configuración.*"
+  ],
+  "extra_modules": [
+    "sale_management"
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes",
+      "title": "1. Elegir la precisión decimal",
+      "description": "En *Ventas › Configuración › Ajustes*, debajo de *Cotizaciones y pedidos*, aparece el bloque **Configuración del widget de precios** con el campo **Precisión decimal del precio del producto**.\n\nSe elige un registro de precisión decimal (en el ejemplo, *Product Price*). Los precios de la ventana se redondean y se muestran con esa cantidad de decimales.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale.action_sale_config_settings"
+        },
+        {
+          "waitFor": "#price_widget_decimal_accuracy",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "scrollTo": "#price_widget_decimal_accuracy",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-listas",
+      "title": "2. Las listas de precios de la compañía",
+      "description": "La ventana del icono **$** muestra una fila por cada lista de precios activa que pertenece a la compañía del pedido o que no tiene compañía.\n\nEn el ejemplo hay cuatro listas:\n\n| Lista | Regla |\n|---|---|\n| **Precio al detalle** | precio de venta del producto, en USD |\n| **Mayorista** | 10 % de descuento |\n| **Distribuidor** | 15 % de descuento a partir de 5 unidades |\n| **Detalle en pesos** | precio de venta convertido a RD$ |",
+      "steps": [
+        {
+          "goto": "/odoo/action-product.product_pricelist_action2"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 40000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "03-icono-linea",
+      "title": "3. El icono $ en la línea del pedido",
+      "description": "En el pedido de venta, cada línea muestra el icono **$** justo después de la columna *Precio unitario*.\n\nEn el ejemplo, la línea vende **6** unidades de *Taladro percutor 800W* (precio de venta US$ 85.00) con la lista *Precio al detalle*.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale_stock_product_price_widget.demo_pedido"
+        },
+        {
+          "waitFor": ".o_field_widget[name='order_line'] a[data-icon='attach_money']",
+          "timeout": 40000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "04-ventana-precios",
+      "title": "4. El precio en cada lista",
+      "description": "Al pulsar el icono **$** se abre la ventana con dos columnas, **Lista de precios** y **Precio**. Cada fila muestra el nombre de la lista con su moneda y el precio unitario con el símbolo en la posición de esa moneda.\n\nCon 6 unidades se cumple el mínimo de la lista *Distribuidor*, así que aparece su descuento del 15 %:\n\n| Lista | Precio |\n|---|---|\n| Precio al detalle (USD) | $ 85.00 |\n| Mayorista (USD) | $ 76.50 |\n| Distribuidor (USD) | $ 72.25 |\n| Detalle en pesos (DOP) | RD$ 5100.00 |\n\nLa ventana se cierra al hacer clic fuera de ella.",
+      "steps": [
+        {
+          "click": ".o_field_widget[name='order_line'] a[data-icon='attach_money']",
+          "timeout": 30000
+        },
+        {
+          "waitFor": ".o_popover table",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-cantidad-uno",
+      "title": "5. El precio depende de la cantidad de la línea",
+      "description": "Los precios se calculan con la cantidad de la línea. En un pedido de **1** unidad, la lista *Distribuidor* no aplica su descuento (pide 5 unidades) y muestra el precio de venta sin descuento.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale_stock_product_price_widget.demo_pedido_uno"
+        },
+        {
+          "waitFor": ".o_field_widget[name='order_line'] a[data-icon='attach_money']",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": ".o_field_widget[name='order_line'] a[data-icon='attach_money']",
+          "timeout": 30000
+        },
+        {
+          "waitFor": ".o_popover table",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "**Alcance y límites**\n\n- El precio que se muestra es el **precio unitario** que tendría la línea con esa lista, **antes de impuestos**. Si el producto tiene un impuesto incluido en el precio y el pedido tiene una posición fiscal que lo cambia, el precio se ajusta igual que en la línea.\n- Si la línea todavía no está guardada, al pulsar el icono se guarda primero el pedido.\n- Los precios se muestran sin separador de miles (p. ej. `RD$ 5100.00`).\n- Se listan todas las listas activas de la compañía del pedido y las que no tienen compañía, aunque el cliente no tenga acceso a ellas.\n\n**Notas de la migración a 20.0**\n\n- `pricelist._get_product_price_rule()` ahora devuelve solo la regla; el precio se obtiene con `_get_product_price()`.\n- `ir.config_parameter.get_param()` se reemplazó por `get_int()`.\n- El campo de la línea `product_uom` es `product_uom_id` (ya en 19.0).\n- El widget se reescribió para Owl 3 y usa el icono `attach_money` de Odoo UI Icons, porque Font Awesome ya no se carga."
+}

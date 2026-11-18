@@ -1,0 +1,153 @@
+{
+  "module": "l10n_do_payroll_brrd_file",
+  "title": "Archivo de pago de nómina BanReservas (BRRD) — Manual de usuario (Odoo 20.0)",
+  "intro": "El módulo **l10n_do_payroll_brrd_file** genera, desde un periodo de nómina, el archivo de **pago de nómina de Banco de Reservas (BanReservas)**: un `.txt` con una línea por colaborador y los campos separados por comas, para subir a la banca empresarial de BanReservas.\n\nSe apoya en **l10n_do_payroll_file_base** (acción **Archivo de Banco** del periodo de nómina) y se activa cuando el diario elegido tiene una cuenta bancaria cuya **Entidad Bancaria** es *Banco de Reservas (BanReservas)*.\n\n**Cambios en Odoo 20.0:** Odoo eliminó el catálogo de bancos (`res.bank`) y el campo *Banco* del diario. El módulo reconoce ahora el diario de BanReservas por la **Entidad Bancaria** de su cuenta bancaria.",
+  "requirements": [
+    "Módulo instalado: l10n_do_payroll_brrd_file (arrastra l10n_do_payroll_file_base, l10n_do_hr_payroll y l10n_do_banks).",
+    "Un diario de tipo **Banco** con la cuenta de la empresa en *Banco de Reservas (BanReservas)*: su número es la cuenta origen del archivo.",
+    "Cada colaborador con cuenta bancaria (o marcado como *Se paga con cheque*).",
+    "Un periodo de nómina en estado **Hecho** con los recibos validados."
+  ],
+  "flows": [
+    {
+      "id": "01-cuenta-empresa",
+      "title": "1. Cuenta de la empresa en BanReservas",
+      "description": "La cuenta bancaria de la empresa asociada al diario de nómina tiene como **Entidad Bancaria** *Banco de Reservas (BanReservas)* (pestaña *Información bancaria*). Su **Número de cuenta** se escribe tal cual como cuenta origen en cada línea del archivo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-base.action_res_partner_bank_account_form/4"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text(\"Información bancaria\")"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-diario",
+      "title": "2. Diario de banco de nómina BanReservas",
+      "description": "Diario de tipo **Banco** con esa cuenta en *Número de cuenta bancaria*.",
+      "steps": [
+        {
+          "goto": "/odoo/action-account.action_account_journal_form/14"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-asistente",
+      "title": "3. Asistente con el diario de BanReservas",
+      "description": "Desde el menú **⋮** de la tarjeta del periodo (estado **Hecho**) ▸ **Archivo de Banco**, se elige el diario **BanReservas - Nómina**. BanReservas no pide datos adicionales.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "evaluate": "(() => { const c=[...document.querySelectorAll('.o_kanban_record')].find(x=>x.innerText.includes('1ra')); const b=[...c.querySelectorAll('button, a, .dropdown-toggle')].filter(e=>!e.innerText.trim()); b[b.length-1].click(); })()"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".dropdown-menu .dropdown-item:has-text(\"Archivo de Banco\")"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 15000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BanReservas - Nómina\")"
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "screenshotEl": ".modal-content"
+    },
+    {
+      "id": "04-archivo-generado",
+      "title": "4. Archivo generado",
+      "description": "Con **Generar**, el asistente muestra el archivo `brrd_<periodo>.txt` para descargar. Si algún recibo del periodo no está validado, se lista como aviso debajo del archivo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "evaluate": "(() => { const c=[...document.querySelectorAll('.o_kanban_record')].find(x=>x.innerText.includes('1ra')); const b=[...c.querySelectorAll('button, a, .dropdown-toggle')].filter(e=>!e.innerText.trim()); b[b.length-1].click(); })()"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".dropdown-menu .dropdown-item:has-text(\"Archivo de Banco\")"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 15000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BanReservas - Nómina\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".modal-content button[name='action_generate_file']"
+        },
+        {
+          "waitFor": ".modal-content div[name='data'] a, .modal-content div[name='data'] button",
+          "timeout": 20000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "screenshotEl": ".modal-content"
+    }
+  ],
+  "notes": "**Ejemplo real** del periodo de este manual (`brrd_nómina 1ra quincena septiembre 2026.txt`, fin de línea CRLF):\n\n```\n240-012345-6,9601234567,39192.76,Ana Mercedes Pérez\n240-012345-6,774555001,21170.25,Beto Antonio Gómez\n240-012345-6,12345678,24463.40,Carlos Pérez Marval\n```\n\nCada línea lleva, separados por `,`:\n\n1. **Cuenta origen**: el número de la cuenta de la empresa del diario, tal como está escrito.\n2. **Cuenta destino** del colaborador, sin guiones ni espacios (puede ser de cualquier banco).\n3. **Monto** neto (regla *Salario Neto*), con dos decimales y punto.\n4. **Referencia**: el nombre del colaborador.\n\nLos colaboradores que se pagan con cheque no aparecen en el archivo.\n\n**Migración a 20.0:** no requiere pasos; la **Entidad Bancaria** de cada cuenta la traslada `l10n_do_banks` al actualizar."
+}

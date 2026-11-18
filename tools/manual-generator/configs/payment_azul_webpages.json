@@ -1,0 +1,67 @@
+{
+  "module": "payment_azul_webpages",
+  "title": "Azul — Página de pago (payment_azul_webpages) — Manual de configuración y uso (20.0)",
+  "intro": "El módulo **`payment_azul_webpages`** agrega el proveedor de pago **Azul** en su modalidad *Página de pago*: al pagar, el cliente es redirigido a la página segura de Azul, introduce allí los datos de la tarjeta y Azul devuelve el resultado a Odoo, que confirma la transacción y el pedido.\n\nEste manual se generó sobre **Odoo 20.0** con los dos módulos de Azul instalados a la vez (`payment_azul_webpages` y `payment_azul_webservices`), para mostrar que conviven: cada uno ofrece su propia opción en el formulario de pago.\n\n> **Qué cambió en 20.0:** los métodos de pago ya no son globales; cada proveedor tiene los suyos. El proveedor *Página de pago* trae su método **Página de pago Azul** (código `azul`) con las marcas VISA, MasterCard, American Express y Discover. Odoo muestra un solo método por código en el formulario de pago, por eso cada módulo de Azul usa su propio código y las dos opciones aparecen juntas. El modo de prueba ahora es la casilla **Producción** (desactivado = pruebas en `pruebas.azul.com.do`).\n\n> La base de ejemplo se siembra con `configs/payment_azul_webpages.seed.py` (credenciales de prueba, sin conexión real con Azul).",
+  "requirements": [
+    "Instalar **`payment_azul_webpages`** (depende de `payment` y `website_sale`).",
+    "Tener activas las monedas **DOP** y/o **USD**: el proveedor sólo se ofrece en esas monedas y envía siempre el monto en pesos dominicanos (convierte USD con la tasa del día).",
+    "Credenciales de Azul: **número de afiliado (MID)** y **llave de la página de pago**.",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-proveedores",
+      "title": "1. Proveedores de pago",
+      "description": "**Contabilidad / Sitio web → Configuración → Proveedores de pago.** Con los dos módulos instalados aparecen dos proveedores **Azul**: el de *Página de pago* (código `azul`) y el de *Webservices* (código `azul_webservices`).",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-credenciales",
+      "title": "2. Credenciales y modo de prueba",
+      "description": "Abrir el proveedor **Azul** (Página de pago), pestaña **Configuración**:\n\n- **Merchant Identification Number (MID)** y **Payment Page Key**: los entrega Azul. Son obligatorios cuando el proveedor está en **Producción**.\n- **Producción** desmarcada (cinta *Modo de prueba*): los pagos van al ambiente de pruebas de Azul. Activarlo envía los pagos a `pagos.azul.com.do`.\n- **Publicado**: hace visible el proveedor en el sitio web.",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider/27" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook button[name='configuration']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "03-metodos",
+      "title": "3. Métodos de pago del proveedor",
+      "description": "Pestaña **Métodos de pago**: el proveedor trae su método **Página de pago Azul** con las marcas VISA, MasterCard, American Express y Discover, activos desde la instalación.",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider/27" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook button[name='payment_methods']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-checkout",
+      "title": "4. El cliente paga: las dos opciones de Azul",
+      "description": "En el formulario de pago (carrito, portal del pedido o de la factura) aparecen **Página de pago Azul** y **Tarjeta de crédito y débito (Azul)** (esta última es del módulo Webservices). Al elegir *Página de pago Azul* y pulsar **Pagar**, el cliente es redirigido a la página de Azul con el número de orden, el monto y el ITBIS en pesos dominicanos, firmados con la llave del comercio.",
+      "steps": [
+        { "goto": "/payment/pay?reference=S00005&amount=2950.0&currency_id=74&partner_id=3&access_token=ec64cf21358fc9838ea8ac4eb3c856073675548ae5a8a7f9616ddfc7941a3752" },
+        { "waitFor": "input[data-provider-code='azul']", "timeout": 30000 },
+        { "evaluate": "document.querySelector(\"input[data-provider-code='azul']\").click()" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-transaccion",
+      "title": "5. La transacción aprobada",
+      "description": "Cuando Azul devuelve el resultado, Odoo lo procesa: con código `00` la transacción queda **Confirmada**, guarda el **número de orden de Azul** como referencia del proveedor y el **código de autorización** como mensaje; el pedido se confirma y se registra el pago. En la página de estado y en el portal del pedido el cliente ve *Su número de autorización es: …*. Si el cliente cancela en la página de Azul, la transacción queda **Cancelada**; un rechazo del banco la cancela con el motivo y la recomendación de Azul.",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_transaction/1" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    }
+  ],
+  "notes": "- **Convivencia con `payment_azul_webservices`:** los dos módulos pueden estar instalados a la vez y se probaron juntos (instalación, pruebas de ambos módulos en la misma base, formulario de pago y desinstalación de uno con el otro funcionando).\n- **Migración desde 19.0:** el script `migrations/2.0.0` reutiliza los métodos de pago que el upgrade de Odoo haya dejado en el proveedor (renombra *Card* a *Página de pago Azul* y conserva los tokens guardados) en lugar de duplicarlos.\n- Para guardar tarjetas (DataVault) el proveedor debe tener **Permitir guardar métodos de pago** activo."
+}

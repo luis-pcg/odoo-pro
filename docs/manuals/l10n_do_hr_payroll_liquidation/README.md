@@ -1,6 +1,6 @@
 # Liquidación por Desvinculación — Prestaciones Laborales (l10n_do_hr_payroll_liquidation)
 
-> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v19_<módulo>`.
+> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v20_<módulo>`.
 
 Este manual muestra, **desde una base de datos limpia**, el cálculo de **Prestaciones Laborales y Derechos Adquiridos** al desvincular un empleado en la República Dominicana: **Preaviso, Cesantía, Vacaciones, Regalía Pascual proporcional** y, de forma opcional, el pago de **Días Laborados pendientes**, replicando la calculadora oficial del **Ministerio de Trabajo** (https://calculo.mt.gob.do/) y sustentado en el Código de Trabajo (Arts. 76, 80, 177, 180, 219).
 
@@ -140,7 +140,7 @@ Al pulsar **Confirmar**, el módulo abre el **mismo asistente que aparece al cre
 - **Nombre** del lote (por empleado si es una sola liquidación, o «Liquidaciones - <fecha>» si se confirman varias a la vez).
 - **Período** (fechas del lote) — ajustable antes de generar.
 - **Estructura** = *Estructura Base* (la única con los conceptos PREA/CESA/VAC/REPA/DLAB); se muestra de solo lectura.
-- **Compañía** y las banderas técnicas *Extraordinary Payroll* + *Liquidation Payroll*.
+- **Compañía** y las banderas técnicas *Nómina extraordinaria* + *Nómina de prestaciones laborales*.
 
 **Generar lote de nómina** crea el recibo de liquidación y lo vincula; **Descartar** cierra sin generar. Confirmar **varias** liquidaciones seleccionadas en el listado las agrupa en un **único lote**.
 
@@ -172,15 +172,15 @@ Un único recibo por empleado mantiene juntas la trazabilidad, las bases y los c
 
 ![10. Días laborados en el mismo recibo (salario ordinario, SÍ cotiza)](img/10-recibo-liquidacion-carlos.png)
 
-## 11. Lote de nómina con distintivo «Liquidation Payroll»
+## 11. Lote de nómina con distintivo «Nómina de prestaciones laborales»
 
-El lote generado (**hr.payslip.run**) queda marcado a la vez como **Extraordinary Payroll** y **Liquidation Payroll**. Este segundo distintivo (campo técnico `l10n_do_is_liquidation`) es el que mantiene el preaviso, la cesantía y la regalía fuera del salario cotizable. **No** es una exención total del recibo: si el mismo recibo paga vacaciones o días laborados, esos conceptos sí cotizan (secciones 9 y 10). Es visible como **badge** en la cabecera del lote y como campo en el formulario, para separarlo de la nómina mensual ordinaria en reportes y conciliaciones.
+El lote generado (**hr.payslip.run**) queda marcado a la vez como **Nómina extraordinaria** y **Nómina de prestaciones laborales**. Este segundo distintivo (campo técnico `l10n_do_is_liquidation`) es el que mantiene el preaviso, la cesantía y la regalía fuera del salario cotizable. **No** es una exención total del recibo: si el mismo recibo paga vacaciones o días laborados, esos conceptos sí cotizan (secciones 9 y 10). Es visible como **distintivo** en la tarjeta del lote, en el tablero **Nómina → Lotes de nómina**, y como interruptor en el formulario del lote, para separarlo de la nómina mensual ordinaria en reportes y conciliaciones.
 
-![11. Lote de nómina con distintivo «Liquidation Payroll»](img/09-lote-badge.png)
+![11. Lote de nómina con distintivo «Nómina de prestaciones laborales»](img/09-lote-badge.png)
 
 ## 12. Tratamiento fiscal por concepto (arquitectura)
 
-El módulo `l10n_do_hr_payroll_liquidation` **depende de** `l10n_do_hr_payroll` y necesita ajustar algunas de sus reglas salariales. Esos ajustes se declaran **dentro de este módulo** (`data/hr_salary_rule.xml`, `data/hr_payslip_input_type.xml`, `data/hr_rule_parameter.xml`) como registros que sobreescriben por `xml_id`, **sin editar** los archivos de la localización: la nómina de un cliente que no instale este módulo queda intacta, y el alcance real del cambio se revisa en un solo lugar.
+El módulo `l10n_do_hr_payroll_liquidation` **depende de** `l10n_do_hr_payroll` y necesita ajustar algunas de sus reglas salariales. Esos ajustes se declaran **dentro de este módulo** (`data/hr_salary_rule.xml`, `data/hr_rule_parameter.xml`) como registros que sobreescriben por `xml_id`, **sin editar** los archivos de la localización: la nómina de un cliente que no instale este módulo queda intacta, y el alcance real del cambio se revisa en un solo lugar.
 
 **a) Bandera de liquidación en el lote y el recibo.** Campo `l10n_do_is_liquidation` en `hr.payslip.run` (con distintivo en la vista) y su reflejo `related` en `hr.payslip`. Marca un lote como pago de prestaciones laborales.
 
@@ -188,7 +188,7 @@ El módulo `l10n_do_hr_payroll_liquidation` **depende de** `l10n_do_hr_payroll` 
 
 **c) Retenciones y bases condicionadas, no suprimidas.** Once reglas de la localización (**SFS/AFP empleado, SFS/AFP/SRL/INFOTEP patronal, ISR** y las bases **OREM, COTSS, COTDGII, SALISR**) llevaban `and not payslip.l10n_do_is_liquidation` o `and not payslip.l10n_do_payslip_extraordinary`, lo que dejaba las bases de TSS y DGII en cero en todo recibo de liquidación. Ahora cada condición admite además el caso «liquidación con contenido salarial», y trata ese recibo como el **último de la relación laboral**, de modo que se retiene aunque la salida caiga a mitad de mes. Con la bandera en falso, cada expresión se reduce algebraicamente a la original.
 
-**d) Vacaciones por la regla `VAC`, no por una regla exenta paralela.** La liquidación envía el importe calculado a la entrada **`VAC`** de la localización, cuya regla pertenece al **Salario Ordinario**. La regla `VACL` (*Vacaciones (Liquidación)*, Ingresos Exentos) y su tipo de entrada quedan **desactivados** —no eliminados, para no alterar los recibos ya emitidos—. En la nómina ordinaria la entrada `VAC` con valor 1 sigue siendo el interruptor «¿Pago de vacaciones?»; en un recibo de liquidación el importe llega ya calculado y se respeta tal cual.
+**d) Vacaciones por la regla `VAC`, no por una regla exenta paralela.** La liquidación envía el importe calculado a la entrada **`VAC`** de la localización, cuya regla pertenece al **Salario Ordinario**. La regla `VACL` (*Vacaciones (Liquidación)*, Ingresos Exentos) queda **desactivada** —no eliminados, para no alterar los recibos ya emitidos—. En la nómina ordinaria la entrada `VAC` con valor 1 sigue siendo el interruptor «¿Pago de vacaciones?»; en un recibo de liquidación el importe llega ya calculado y se respeta tal cual.
 
 **e) Días laborados por `DLAB` → `APAGAR`.** `APAGAR` solo corría en nómina ordinaria, lo que obligaba a emitir un recibo separado. Ahora también corre en una nómina extraordinaria que traiga `REAL` o `DLAB`. La liquidación transfiere **días**, y `APAGAR` hace la aritmética una sola vez. La regla `DLAB` queda desactivada: duplicaba ese cómputo y su fórmula referenciaba `amount_to_pay`, una variable que la nómina no publica en el contexto de evaluación, por lo que fallaba en cuanto un recibo traía la entrada.
 

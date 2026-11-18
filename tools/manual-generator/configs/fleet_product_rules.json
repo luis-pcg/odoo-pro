@@ -1,0 +1,150 @@
+{
+  "module": "fleet_product_rules",
+  "title": "Reglas de producto por estado del vehículo — Manual de usuario (fleet_product_rules, Odoo 20.0)",
+  "intro": "Este módulo permite definir, en cada **estado de vehículo** de Flota, **reglas** que deciden si el producto enlazado al vehículo (ver `fleet_product_management`) **se puede vender**, **se puede comprar** o **se puede alquilar**. Cuando el vehículo cambia de estado, el producto se ajusta solo, y una regla marcada como **Sólo lectura** impide cambiar ese indicador a mano en la ficha del producto.\n\nNi Odoo 20.0 ni Enterprise controlan los indicadores de venta, compra o alquiler de un producto según el estado de un vehículo, por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- Alquiler (`sale_renting`) eliminó la casilla *Alquilable* (`rent_ok`). Un producto se alquila ahora cuando tiene una **Periodicidad de alquiler** (*Horas*, *Días*, *Noches*, *Semanas*), en la pestaña **Ventas → Alquiler**. La regla *Can be rented* (alquilar) controla esa periodicidad: **desactivada** la vacía (el producto deja de ser alquilable); **activada** conserva la periodicidad que el producto ya tenía, o pone **Días** si no tenía ninguna.\n- Las reglas de alquiler de una base 19.0 se convierten solas al actualizar el módulo.\n- Los permisos pasan al nuevo modelo de accesos de 20.0 (`ir.access`): los usuarios de Flota leen las reglas y los responsables de Flota las administran, igual que en 19.0.",
+  "requirements": [
+    "Módulo **`fleet_product_rules`** `20.0.2.0.0` instalado. Depende de **`fleet_product_management`** (vehículos como productos), que a su vez depende de **Flota**, **Inventario** y **Alquiler** (`sale_renting`, Enterprise).",
+    "Usuario con grupo **Flota: Responsable** para crear o cambiar reglas; **Flota: Usuario** solo las consulta.",
+    "El vehículo debe estar enlazado a un producto (**Es un producto** marcado en el vehículo)."
+  ],
+  "flows": [
+    {
+      "id": "01-estados",
+      "title": "1. Estados de vehículo",
+      "description": "**Flotilla → Configuración → Estados**. Con el módulo, la lista deja de ser editable en línea: al hacer clic en un estado se abre su formulario, donde están sus reglas. Al instalar el módulo cada estado estándar (*Nuevo*, *Cliente*, *En Inventario*, *Vendido*, *Obsoleto*) recibe tres reglas: vender y comprar activadas, alquilar desactivada. Los estados propios de Flota (*Nueva solicitud*, *Por ordenar*, *Registrado*, *Degradado*) no traen reglas.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet.fleet_vehicle_state_action"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 40000
+        },
+        {
+          "wait": 1000
+        }
+      ]
+    },
+    {
+      "id": "02-reglas-vendido",
+      "title": "2. Reglas de un estado: vehículo vendido",
+      "description": "En el formulario del estado, la tabla de reglas tiene tres columnas:\n\n- **Campos**: qué indicador controla la regla: *Can be sold* (vender), *Can be purchased* (comprar) o *Can be rented* (alquilar). Estas opciones se muestran en inglés aunque el usuario use español (también en 19.0).\n- **Valor**: el valor que toma el producto mientras el vehículo esté en este estado.\n- **Sólo lectura**: si está marcado, el indicador queda bloqueado en la ficha del producto.\n\nEn el ejemplo, un vehículo **Vendido** no se puede vender, comprar ni alquilar, y nadie puede cambiarlo desde el producto.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_state_sold"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_one2many .o_data_row",
+          "timeout": 40000
+        },
+        {
+          "wait": 1000
+        }
+      ]
+    },
+    {
+      "id": "03-reglas-inventario",
+      "title": "3. Permitir el alquiler en un estado",
+      "description": "En el estado **En Inventario** del ejemplo, la regla *Can be rented* tiene **Valor** activado: los vehículos en almacén quedan disponibles para alquilar. Si hay varias reglas para el mismo indicador en un estado, gana la última de la lista.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_state_stock"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_one2many .o_data_row",
+          "timeout": 40000
+        },
+        {
+          "wait": 1000
+        }
+      ]
+    },
+    {
+      "id": "04-producto-inventario",
+      "title": "4. Producto de un vehículo en inventario",
+      "description": "En el producto del vehículo (**Inventario → Productos**), pestaña **Ventas**, grupo **Alquiler**: la regla del estado *En Inventario* puso la **Periodicidad** en **Días** porque el producto no tenía ninguna. *Se puede vender* y *Se puede comprar* (casillas de la cabecera) siguen las reglas de vender y comprar del estado.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_product_stock"
+        },
+        {
+          "waitFor": ".o_form_view .o_notebook",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='sales']"
+        },
+        {
+          "scrollTo": ".o_notebook .tab-content"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-producto-semanal",
+      "title": "5. La regla respeta la periodicidad existente",
+      "description": "Este otro producto ya se alquilaba por **Semanas** antes de pasar a *En Inventario*. La regla *Can be rented* activada no la cambia: solo pone *Días* cuando el producto no tiene periodicidad.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_product_weekly"
+        },
+        {
+          "waitFor": ".o_form_view .o_notebook",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='sales']"
+        },
+        {
+          "scrollTo": ".o_notebook .tab-content"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-producto-vendido",
+      "title": "6. Producto de un vehículo vendido: indicadores bloqueados",
+      "description": "El vehículo pasó a **Vendido**: *Se puede vender* y *Se puede comprar* están desmarcados y en sólo lectura, y la periodicidad de alquiler se vació. Como el producto ya no se vende, Odoo 20.0 oculta además la pestaña **Ventas** (y con ella la periodicidad de alquiler). La pestaña **Vehículo** muestra el vehículo, su estado y la casilla **Aplicar las reglas del producto**.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_product_sold"
+        },
+        {
+          "waitFor": ".o_form_view .o_notebook",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='vehicle']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-producto-sin-reglas",
+      "title": "7. Excluir un producto de las reglas",
+      "description": "Desmarque **Aplicar las reglas del producto** en la pestaña **Vehículo** para que un producto concreto deje de seguir las reglas de su estado. Sus indicadores vuelven a ser editables a mano: aquí el vehículo está *Vendido* pero su producto sigue a la venta.",
+      "steps": [
+        {
+          "goto": "/odoo/action-fleet_product_rules.demo_product_free"
+        },
+        {
+          "waitFor": ".o_form_view .o_notebook",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='vehicle']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "- Las reglas se aplican cuando el vehículo cambia de estado (por un movimiento de inventario validado, ver `fleet_product_management`) o cuando se modifican las reglas del estado.\n- La periodicidad que pone la regla es siempre **Días**, con horas de recogida y devolución a las 00:00; ajústelas en la pestaña **Ventas** si el alquiler es por días.\n- Si un producto pasa por un estado que desactiva el alquiler y luego vuelve a uno que lo activa, recupera **Días**, no la periodicidad que tenía antes.\n- Al desmarcar **Aplicar las reglas del producto**, los indicadores no siempre se quedan como estaban: pueden volver al último valor guardado antes de la regla (comportamiento heredado de 19.0)."
+}

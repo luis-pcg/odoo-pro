@@ -1,9 +1,12 @@
 {
   "module": "sale_mr_inherit_modify",
-  "title": "Venta Dimensional (Pieza × Altura) — Manual de usuario",
-  "intro": "El módulo `sale_mr_inherit_modify` agrega **cálculo dimensional** al flujo Venta → Fabricación → Entrega. En las líneas del pedido se capturan **Pieza** (ancho / unidades) y **Altura**: la cantidad se calcula sola (Pieza × Altura). Esas dimensiones viajan al resto del flujo: la **orden de fabricación** muestra la línea de venta origen con su cliente, vendedor y dimensiones, y en la **entrega** un botón copia las dimensiones a las operaciones de inventario.",
-  "extra_modules": ["sale_management"],
+  "title": "Venta Dimensional (Pieza × Altura) — Manual de usuario (sale_mr_inherit_modify, Odoo 20.0)",
+  "intro": "El módulo `sale_mr_inherit_modify` agrega **cálculo dimensional** al flujo Venta → Fabricación → Entrega. En las líneas del pedido se capturan **Pieza** (ancho / unidades) y **Altura**: la cantidad se calcula sola (Pieza × Altura). Esas dimensiones viajan al resto del flujo: la **orden de fabricación** muestra la línea de venta origen con su cliente, vendedor y dimensiones, y en la **entrega** un botón copia las dimensiones a las operaciones de inventario.\n\nOdoo 20.0 no ofrece un cálculo de cantidad por dimensiones en ventas: `sale_mrp` sigue aportando solo el vínculo `sale_line_id` de la orden de fabricación, que este módulo reutiliza. Por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- En 20.0 la cantidad de la línea de venta vive dentro de una columna agrupada; las columnas **Pieza** y **Altura** se ubican justo antes de ella.\n- El módulo no declara permisos propios (el antiguo `ir.model.access.csv` vacío se eliminó; en 20.0 los accesos se definen con `ir.access`).",
+  "extra_modules": [
+    "sale_management"
+  ],
   "requirements": [
+    "Módulo **`sale_mr_inherit_modify`** `20.0.1.0.3` instalado.",
     "Apps **Ventas**, **Fabricación** e **Inventario** instaladas (el módulo las trae como dependencias).",
     "No requiere grupos de seguridad adicionales: usa los permisos nativos de cada app."
   ],
@@ -13,11 +16,16 @@
       "title": "1. Pedido de venta — columnas Pieza y Altura",
       "description": "**Ventas → Pedidos** (o Cotizaciones). En las líneas del pedido aparecen las columnas **Pieza** y **Altura** justo antes de **Cantidad**. Al escribir cualquiera de las dos, la cantidad se recalcula al momento: `Cantidad = Pieza × Altura`. Ejemplo: 5 piezas × 8 m = 40 unidades de cerámica. Las dos columnas son opcionales (icono ⚙ del encabezado de la lista) y vienen visibles por defecto.",
       "steps": [
-        { "goto": "/odoo/action-sale.action_orders" },
-        { "waitFor": ".o_list_view .o_data_row", "timeout": 30000 },
-        { "click": ".o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view .o_field_x2many_list", "timeout": 30000 },
-        { "wait": 1200 }
+        {
+          "goto": "/odoo/action-sale_mr_inherit_modify.manual_order_confirmed"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_x2many_list",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
@@ -25,11 +33,33 @@
       "title": "2. Orden de fabricación — datos de la venta origen",
       "description": "**Fabricación → Órdenes de fabricación.** Debajo de la lista de materiales, la orden muestra los datos de la venta que la origina: **Línea de venta**, **Cliente**, **Vendedor**, **Piezas (venta)** y **Altura (venta)**. Los cuatro últimos se llenan solos al vincular la línea. Si la orden se creó con *Documento origen* = número del pedido, el método `find_qty` vincula la línea automáticamente buscando el producto en ese pedido.",
       "steps": [
-        { "goto": "/odoo/action-mrp.mrp_production_action" },
-        { "waitFor": ".o_list_view .o_data_row", "timeout": 30000 },
-        { "click": ".o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view", "timeout": 30000 },
-        { "wait": 1200 }
+        {
+          "goto": "/odoo/action-sale_mr_inherit_modify.manual_mo_linked"
+        },
+        {
+          "waitFor": ".o_form_view .o_sale_line_wrap",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02b-mo-find-qty",
+      "title": "2b. Orden de fabricación vinculada por documento origen",
+      "description": "Esta orden se creó solo con el *Documento origen* = número de la cotización. `find_qty` buscó el producto en ese pedido y vinculó la **Línea de venta**: Cliente, Vendedor, Piezas (4) y Altura (6) se llenan desde ella.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale_mr_inherit_modify.manual_mo_find_qty"
+        },
+        {
+          "waitFor": ".o_form_view .o_sale_line_wrap",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
@@ -37,25 +67,33 @@
       "title": "3. Entrega — botón \"Ver Cantidades\"",
       "description": "**Inventario → Transferencias** (la entrega se crea sola al confirmar el pedido). En el encabezado aparece el botón **Ver Cantidades**: al pulsarlo, el módulo busca el pedido de venta por el *Documento origen* y copia **Pieza** y **Altura** de cada línea de venta a los movimientos y operaciones detalladas del producto correspondiente.",
       "steps": [
-        { "goto": "/odoo/action-stock.action_picking_tree_all" },
-        { "waitFor": ".o_list_view .o_data_row", "timeout": 30000 },
-        { "click": ".o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view button[name='find_qty']", "timeout": 30000 },
-        { "wait": 1200 }
+        {
+          "goto": "/odoo/action-sale_mr_inherit_modify.manual_picking"
+        },
+        {
+          "waitFor": ".o_form_view button[name='find_qty']",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
       "id": "04-operaciones-detalladas",
       "title": "4. Operaciones detalladas — dimensiones sincronizadas",
-      "description": "Dentro de la entrega, el botón inteligente **Moves** (icono ☰, arriba a la derecha) abre la lista de **operaciones detalladas**. Ahí se ven las columnas **Pieza** y **Altura** con los valores copiados desde el pedido, justo antes de la cantidad. En esta captura: cerámica 5×8, vidrio 1.2×2.4 y tela 1.5×10, tal como se capturaron en la venta.",
+      "description": "Dentro de la entrega, el botón inteligente **Movimientos** (arriba, en el centro) abre la lista de **operaciones detalladas**. Ahí se ven las columnas **Pieza** y **Altura** con los valores copiados desde el pedido, justo antes de la cantidad. En esta captura: cerámica 5×8, vidrio 1.2×2.4 y tela 1.5×10, tal como se capturaron en la venta.",
       "steps": [
-        { "goto": "/odoo/action-stock.action_picking_tree_all" },
-        { "waitFor": ".o_list_view .o_data_row", "timeout": 30000 },
-        { "click": ".o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view button[name='action_detailed_operations']", "timeout": 30000 },
-        { "click": "button[name='action_detailed_operations']" },
-        { "waitFor": ".o_list_view", "timeout": 30000 },
-        { "wait": 1200 }
+        {
+          "goto": "/odoo/action-sale_mr_inherit_modify.manual_picking_lines"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {

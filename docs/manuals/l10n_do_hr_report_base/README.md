@@ -1,265 +1,114 @@
-# Reportes laborales y fiscales RD — DGT-2 / DGT-3 / DGT-4 / IR-3 + archivo TSS
+# Datos para reportes laborales RD (TSS · DGT-2/3/4 · IR-3) — Manual de usuario (l10n_do_hr_report_base, Odoo 20.0)
 
-> 📘 Manual **funcional** para **funcionales** y **ventas**.
-> Explica para qué sirven los módulos, cómo se relacionan y qué significa cada
-> campo u opción que agregan, con el contexto de los reportes de la **DGII** y el
-> **Ministerio de Trabajo (SIRLA)**.
+> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v20_<módulo>`.
 
----
+Este módulo es la **capa de datos** de los reportes laborales y fiscales de la nómina dominicana. Guarda en la base todo lo que piden la **TSS** (autodeterminación), el **Ministerio de Trabajo** (formularios **DGT-2**, **DGT-3** y **DGT-4** del SIRLA) y la **DGII** (IR-3): el nombre completo del empleado separado en nombres y apellidos, los catálogos oficiales del SIRLA, los establecimientos (RNL), los turnos, los movimientos de personal, la causa de cada hora extra y el cálculo común de salarios que comparten la TSS y el IR-3.
 
-## 1. ¿Qué resuelven estos módulos?
+Los formularios DGT no se generan en Odoo: los sistemas externos (SIRLA, fiscalización) leen estos datos por una conexión externa. El archivo de la TSS lo genera el módulo `tss_report` (tiene su propio manual).
 
-En República Dominicana la nómina alimenta varios reportes obligatorios:
+Odoo 20.0 no trae nada de esto para República Dominicana, por eso el módulo se porta.
 
-| Reporte | Entidad | Qué declara | ¿Se genera en Odoo? |
-|---|---|---|---|
-| **DGT-2** | Min. Trabajo (SIRLA) | Horas extra / extensión de jornada | ❌ Externo (Odoo solo guarda los datos) |
-| **DGT-3** | Min. Trabajo (SIRLA) | Planilla de personal fijo | ❌ Externo (Odoo solo guarda los datos) |
-| **DGT-4** | Min. Trabajo (SIRLA) | Movimientos de personal (altas, salidas, cambios) | ❌ Externo (Odoo solo guarda los datos) |
-| **IR-3** | DGII | Retenciones del ISR a asalariados | ✅ Se computa dentro del reporte DGII |
-| **TSS** (Autodeterminación) | TSS | Salarios cotizables del período | ✅ Genera el archivo TXT |
+**Qué cambió en 20.0:**
 
-La idea central: **un solo lugar guarda los datos y el cálculo** que todos estos
-reportes necesitan, para que los números siempre cuadren entre sí.
+- Odoo 20.0 eliminó las **líneas de horas extra** (`hr.attendance.overtime.line`) y los **conjuntos de reglas de horas extra**. Ahora las horas extra son **asistencias** que crean las **reglas de tiempo** (*Asistencias → Configuración → Reglas automáticas*), y el recargo lo lleva la regla. La causa (Art. 153) y el % de recargo RD pasan a esas asistencias (sección 9).
+- El conjunto de reglas *Horas Extra RD* pasa a ser **dos reglas de tiempo RD**: 35 % sobre 44 horas a la semana y 100 % en domingo y días feriados. Llegan **archivadas**, porque en 20.0 una regla activa se aplica sola a todos los empleados de la compañía y en 19.0 había que asignar el conjunto a cada contrato.
+- Al actualizar una base 19.0, el script `migrations/2.0.0` pasa la causa de cada línea de horas extra a la asistencia de horas extra del mismo empleado y día.
 
----
+## Requisitos previos
 
-## 2. Los tres módulos y cómo se relacionan
+- Módulo **`l10n_do_hr_report_base`** `20.0.2.0.0` instalado. Depende de **`l10n_do_hr_payroll`** y de **`hr_attendance`**.
+- Compañía con país República Dominicana y **RNC** cargado.
+- Permisos de Empleados (*Oficial* para editar los datos SIRLA, *Administrador* para los catálogos) y de Asistencias (*Administrador*) para activar las reglas de tiempo.
 
-| Módulo | Rol funcional |
-|---|---|
-| **`l10n_do_hr_report_base`** | 🧱 *Centro de datos*. Agrega al empleado los datos SIRLA, mantiene los catálogos oficiales, los establecimientos (RNL), los movimientos de personal y las horas extra, y guarda el cálculo común (salario cotizable, ISR…). |
-| **`dgii_ir3_report`** | 🧾 Añade la pestaña **IR-3** dentro del reporte DGII del período y el **archivo TSS**. |
-| **`tss_report`** | 📄 Asistente que produce el **archivo TXT de la TSS** (Autodeterminación). |
+## 1. La compañía con su RNC
 
-```
-Nómina (l10n_do_hr_payroll)
-        │  (salarios, ISR, horas extra)
-        ▼
-l10n_do_hr_report_base   ← datos SIRLA del empleado · catálogos · establecimientos · movimientos · cálculo común
-        ├──────────────► dgii_ir3_report   → IR-3 + archivo TSS dentro de la declaración DGII del período
-        └──────────────► tss_report        → archivo TXT de la TSS (Autodeterminación)
-```
+**Ajustes → Empresas**. La compañía debe tener país **República Dominicana** y su **RNC** (solo dígitos): encabeza el archivo de la TSS.
 
-> 🔑 **Un único reporte DGII por período** (`MM/AAAA`). Lo crea quien llegue
-> primero (al generar la TSS o al abrir DGII) y el otro lo reutiliza. Nunca se
-> duplica, y como IR-3 y TSS usan el **mismo cálculo**, los montos cuadran.
+![1. La compañía con su RNC](img/01-empresa-rnc.png)
 
----
+## 2. Establecimientos (RNL)
 
-## 3. Configuración inicial
+**Empleados → Configuración → Reportes SIRLA / DGT → Establecimientos**. Cada establecimiento tiene su **código RNL** del Ministerio de Trabajo. El campo **Empresas** dice qué compañías pueden usarlo; vacío, lo usan todas. Al crearlo se completan el nombre, la dirección y la provincia con los de la compañía.
 
-### 3.1 Empresa: RNC
+![2. Establecimientos (RNL)](img/02-establecimiento.png)
 
-**Ajustes → Empresas** → abrir la compañía y completar el **RNC** (solo dígitos).
-Es obligatorio: encabeza el archivo de la TSS y el reporte DGII.
+## 3. Catálogos SIRLA
 
-![Empresa con RNC](img/01-empresa-rnc.png)
+**Empleados → Configuración → Reportes SIRLA / DGT**: **Ocupaciones**, **Nacionalidades**, **Niveles educativos** y **Discapacidades** vienen cargados de los catálogos oficiales del Ministerio de Trabajo (más de 2,000 ocupaciones). En la misma sección están las **Causas de horas extra** (Art. 153, literales a–e).
 
-### 3.2 Establecimientos (RNL)
+![3. Catálogos SIRLA](img/03-catalogos-ocupacion.png)
 
-**Empleados → Configuración → SIRLA / DGT Reports → Establecimientos (RNL)**.
+## 4. Turnos de trabajo
 
-El establecimiento es el **Registro Nacional de Local (RNL)** del Ministerio de
-Trabajo. Ya **no se vincula a la empresa**: es un registro independiente que se
-asigna **directamente en cada empleado**, y es **multicompañía**.
+**Turnos** del SIRLA, con su código y horario. Se asignan a cada empleado.
 
-![Establecimiento (RNL)](img/02-establecimiento.png)
+![4. Turnos de trabajo](img/04-turnos.png)
 
-| Campo | Para qué sirve |
-|---|---|
-| **Nombre** | Nombre del local/establecimiento. |
-| **Código RNL** | Código del Registro Nacional de Local. Es único. |
-| **Calle** / **Provincia** | Dirección del establecimiento. |
-| **Empresas** | 🏢 Compañías que pueden usar este establecimiento. Al crearlo viene **la compañía actual** por defecto; se pueden agregar **varias** (multicompañía) o **dejarlo vacío** para que esté disponible en **todas**. |
-| **Activo** | Permite archivarlo sin borrarlo. |
+## 5. Ocupación del puesto
 
-> 💡 El selector de establecimiento en el empleado solo muestra los
-> establecimientos de **su** compañía (o los compartidos con todas).
+En **Empleados → Configuración → Puestos de trabajo**, cada puesto puede llevar su **Ocupación (SIRLA)**, como referencia para los empleados de ese puesto.
 
-### 3.3 Catálogos SIRLA
+![5. Ocupación del puesto](img/05-puesto-ocupacion.png)
 
-**Empleados → Configuración → SIRLA / DGT Reports**. Vienen **precargados** con
-los códigos oficiales del Ministerio de Trabajo y son **catálogos nacionales
-compartidos** entre compañías. Cada uno tiene **código** + **descripción**.
+## 6. Empleado: pestaña TSS / DGT
 
-![Catálogo de ocupaciones](img/03-catalogos-ocupacion.png)
+En la ficha del empleado, la pestaña **TSS / DGT** guarda:
 
-| Catálogo | Uso |
-|---|---|
-| **Ocupaciones** | Ocupación SIRLA del empleado (DGT-2/3/4). |
-| **Nacionalidades** | Nacionalidad SIRLA del empleado. |
-| **Niveles educativos** | Nivel/grado educativo SIRLA. |
-| **Discapacidades** | Discapacidad(es) SIRLA. |
-| **Causas de horas extra (Art. 153)** | Motivo de extensión de jornada para el DGT-2. |
+- **Nombre completo**: nombres, primer y segundo apellido por separado, como los pide la TSS (los dos primeros son obligatorios).
+- **Datos SIRLA**: tipo de documento, nacionalidad, ocupación, nivel educativo, turno, establecimiento (RNL) y discapacidad.
 
-> 💡 Si se crea un catálogo "al vuelo" desde el campo del empleado, ahora se
-> guarda con un **código autogenerado** (antes el código obligatorio impedía
-> guardarlo).
+![6. Empleado: pestaña TSS / DGT](img/06-empleado-tss-dgt.png)
 
-### 3.4 Turnos de trabajo
+## 7. Empleado: clave de nómina y tipo de ingreso
 
-**Empleados → Configuración → SIRLA / DGT Reports → Turnos**. Define el turno
-SIRLA del empleado.
+En la pestaña **Nómina** del empleado, junto a la categoría de pago, el módulo agrega:
 
-![Turnos de trabajo](img/04-turnos.png)
+- **Clave de nómina**: la nómina de la TSS a la que pertenece el empleado (por defecto *Nómina Principal*, clave `001`).
+- **Tipo de ingreso**: el código de la TSS (`0001` Normal, `0002` Trabajador ocasional, `0003` Por hora o tiempo parcial…). Por defecto `0001`.
 
-| Campo | Para qué sirve |
-|---|---|
-| **Código** / **Nombre** | Identifican el turno. |
-| **Hora desde** / **Hora hasta** | Franja horaria del turno. |
-| **Empresa** | Compañía a la que pertenece el turno. |
+![7. Empleado: clave de nómina y tipo de ingreso](img/07-empleado-nomina.png)
 
----
+## 8. Movimientos de personal (DGT-4)
 
-## 4. Datos del empleado (pestaña TSS / DGT)
+**Movimientos (DGT-4)**: cada alta (**NI**), salida (**NS**) o cambio (**NC**) de un empleado, con fecha y motivo. Es la fuente del formulario DGT-4.
 
-En la ficha del empleado, la pestaña **TSS / DGT** concentra todo lo que piden
-los reportes. El **nombre completo desglosado** se usa en DGT, IR-3 y TSS; los
-**datos SIRLA** alimentan los DGT-2/3/4.
+![8. Movimientos de personal (DGT-4)](img/08-movimientos-dgt4.png)
 
-![Empleado — pestaña TSS / DGT](img/05-empleado-tss-dgt.png)
+## 9. Reglas de tiempo RD
 
-| Campo | Para qué sirve | Reporte |
-|---|---|---|
-| **Nombres** | Nombre de pila | DGT · IR-3 · TSS |
-| **Primer Apellido** | Primer apellido | DGT · IR-3 · TSS |
-| **Segundo Apellido** | Segundo apellido | DGT · IR-3 · TSS |
-| **Tipo de documento (SIRLA)** | Cédula / Pasaporte / Carnet de extranjería | DGT-2/3/4 |
-| **Nacionalidad (SIRLA)** | Del catálogo de nacionalidades | DGT-2/3/4 |
-| **Ocupación (SIRLA)** | Del catálogo de ocupaciones | DGT-2/3/4 |
-| **Nivel educativo (SIRLA)** | Del catálogo de niveles | DGT-2/3/4 |
-| **Turno (SIRLA)** | Del catálogo de turnos | DGT-2/3/4 |
-| **Establecimiento (RNL)** | Local donde labora (RNL) | DGT-2/3/4 |
-| **Discapacidad (SIRLA)** | Una o varias discapacidades | DGT-2/3/4 |
+**Asistencias → Configuración → Reglas automáticas**. El módulo trae dos reglas para República Dominicana, **archivadas**:
 
-> 📌 Los datos personales de respaldo (género, fecha de nacimiento y número de
-> documento) viven en la pestaña **Información privada** del empleado y también
-> los usa la TSS.
+- **Recargo 35 % (más de 44 h semanales)**: las horas que pasan de 44 en la semana.
+- **Recargo 100 % (descanso semanal / día feriado)**: las horas trabajadas un domingo o un día feriado.
 
----
+Para usarlas, quitarles el archivado. Odoo trae además la regla genérica *Employee Schedule Rule*, activa para todos los países, que marca como horas extra lo que pasa del horario de cada día con tasa 1.0; si se deja activa junto a las reglas RD, parte de esas horas queda con 0 % de recargo. En la captura las dos reglas RD ya están activas y la genérica archivada.
 
-## 5. DGT-4 — Movimientos de personal
+![9. Reglas de tiempo RD](img/09-reglas-tiempo-rd.png)
 
-Registra los eventos que exige el DGT-4: **altas** (ingreso), **salidas** y
-**cambios**. ⚠️ El DGT-4 se **genera de forma externa**; el módulo **solo
-guarda** estos datos (por eso no tiene un menú propio en el día a día).
+## 10. Detalle de la regla del 35 %
 
-![Movimientos de personal (DGT-4)](img/06-movimientos-dgt4.png)
+La regla compara las horas **por semana** con **44 horas** y le pone a lo que sobra la **tasa salarial 1.35**. De esa tasa sale el **% RD**: 1.35 → 35 %, 2.0 o más → 100 %.
 
-La lista (**Novedades / DGT-4**) muestra **Fecha**, **Empleado**, **Tipo de
-novedad**, **Motivo** y **Compañía**.
+El excedente se marca con el tipo de tiempo genérico de horas extra de Odoo (código `040.00`, que Odoo nombra *Overtime hours non recoverable - 150%*). Ese nombre es de Odoo: el % RD sale de la tasa de la regla, no del tipo. La nómina dominicana paga las horas extra por sus propias reglas (`HEL`, `HEN`, `HEF`), no por este tipo.
 
-| Campo | Para qué sirve |
-|---|---|
-| **Empleado** | Empleado afectado. |
-| **Tipo de novedad** | **NI** = Nuevo Ingreso · **NS** = Salida · **NC** = Cambio. |
-| **Fecha** | Fecha del evento. |
-| **Motivo** / **Notas** | Detalle del movimiento. |
+![10. Detalle de la regla del 35 %](img/10-regla-35.png)
 
----
+## 11. Horas extra (DGT-2)
 
-## 6. DGT-2 — Horas extra
+La acción **Horas Extra (DGT-2)** lista las asistencias de horas extra que crearon las reglas de tiempo: empleado, día, horas, regla, **% RD** y **Causa (Art. 153)**. La causa se escoge en la misma lista. Es la fuente del formulario DGT-2.
 
-Las horas extra (extensión de jornada) salen de la asistencia nativa de Odoo. El
-módulo agrega a cada línea la **causa (Art. 153)** y el **% de recargo** dominicano.
-⚠️ El DGT-2 también se **genera de forma externa**; aquí solo se **revisan/guardan** los datos.
+En el ejemplo, Juan trabajó 10 horas de lunes a viernes, 4 el sábado y 4 el domingo: 6 h del viernes y 4 del sábado pasan de 44 en la semana (35 %) y las 4 del domingo van al 100 %.
 
-![Horas extra (DGT-2)](img/07-horas-extra-dgt2.png)
+![11. Horas extra (DGT-2)](img/11-horas-extra-dgt2.png)
 
-La lista (**Horas Extra / DGT-2**) muestra **Empleado**, **Día**, **Horas extra**,
-**Tasa de pago**, **% RD**, **Causa (Art. 153)** y **Estado**.
+## 12. El recibo muestra el tipo de ingreso
 
-| Campo | Para qué sirve |
-|---|---|
-| **Empleado** / **Día** | A quién y cuándo. |
-| **Horas extra** | Cantidad de horas. |
-| **Tasa de pago** / **% RD** | Recargo dominicano: **35 %** o **100 %** según la ley. |
-| **Causa (Art. 153)** | Motivo de extensión de jornada. |
-| **Estado** | Estado de la hora extra (ej. Aprobada). |
+El recibo de nómina muestra el **Tipo de ingreso** del contrato, que la TSS usa en el archivo de autodeterminación.
 
----
+![12. El recibo muestra el tipo de ingreso](img/12-recibo-tipo-ingreso.png)
 
-## 7. Generar el archivo TSS (Autodeterminación)
+## Notas
 
-Hay **dos caminos** que producen **el mismo archivo** (`AM_<RNC>_<MMAAAA>.txt`):
-
-**Camino A — Asistente TSS.** **Nómina → TSS → Autodeterminación** → *Agregar una
-línea* y elegir el/los **lotes de nómina** del mismo mes → **Generar** → descargar
-el TXT.
-
-![Asistente TSS — Generar TXT](img/08-tss-wizard.png)
-
-**Camino B — Desde el reporte DGII** (botón **Generar TSS**, ver siguiente sección).
-
-> ✅ Antes de generar, la nómina del período debe estar **calculada y validada**.
-> Si falta un dato obligatorio (ej. la clave de nómina), el sistema avisa en
-> español indicando el empleado y el dato faltante.
-
----
-
-## 8. IR-3 — Declaración de retenciones a asalariados (DGII)
-
-**Contabilidad → DGII** → abrir/crear la declaración del período → pestaña
-**IR-3**. La pestaña reproduce el formulario oficial del IR-3 y se calcula
-**automáticamente** desde la nómina validada del mes. Todos los valores son de
-**solo lectura** (no se editan a mano).
-
-![Declaración IR-3 (DGII)](img/09-dgii-ir3.png)
-
-**Botones**
-- **Recalcular IR-3** — recalcula desde las nóminas validadas del período.
-- **Generar TSS** — produce el archivo TSS de ese mismo mes (queda en **Archivo TSS**).
-
-**Sección II. Asalariados** (cada casilla del formulario IR-3):
-
-| Casilla | Significado |
-|---|---|
-| **1 · Total Asalariados** | Cantidad de asalariados del período. |
-| **2 · Asalariados Sujetos a Retención** | Cuántos tuvieron ISR retenido. |
-| **3 · Sueldos Pagados por el Agente** | Sueldos pagados por la empresa (salario sujeto a ISR). |
-| **4 · Otras Remuneraciones** | Otras remuneraciones gravables. |
-| **5 · Remuneraciones de Otros Agentes** | Pagadas por otros agentes de retención. |
-| **6 · Total Pagado** | Suma de 3 + 4 + 5. |
-| **7 · Pago Total Sujeto a Retención** | Total pagado a los asalariados con retención. |
-| **8 · Impuesto sobre la Renta** | Total del ISR retenido. |
-| **9 · Saldo Compensado Autorizado** | Saldo autorizado por la DGII (se resta de la casilla 8). |
-| **10 · Saldo por Compensar** | Saldo a favor del período. |
-
-**Sección III. Liquidación**
-
-| Casilla | Significado |
-|---|---|
-| **11 · Impuesto a Pagar** | Casilla 8 − 9 cuando es positivo. |
-
-**Detalle por empleado** — una línea por asalariado con su documento, sueldos
-pagados, otras remuneraciones, total pagado, ISR retenido, saldo por compensar y
-si está sujeto a retención. Es el respaldo de los totales de arriba.
-
-> 🔗 Como el IR-3 y la TSS comparten el mismo cálculo, los montos del IR-3 y del
-> archivo TSS del mismo período **siempre cuadran**.
-
----
-
-## 9. Flujo completo (resumen)
-
-```
-1. Empresa con RNC
-2. Establecimientos (RNL) + Catálogos SIRLA + Turnos     (configuración)
-3. Empleado → pestaña TSS / DGT (nombre + datos SIRLA + establecimiento)
-4. Movimientos DGT-4  ·  Horas extra DGT-2                (datos para reportes externos)
-5. Nómina del período: Calcular + Validar
-6. Archivo TSS (asistente o botón en la declaración DGII)
-7. IR-3 dentro de la declaración DGII del período
-```
-
-### Datos obligatorios antes de generar
-
-| Dato | Dónde |
-|---|---|
-| RNC de la compañía | Empresa |
-| Género, fecha de nacimiento, documento | Empleado → Información privada |
-| Nombres y apellidos + datos SIRLA | Empleado → pestaña TSS / DGT |
-| Nómina del período **calculada y validada** | Nómina → Lotes |
-
----
+- Los formularios **DGT-2/3/4** se generan fuera de Odoo. Los sistemas que leían las líneas de horas extra (`hr_attendance_overtime_line`) deben leer ahora `hr_attendance` filtrando `time_rule_id` (columnas `l10n_do_overtime_cause_id` y `l10n_do_overtime_pct`).
+- Una línea de horas extra de 19.0 cuya asistencia de horas extra no aparece después de la actualización se informa en el registro de la migración y su causa no se pasa.
+- El IR-3 (`dgii_ir3_report`) todavía no está portado a 20.0.

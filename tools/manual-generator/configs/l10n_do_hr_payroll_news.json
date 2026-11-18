@@ -1,0 +1,131 @@
+{
+  "module": "l10n_do_hr_payroll_news",
+  "title": "Novedades en Nómina — Manual de usuario (l10n_do_hr_payroll_news, Odoo 20.0)",
+  "intro": "Este módulo conecta las **novedades del empleado** (`l10n_do_hr_news`) con la **nómina dominicana** (`l10n_do_hr_payroll`): cuando se aprueba una novedad cuyo tipo tiene una **regla salarial**, se crea sola el **ajuste de nómina** que la lleva a los recibos del empleado. Así, unas horas extra aprobadas por el encargado llegan a la nómina sin que nadie las vuelva a digitar.\n\nOdoo 20.0 no trae este puente entre una solicitud aprobada y un ajuste de nómina, por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- Odoo 20.0 eliminó los **tipos de entrada** (`hr.payslip.input.type`). Las entradas y los ajustes de nómina ahora apuntan a una **regla salarial** marcada como *disponible en el recibo*. El campo *Tipo de entrada* del tipo de novedad pasa a ser **Regla salarial**.\n- El ajuste de nómina de 20.0 tiene **un** empleado, un **monto por recibo** y la marca **Repeat**; ya no tiene *monto total*. La novedad conserva sus tres duraciones y las traduce a esa forma (sección 4).\n- Al actualizar una base 19.0, el script `migrations/2.0.0` pasa cada tipo de novedad de su tipo de entrada a la regla salarial dominicana con el mismo código.",
+  "requirements": [
+    "Módulo **`l10n_do_hr_payroll_news`** `20.0.2.0.0` instalado. Depende de **`l10n_do_hr_news`** y **`l10n_do_hr_payroll`** (ambos `20.0.2.0.0`).",
+    "Compañía con país República Dominicana.",
+    "El empleado debe estar en una estructura cuyo tipo incluya la regla salarial de la novedad (en el ejemplo, *Nómina de Empleados Internos*, quincenal).",
+    "Permisos de novedades (ver el manual de `l10n_do_hr_news`) y de Nómina para ver los ajustes y recibos."
+  ],
+  "flows": [
+    {
+      "id": "01-tipo-regla-salarial",
+      "title": "1. El tipo de novedad lleva una regla salarial",
+      "description": "**Empleados → Configuración → Novedades → Tipos de Novedades**, sección **Payroll**. La **Regla salarial** solo ofrece las reglas dominicanas que se pueden usar como entrada del recibo.\n\nEl módulo deja configuradas las horas extra: *Regular Overtime Hours* → **Horas Extra Laborables (35%)** (`HEL`), *Night Overtime Hours* → **Horas Extra Nocturnas (50%)** (`HEN`) y *Holiday Overtime Hours* → **Horas Extra Feriadas (100%)** (`HEF`). Un tipo sin regla salarial sigue siendo una novedad normal y no toca la nómina.\n\n> Varias etiquetas del módulo salen en inglés (*Payroll*, *Payslip*, *Duration*…) porque su `es_DO.po` es de la 15.0 y no las trae; la migración no lo cambió.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll_news.demo_news_type_overtime"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-lista-tipos",
+      "title": "2. Lista de tipos",
+      "description": "La lista de tipos muestra la columna **Regla salarial**, para ver de un vistazo qué novedades llegan a la nómina.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_news.l10n_do_hr_news_type_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-pestana-nomina",
+      "title": "3. La pestaña Payslip de la novedad",
+      "description": "Si el tipo tiene regla salarial, la novedad muestra la pestaña **Payslip**:\n\n- **Duration**: *One Time* (una vez), *Limited* (limitado) o *Unlimited* (ilimitado).\n- **Apply On**: *All payslips*, *First payslip* o *Second payslip* del mes. Solo aparece si el empleado cobra por quincena (o cada dos semanas) y la duración no es *One Time*.\n- **Monto de la entrada de nomina** (monto por recibo) y, en *Limited*, **Total Amount**; en *Unlimited*, una **End Date** opcional.\n\nEl valor es la cantidad que recibe la regla: en las horas extra, **horas**; la regla calcula el pago. Una vez aprobada la novedad estos campos quedan de solo lectura.\n\nEn la captura: 4 horas por quincena hasta completar 16.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll_news.demo_news_draft"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='payslip_input']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-duraciones",
+      "title": "4. Cómo se traduce cada duración al ajuste de nómina",
+      "description": "Al **aprobar** (o validar, si pide dos niveles) se crea el ajuste de nómina con el empleado, la regla salarial, la fecha de la novedad como inicio, la descripción y el *Apply On*:\n\n| Duración de la novedad | Ajuste de nómina en 20.0 |\n|---|---|\n| One Time | *Repeat* apagado: se paga una vez y se cierra al confirmar el recibo |\n| Limited | *Repeat* encendido, con **fecha estimada de fin** al cierre del mes en que se completan las cuotas: `Total Amount / monto por recibo` cuotas, dos por mes si el empleado cobra por quincena en todas las nóminas, una si no |\n| Unlimited | *Repeat* encendido; la *End Date* de la novedad, si se puso, es la fecha estimada de fin |\n\n20.0 ya no guarda un monto total en el ajuste, por eso *Limited* se expresa con la fecha estimada de fin, igual que hace `l10n_do_hr_payroll` al migrar los ajustes limitados de 19.0.",
+      "image": false
+    },
+    {
+      "id": "05-novedad-aprobada",
+      "title": "5. Novedad aprobada y su ajuste",
+      "description": "La novedad aprobada muestra el botón **Salary Adjustment**, que abre el ajuste que creó.\n\n- **Rechazar** la novedad cierra su ajuste si seguía *En proceso*.\n- **Establecer a Borrador** (desde *Rechazado*) borra el ajuste si ningún recibo lo usó, o lo deja cerrado si ya se pagó en alguno.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll_news.demo_news_validated"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='payslip_input']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-ajuste-nomina",
+      "title": "6. El ajuste de nómina creado",
+      "description": "El ajuste queda *En proceso* con la **Regla salarial** *Horas Extra Laborables (35%)*, el **Importe** por recibo, *Repeat* apagado (novedad *One Time*) y la descripción de la novedad como **Nota**. Es un ajuste nativo de Odoo: se puede marcar como **Hecho** y ver los **Recibos de nómina** donde se usó.\n\n> El campo *Importe* del ajuste es monetario, pero en las horas extra lleva horas (aquí 6), como en 19.0: la regla `HEL` lo multiplica por el valor de la hora.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll_news.demo_salary_attachment"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-recibo",
+      "title": "7. El recibo toma la novedad",
+      "description": "El recibo de la primera quincena de septiembre de *Ana Mercedes Pérez* trae, en **Entradas salariales**, la línea *Horas Extra Laborables (35%)* con las 6 horas aprobadas.\n\nSi alguien borra a mano el ajuste de una novedad aprobada cuya fecha cae dentro del período, **Calcular** lo vuelve a crear antes de calcular el recibo.\n\n> El aviso *Payslip periods mismatch pay schedule* es del recibo de ejemplo, creado a mano fuera de un lote de nómina.",
+      "steps": [
+        {
+          "goto": "/odoo/action-l10n_do_hr_payroll_news.demo_payslip"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='salary_inputs']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "Probado en Odoo 20.0 (`odoo/odoo@20.0` y `enterprise@20.0`): instalación limpia, 32/32 verificaciones de flujo (vistas, regla salarial de cada tipo y dominio de reglas, ajuste para cada duración y *Aplicar en*, entrada HEL en el recibo, restauración del ajuste borrado, un solo ajuste al validar con un recibo en borrador abierto, rechazo y vuelta a borrador) y actualización de una base con forma 19.0: sin el script el tipo de novedad propio pierde su regla salarial; con él queda en la regla dominicana del mismo código, y repetir la actualización no cambia nada."
+}

@@ -1,0 +1,202 @@
+{
+  "module": "delivery_buenvio",
+  "title": "Envíos con Buenvío — Manual de usuario (delivery_buenvio, Odoo 20.0)",
+  "intro": "Este módulo conecta Odoo con **Buenvío**, el servicio de mensajería dominicano. Permite cotizar el envío desde la orden de venta, crear la orden de envío en Buenvío al validar (o al confirmar) la entrega, guardar el número de rastreo y cancelar el envío.\n\nNi Odoo 20.0 ni Enterprise traen un conector con Buenvío, por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- Los campos obligatorios del formulario de dirección (*Casa/Apt* y *Número del Sector* para República Dominicana) se declaran ahora en el contacto, que es donde Odoo 20.0 los consulta. Aplica a *Mi cuenta*, *Mis direcciones* y al checkout de la tienda.\n- Odoo 20.0 ya no tiene *Empaquetados de producto* en la línea de venta: si se vende en una **unidad de medida de paquete** (p. ej. *Caja de 6*), el módulo envía a Buenvío **un bulto por cada paquete**, con el peso de las unidades que contiene.\n- El contacto ya no tiene campo *Móvil*: el teléfono que se envía a Buenvío es el **Teléfono** de la dirección de entrega (o el del cliente).\n- El ajuste *Solicite el envío al confirmar su conduce* está ahora en el bloque **Envío** de los ajustes de Ventas.",
+  "requirements": [
+    "Módulo **`delivery_buenvio`** `20.0.1.0.0` instalado. Depende de **`delivery`**, **`stock`**, **`sale`** y **`website_sale`**.",
+    "Aplicación **Ventas** (`sale_management`) instalada: sin ella Odoo no muestra la sección *Ventas* en Ajustes.",
+    "Una **clave API** de Buenvío (cuenta de negocio en buenvio.com).",
+    "Dirección de la compañía completa: calle, **Casa/Apt**, **Número del Sector** y provincia (la provincia debe tener su *Id de estado de Buenvío*).",
+    "Contactos de República Dominicana con calle, Casa/Apt, sector, provincia, correo y teléfono.",
+    "Peso en los productos: Buenvío cotiza por libras (si los pesos están en kg, el módulo los convierte)."
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes",
+      "title": "1. Elegir cuándo se crea el envío",
+      "description": "**Ventas → Configuración → Ajustes**, bloque *Envío*: **Solicite el envío al confirmar su conduce**.\n\n- **Apagado** (por defecto): la orden de envío se crea en Buenvío al **Validar** la entrega.\n- **Encendido**: la entrega muestra el botón **Enviar** para crear la orden en Buenvío antes de validarla; al validar ya no se envía de nuevo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale.action_sale_config_settings"
+        },
+        {
+          "waitFor": ".o_setting_container",
+          "timeout": 40000
+        },
+        {
+          "fill": ".o_searchview_input",
+          "value": "conduce"
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "02-metodo-envio",
+      "title": "2. Crear el método de envío Buenvío",
+      "description": "**Inventario → Configuración → Métodos de envío**: cree un método con **Proveedor = Buenvio**. El producto de envío *Buenvio Delivery* se asigna solo. En la pestaña **Configuracion de buenvio** escriba la **Buenvio Api Key**.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_carrier"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook_headers button[name='buenvio_configuration']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-compania",
+      "title": "3. Dirección de salida: la compañía",
+      "description": "En **Ajustes → Compañías**, complete **Casa/Apt** y **Número del Sector** bajo la dirección. Buenvío recoge en esta dirección; la provincia se envía con su *Id de estado de Buenvío*.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_company"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-contacto",
+      "title": "4. Dirección de entrega: el contacto",
+      "description": "El contacto lleva los mismos dos campos. Si Buenvío rechaza la cotización por datos faltantes, la orden de venta recibe una nota con los campos que faltan (calle, casa, provincia, sector, nombre, correo o teléfono).",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_customer"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-provincias",
+      "title": "5. Provincias con su Id de Buenvío",
+      "description": "En **Contactos → Configuración → Países → República Dominicana**, la lista de provincias muestra la columna **Id de estado de Buenvío**. El módulo la carga al instalarse; la acción planificada *Buenvio Fetch Cities* (inactiva por defecto) puede actualizarla desde la API.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_country"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_x2many_list",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-producto",
+      "title": "6. Productos frágiles",
+      "description": "En la variante del producto, pestaña **Inventario**, la casilla **Fragil** se envía a Buenvío con cada bulto de ese producto.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_product"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook_headers button[name='inventory']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-orden",
+      "title": "7. Cotizar el envío en la orden de venta",
+      "description": "En la orden, **Agregar envío** → elija *Buenvío* → **Obtener tarifa**. Odoo cotiza con Buenvío (un bulto por unidad, o por paquete si la línea usa una unidad de paquete) y agrega la línea de envío con el costo, convertido desde pesos dominicanos si la orden está en otra moneda.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_order"
+        },
+        {
+          "waitFor": ".o_form_view .o_field_x2many_list",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "08-entrega-pendiente",
+      "title": "8. Enviar la entrega a Buenvío",
+      "description": "Con el ajuste del paso 1 encendido, la entrega confirmada muestra el botón **Enviar**. Al pulsarlo, Odoo crea la orden en Buenvío y guarda el número de rastreo y el costo del envío.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_picking_pending"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "09-entrega-enviada",
+      "title": "9. Rastreo y datos de Buenvío",
+      "description": "Una vez creada la orden en Buenvío, la pestaña **Información adicional** muestra el grupo **Informacion de envio de Buenvio** (Id de la orden, mensaje y confirmación) y el **Número de rastreo**. El botón **Rastreo** abre la página de seguimiento de Buenvío. **Cancelar envío** anula la orden en Buenvío y borra el rastreo y el costo.",
+      "steps": [
+        {
+          "goto": "/odoo/action-delivery_buenvio.demo_picking_shipped"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_notebook_headers button[name='extra']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "10-portal-direccion",
+      "title": "10. Dirección en el portal y la tienda",
+      "description": "En **Mi cuenta** (y en el checkout de la tienda) el formulario de dirección incluye **Casa/Apt** y **Número del Sector**. Para direcciones de República Dominicana ambos son obligatorios. En la captura el sitio web está en inglés (*Building Number* / *Sector Number*); con el sitio en español se muestran como *Casa/Apt* y *Número del Sector*. El asterisco confirma que Odoo los exige para República Dominicana.",
+      "steps": [
+        {
+          "goto": "/my/account"
+        },
+        {
+          "waitFor": "input[name='buenvio_building_number']",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    }
+  ],
+  "notes": "- El módulo no guarda la respuesta de cotización: cada vez que se pide la tarifa o se crea el envío, Odoo consulta de nuevo a Buenvío.\n- Si la compañía no tiene la provincia con *Id de estado de Buenvío*, Buenvío rechaza la cotización.\n- La acción planificada *Buenvio Fetch Cities* crea las provincias que Buenvío devuelva y no existan en Odoo.",
+  "extra_modules": [
+    "sale_management"
+  ]
+}

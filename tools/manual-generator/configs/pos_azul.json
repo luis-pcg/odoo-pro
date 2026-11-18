@@ -1,0 +1,324 @@
+{
+  "module": "pos_azul",
+  "title": "Azul / Ingenico Lane/7000 en el Punto de Venta — Manual de usuario (pos_azul, Odoo 20.0)",
+  "intro": "Este módulo conecta el **Punto de Venta** de Odoo con el terminal **Ingenico Lane/7000** de **Azul**. El navegador de la caja habla directamente con el integrador Azul instalado en la red de la tienda: envía el monto, espera a que el cliente pase la tarjeta y, al aprobarse, marca el pago como realizado e imprime el comprobante del terminal.\n\nOdoo 20.0 no trae una integración con Azul (sus terminales nativos son Adyen, Stripe, Mercado Pago, etc.), por eso el módulo se porta.\n\n**Qué cambió en 20.0:**\n\n- El terminal se elige en el método de pago con **Integración: Terminal** e **Integrar con: Azul / Ingenico Lane/7000** (en 19.0 era el campo *Usar un terminal de pago*). Al actualizar, los métodos Azul existentes se pasan solos al nuevo esquema.\n- Mientras el terminal espera la tarjeta solo se ofrece **Cancelar**: el botón *Forzar como hecho* no aparece en las líneas Azul, para no registrar un cobro que el banco no aprobó.\n- El comprobante del terminal se imprime con la **impresora de recibos del PdV** (copia cajero + copia cliente); si el PdV no tiene impresora, se abre la impresión del navegador.\n- Odoo 20.0 eliminó la *reversión* de pagos desde la pantalla de pago: una venta cobrada se anula desde el terminal.",
+  "requirements": [
+    "Módulo **`pos_azul`** `20.0.5.0.0` instalado. Depende de **`pos_iot`** (Enterprise).",
+    "Integrador Azul funcionando en la red de la tienda con la API REST expuesta (normalmente `http://<equipo>:9001`) y el lector Ingenico Lane/7000 emparejado.",
+    "El navegador de la caja debe estar en la **misma red** que el integrador: el servidor de Odoo no se conecta al terminal.",
+    "(Opcional) Impresora de recibos configurada en el Punto de Venta."
+  ],
+  "flows": [
+    {
+      "id": "01-metodo-pago",
+      "title": "1. Configurar el método de pago",
+      "description": "**Punto de Venta → Configuración → Métodos de pago**. En un método de tipo **Banco**:\n\n- **Integración**: *Terminal*.\n- **Integrar con**: *Azul / Ingenico Lane/7000*.\n- **IP del terminal** y **Puerto** del integrador Azul (por defecto 9001). Se valida que la IP/host y el puerto sean válidos.\n- **Usar HTTPS** si el integrador corre con TLS.\n- **Tiempo de espera (s)**: cuánto espera la caja la respuesta del terminal (mínimo 30, recomendado 180).\n- **Auditar último estado tras tiempo agotado**: al agotarse el tiempo, consulta la última transacción del terminal para avisar al cajero si se cobró. Nunca confirma el pago por sí sola.\n\nLuego agregue el método a la configuración del Punto de Venta.",
+      "steps": [
+        {
+          "goto": "/odoo/action-pos_azul.demo_payment_method"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 40000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-enviar",
+      "title": "2. Cobrar con Azul",
+      "description": "En la pantalla de pago elija **Tarjeta Azul**. Se agrega la línea con el monto pendiente y el botón **Enviar**, que manda el cobro al terminal.",
+      "steps": [
+        {
+          "goto": "/pos/ui?config_id=1"
+        },
+        {
+          "waitFor": "text=Abrir caja registradora",
+          "timeout": 60000
+        },
+        {
+          "click": "text=Abrir caja registradora"
+        },
+        {
+          "waitFor": "article.product",
+          "timeout": 30000
+        },
+        {
+          "click": "button.list-plus-btn"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "article:has-text(\"Café molido 1 lb\")"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": "button.pay-order-button"
+        },
+        {
+          "waitFor": ".paymentmethod",
+          "timeout": 20000
+        },
+        {
+          "click": ".paymentmethod:has-text(\"Tarjeta Azul\")"
+        },
+        {
+          "wait": 1200
+        }
+      ]
+    },
+    {
+      "id": "03-esperando-tarjeta",
+      "title": "3. Esperando la tarjeta",
+      "description": "Mientras el cliente inserta o acerca la tarjeta, la línea muestra **Esperando la tarjeta** y solo ofrece **Cancelar**. Cancelar envía la cancelación al terminal y deja la línea lista para *Volver a intentar*; el pago **no** se marca como realizado.",
+      "steps": [
+        {
+          "goto": "/pos/ui?config_id=1"
+        },
+        {
+          "waitFor": "text=Abrir caja registradora",
+          "timeout": 60000
+        },
+        {
+          "click": "text=Abrir caja registradora"
+        },
+        {
+          "waitFor": "article.product",
+          "timeout": 30000
+        },
+        {
+          "click": "button.list-plus-btn"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "article:has-text(\"Café molido 1 lb\")"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": "button.pay-order-button"
+        },
+        {
+          "waitFor": ".paymentmethod",
+          "timeout": 20000
+        },
+        {
+          "click": ".paymentmethod:has-text(\"Tarjeta Azul\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".paymentline_status_actions_button_send"
+        },
+        {
+          "waitFor": ".paymentline_status_actions_button_cancel",
+          "timeout": 10000
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "04-aprobado",
+      "title": "4. Pago aprobado",
+      "description": "Cuando Azul aprueba, la línea queda **pagada** y, si el PdV valida automáticamente los pagos con terminal, la orden se cierra. El comprobante del terminal se imprime solo (copia del cajero y del cliente en la impresora de recibos).",
+      "steps": [
+        {
+          "goto": "/pos/ui?config_id=1"
+        },
+        {
+          "waitFor": "text=Abrir caja registradora",
+          "timeout": 60000
+        },
+        {
+          "click": "text=Abrir caja registradora"
+        },
+        {
+          "waitFor": "article.product",
+          "timeout": 30000
+        },
+        {
+          "click": "button.list-plus-btn"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "article:has-text(\"Galletas de avena\")"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": "button.pay-order-button"
+        },
+        {
+          "waitFor": ".paymentmethod",
+          "timeout": 20000
+        },
+        {
+          "click": ".paymentmethod:has-text(\"Tarjeta Azul\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".paymentline_status_actions_button_send"
+        },
+        {
+          "waitFor": "text=Importe pagado",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-comprobante",
+      "title": "5. Comprobante del terminal",
+      "description": "El texto que devuelve el terminal se imprime tal cual, con la plantilla *pos_azul.ingenico_receipt* del PdV.",
+      "screenshotEl": ".pos-receipt",
+      "steps": [
+        {
+          "goto": "/pos/ui?config_id=1"
+        },
+        {
+          "waitFor": "text=Abrir caja registradora",
+          "timeout": 60000
+        },
+        {
+          "click": "text=Abrir caja registradora"
+        },
+        {
+          "waitFor": "article.product",
+          "timeout": 30000
+        },
+        {
+          "click": "button.list-plus-btn"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "article:has-text(\"Galletas de avena\")"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": "button.pay-order-button"
+        },
+        {
+          "waitFor": ".paymentmethod",
+          "timeout": 20000
+        },
+        {
+          "click": ".paymentmethod:has-text(\"Tarjeta Azul\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".paymentline_status_actions_button_send"
+        },
+        {
+          "waitFor": "text=Importe pagado",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "evaluate": "(() => { const f = document.querySelector('#receipt-iframe-container iframe'); document.body.innerHTML = f.contentDocument.documentElement.outerHTML; document.body.style.background = '#fff'; })()"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "06-tiempo-agotado",
+      "title": "6. Tiempo de espera agotado",
+      "description": "Si el terminal no responde dentro del tiempo configurado, la caja **no** marca el pago como realizado: envía una cancelación al terminal, consulta la última transacción (si la auditoría está activa) y muestra al cajero qué hacer. Si el terminal reporta que sí cobró, indica autorización, factura y tarjeta para anularlo en el terminal o conciliarlo a mano.",
+      "steps": [
+        {
+          "goto": "/pos/ui?config_id=1"
+        },
+        {
+          "waitFor": "text=Abrir caja registradora",
+          "timeout": 60000
+        },
+        {
+          "click": "text=Abrir caja registradora"
+        },
+        {
+          "waitFor": "article.product",
+          "timeout": 30000
+        },
+        {
+          "click": "button.list-plus-btn"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "article:has-text(\"Botella de agua 20 oz\")"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": "button.pay-order-button"
+        },
+        {
+          "waitFor": ".paymentmethod",
+          "timeout": 20000
+        },
+        {
+          "click": ".paymentmethod:has-text(\"Tarjeta Azul\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".paymentline_status_actions_button_send"
+        },
+        {
+          "waitFor": ".modal:has-text(\"Tiempo de espera agotado\")",
+          "timeout": 130000
+        },
+        {
+          "wait": 1000
+        }
+      ]
+    }
+  ],
+  "notes": "- El integrador atiende **una sola transacción a la vez**: mientras hay una venta activa no se puede cancelar ni consultar por HTTP; si el terminal sigue mostrando la operación, cancele en el propio terminal.\n- Las devoluciones (órdenes con total negativo) usan el endpoint *Refund* de Azul, que el banco debe habilitar para el comercio.\n- Para anular una venta ya cobrada use el terminal: Odoo 20.0 no ofrece reversión desde la pantalla de pago.",
+  "flows_capture_order_note": "03-esperando-tarjeta leaves a payment line waiting for the card; capture 04, 05 and 06 before it (or run them alone) or their Send click times out."
+}

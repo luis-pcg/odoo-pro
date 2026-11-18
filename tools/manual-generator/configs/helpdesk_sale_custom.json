@@ -1,0 +1,103 @@
+{
+  "module": "helpdesk_sale_custom",
+  "title": "Tickets de soporte desde el pedido de venta — Manual de usuario (helpdesk_sale_custom)",
+  "intro": "En Odoo estándar un ticket de **Soporte** se puede vincular a un pedido de venta, pero solo desde el ticket, y el campo *Pedido de venta* queda oculto cuando el equipo de soporte no factura tiempo. Desde el pedido no hay forma de abrir un ticket.\n\nEste módulo invierte el camino: el vendedor abre el ticket **desde el propio pedido de venta**, con el cliente, la compañía y la referencia del pedido ya rellenados, y el pedido muestra un botón inteligente **Tickets** con los casos abiertos para él.\n\nAdemás agrega un grupo de seguridad, **Can create ticket from Sale**, que decide qué vendedores pueden crear o modificar tickets.",
+  "requirements": [
+    "Módulo **`helpdesk_sale_custom`** instalado (versión `20.0.2.0.0`, línea 20.0). Depende de **`helpdesk_sale`** (Enterprise), que a su vez instala *Soporte* y *Ventas*.",
+    "La opción **Helpdesk from Sale** encendida en *Ventas › Configuración › Ajustes* (por compañía).",
+    "El usuario debe pertenecer al grupo **Can create ticket from Sale** o ser usuario de *Soporte* para crear o modificar tickets."
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes",
+      "title": "1. Encender la opción en Ventas",
+      "description": "En *Ventas › Configuración › Ajustes* aparece el bloque **Helpdesk** con la opción **Helpdesk from Sale** (*Create helpdesk tickets directly from a sale order*).\n\nAl encenderla se muestra una segunda casilla, **Allow to create ticket on unconfirmed orders**, que permite abrir tickets también desde cotizaciones que todavía no se han confirmado.\n\nAmbas opciones son **por compañía** (se guardan en `res.company`).",
+      "steps": [
+        { "goto": "/odoo/action-sale.action_sale_config_settings" },
+        { "waitFor": ".o_form_view", "timeout": 40000 },
+        { "wait": 2500 },
+        { "scrollTo": "#sale_helpdesk", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "02-grupo",
+      "title": "2. Quién puede crear tickets",
+      "description": "El módulo crea el grupo **Can create ticket from Sale**. Solo los usuarios de ese grupo ven el botón **Create ticket** en el pedido.\n\nAl crear o modificar un ticket se valida que el usuario pertenezca a este grupo **o** sea usuario de *Soporte*. Un vendedor que no esté en ninguno de los dos recibe el mensaje *You are not authorized to modify this document*.\n\nLos tickets que llegan por el formulario del sitio web o del portal se siguen creando sin restricción.",
+      "steps": [
+        { "goto": "/odoo/action-helpdesk_sale_custom.demo_grupo" },
+        { "waitFor": ".o_form_view", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "03-pedido-boton",
+      "title": "3. El botón Create ticket en el pedido confirmado",
+      "description": "En un pedido de venta **confirmado** aparece el botón **Create ticket** en la cabecera, junto a los botones de Odoo.\n\nEl botón solo se muestra cuando la opción del paso 1 está encendida y el usuario pertenece al grupo del paso 2.",
+      "steps": [
+        { "goto": "/odoo/action-helpdesk_sale_custom.demo_pedido_nuevo" },
+        { "waitFor": ".o_form_view button[name='action_view_helpdesk_ticket']", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "04-ticket-nuevo",
+      "title": "4. El ticket se abre con los datos del pedido",
+      "description": "Al pulsar **Create ticket** se abre el formulario de un ticket nuevo con estos datos ya rellenados:\n\n| Campo | Valor |\n|---|---|\n| **Título** | la referencia del pedido (p. ej. `S00001`) |\n| **Cliente** | el cliente del pedido |\n| **Pedido de venta** | el pedido desde el que se abrió |\n| **Compañía** | la compañía del pedido |\n\nEl campo **Pedido de venta** queda visible en el ticket aunque el equipo no facture tiempo, para que el vínculo con la venta siempre se vea. Se completa el resto (equipo, descripción, prioridad) y se guarda.",
+      "steps": [
+        { "click": "button[name='action_view_helpdesk_ticket']", "timeout": 30000 },
+        { "waitFor": ".o_form_view .o_field_widget[name='sale_order_id']", "timeout": 40000 },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "id": "05-boton-tickets",
+      "title": "5. El botón inteligente Tickets",
+      "description": "Cuando el pedido ya tiene tickets vinculados aparece el botón inteligente **Tickets** con la cantidad. En el ejemplo, el pedido de *Distribuidora Caribe, SRL* tiene **2** tickets abiertos.",
+      "steps": [
+        { "goto": "/odoo/action-helpdesk_sale_custom.demo_pedido_tickets" },
+        { "waitFor": ".o_form_view .oe_stat_button[name='action_view_helpdesk_ticket']", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "06-lista-tickets",
+      "title": "6. Los tickets del pedido",
+      "description": "Al pulsar el botón **Tickets** se abre la lista con los tickets de ese pedido. Si el pedido tiene **un solo** ticket, se abre directamente su formulario.",
+      "steps": [
+        { "click": ".oe_stat_button[name='action_view_helpdesk_ticket']", "timeout": 30000 },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "07-cotizacion-sin-boton",
+      "title": "7. Cotizaciones sin confirmar",
+      "description": "Con **Allow to create ticket on unconfirmed orders** apagado, una cotización en borrador **no** muestra el botón **Create ticket**: solo los pedidos confirmados permiten abrir tickets.",
+      "steps": [
+        { "goto": "/odoo/action-helpdesk_sale_custom.demo_cotizacion" },
+        { "waitFor": ".o_form_view .o_statusbar_buttons", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    },
+    {
+      "id": "08-cotizacion-con-boton",
+      "title": "8. Permitir tickets desde cotizaciones",
+      "description": "Al encender **Allow to create ticket on unconfirmed orders** en los ajustes y guardar, la misma cotización ya muestra **Create ticket**, y el botón **Tickets** también se muestra en cotizaciones que tengan tickets.",
+      "steps": [
+        { "goto": "/odoo/action-sale.action_sale_config_settings" },
+        { "waitFor": ".o_form_view", "timeout": 40000 },
+        { "wait": 2500 },
+        { "scrollTo": "#sale_helpdesk", "timeout": 30000 },
+        { "click": "#sale_helpdesk [name='allow_to_create_ticket_on_unconfirmed_orders'] input", "timeout": 30000 },
+        { "wait": 800 },
+        { "click": ".o_control_panel button[name='execute'], button.o_form_button_save", "timeout": 30000 },
+        { "wait": 4000 },
+        { "goto": "/odoo/action-helpdesk_sale_custom.demo_cotizacion" },
+        { "waitFor": ".o_form_view button[name='action_view_helpdesk_ticket']", "timeout": 40000 },
+        { "wait": 2000 }
+      ]
+    }
+  ],
+  "notes": "**Alcance y límites**\n\n- Las etiquetas del módulo (*Create ticket*, *Helpdesk from Sale*, *Can create ticket from Sale*) están en inglés: el módulo no trae traducción al español.\n- Si además está instalado `helpdesk_sale_timesheet`, el pedido muestra el botón **Tickets** de Odoo junto al de este módulo.\n- Un vendedor sin el grupo **Can create ticket from Sale** y sin ser usuario de *Soporte* no puede crear ni modificar tickets, aunque su permiso de acceso de vendedor lo permita.\n\n**Notas de la migración a 20.0**\n\n- La seguridad pasó de `ir.model.access.csv` a **`security/ir.access.csv`** (`ir.model.access` e `ir.rule` se fusionaron en `ir.access`). El script `migrations/20.0.1.0.0/pre-migrate.py` libera los xmlid viejos antes de cargar el archivo nuevo.\n- La acción de la lista de tickets se lee con `_for_xml_id()` en lugar de `read()` sobre la acción."
+}

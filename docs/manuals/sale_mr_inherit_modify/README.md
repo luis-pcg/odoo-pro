@@ -1,11 +1,19 @@
-# Venta Dimensional (Pieza × Altura) — Manual de usuario
+# Venta Dimensional (Pieza × Altura) — Manual de usuario (sale_mr_inherit_modify, Odoo 20.0)
 
-> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v19_<módulo>`.
+> Manual generado con `tools/manual-generator`. Las capturas se regeneran ejecutando el generador contra una base `test_v20_<módulo>`.
 
 El módulo `sale_mr_inherit_modify` agrega **cálculo dimensional** al flujo Venta → Fabricación → Entrega. En las líneas del pedido se capturan **Pieza** (ancho / unidades) y **Altura**: la cantidad se calcula sola (Pieza × Altura). Esas dimensiones viajan al resto del flujo: la **orden de fabricación** muestra la línea de venta origen con su cliente, vendedor y dimensiones, y en la **entrega** un botón copia las dimensiones a las operaciones de inventario.
 
+Odoo 20.0 no ofrece un cálculo de cantidad por dimensiones en ventas: `sale_mrp` sigue aportando solo el vínculo `sale_line_id` de la orden de fabricación, que este módulo reutiliza. Por eso el módulo se porta.
+
+**Qué cambió en 20.0:**
+
+- En 20.0 la cantidad de la línea de venta vive dentro de una columna agrupada; las columnas **Pieza** y **Altura** se ubican justo antes de ella.
+- El módulo no declara permisos propios (el antiguo `ir.model.access.csv` vacío se eliminó; en 20.0 los accesos se definen con `ir.access`).
+
 ## Requisitos previos
 
+- Módulo **`sale_mr_inherit_modify`** `20.0.1.0.3` instalado.
 - Apps **Ventas**, **Fabricación** e **Inventario** instaladas (el módulo las trae como dependencias).
 - No requiere grupos de seguridad adicionales: usa los permisos nativos de cada app.
 
@@ -21,6 +29,12 @@ El módulo `sale_mr_inherit_modify` agrega **cálculo dimensional** al flujo Ven
 
 ![2. Orden de fabricación — datos de la venta origen](img/02-mo-campos-venta.png)
 
+## 2b. Orden de fabricación vinculada por documento origen
+
+Esta orden se creó solo con el *Documento origen* = número de la cotización. `find_qty` buscó el producto en ese pedido y vinculó la **Línea de venta**: Cliente, Vendedor, Piezas (4) y Altura (6) se llenan desde ella.
+
+![2b. Orden de fabricación vinculada por documento origen](img/02b-mo-find-qty.png)
+
 ## 3. Entrega — botón "Ver Cantidades"
 
 **Inventario → Transferencias** (la entrega se crea sola al confirmar el pedido). En el encabezado aparece el botón **Ver Cantidades**: al pulsarlo, el módulo busca el pedido de venta por el *Documento origen* y copia **Pieza** y **Altura** de cada línea de venta a los movimientos y operaciones detalladas del producto correspondiente.
@@ -29,7 +43,7 @@ El módulo `sale_mr_inherit_modify` agrega **cálculo dimensional** al flujo Ven
 
 ## 4. Operaciones detalladas — dimensiones sincronizadas
 
-Dentro de la entrega, el botón inteligente **Moves** (icono ☰, arriba a la derecha) abre la lista de **operaciones detalladas**. Ahí se ven las columnas **Pieza** y **Altura** con los valores copiados desde el pedido, justo antes de la cantidad. En esta captura: cerámica 5×8, vidrio 1.2×2.4 y tela 1.5×10, tal como se capturaron en la venta.
+Dentro de la entrega, el botón inteligente **Movimientos** (arriba, en el centro) abre la lista de **operaciones detalladas**. Ahí se ven las columnas **Pieza** y **Altura** con los valores copiados desde el pedido, justo antes de la cantidad. En esta captura: cerámica 5×8, vidrio 1.2×2.4 y tela 1.5×10, tal como se capturaron en la venta.
 
 ![4. Operaciones detalladas — dimensiones sincronizadas](img/04-operaciones-detalladas.png)
 

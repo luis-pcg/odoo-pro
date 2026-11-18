@@ -1,0 +1,120 @@
+{
+  "module": "sale_stock_qty_date_widgets",
+  "title": "Existencias por almacén en la línea de venta — Manual de usuario (sale_stock_qty_date_widgets)",
+  "extra_modules": [
+    "sale_management"
+  ],
+  "intro": "En una cotización, Odoo muestra junto a cada línea un ícono de gráfico. Al pulsarlo, Odoo core solo dice cuánto hay **pronosticado y disponible en el almacén de la orden**: un único número, sin saber dónde está la mercancía.\n\nEste módulo reemplaza ese ícono en la lista de líneas por uno que abre la **existencia del producto en cada almacén de la compañía**, y si se quiere, **desglosada por ubicación** (pasillo, estante). Así el vendedor sabe en el momento si puede despachar desde otro almacén antes de prometer una fecha.\n\nTres ajustes controlan lo que se ve: el detalle (solo almacén, o almacén y ubicación), el tipo de cantidad (a mano o disponible) y los decimales.",
+  "requirements": [
+    "Módulo **`sale_stock_qty_date_widgets`** instalado (v `20.0.1.0.0`). Única dependencia: **`sale_stock`**. Este manual además instala la aplicación *Ventas* (`sale_management`) para tener el menú de ajustes de ventas.",
+    "Productos almacenables con existencias en ubicaciones **internas**. Las cantidades en ubicaciones de tránsito, clientes o proveedores no se cuentan.",
+    "Para ver varios almacenes y ubicaciones en *Inventario* el usuario necesita los grupos *Varios almacenes* y *Ubicaciones de almacenamiento*; el ícono de la línea de venta funciona sin ellos."
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes",
+      "title": "1. Configurar el ícono de existencias",
+      "description": "En *Ventas › Configuración › Ajustes*, debajo de **Cotizaciones y órdenes**, el módulo agrega el bloque **Configuration For Quantity Widget** con tres opciones:\n\n- **Change the view for stock qty by location**: *View just by Warehouse* muestra un total por almacén; *View by Warehouse and Location* agrega el detalle por ubicación.\n- **Decimal Accuracy For Product Quantity**: la precisión decimal con la que se muestran las cantidades (por defecto, 2 decimales).\n- **Change the view for stock qty**: *On Hand Quantity* (todo lo que hay físicamente) o *Available Quantity* (lo que hay menos lo ya reservado para otras entregas).\n\nLos textos del bloque se ven en inglés porque el módulo no trae traducción al español.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale.action_sale_config_settings"
+        },
+        {
+          "waitFor": "#settings_view_stock_by_location",
+          "timeout": 40000
+        },
+        {
+          "scrollTo": "#settings_view_stock_by_location"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "02-cotizacion",
+      "title": "2. La cotización y su ícono",
+      "description": "En la lista de productos de una cotización, cada línea de producto almacenable tiene el ícono de gráfico a la derecha. Es el mismo lugar donde Odoo core pone el suyo; el módulo lo sustituye solo en la **lista de líneas**.\n\nEn el ejemplo, la cotización pide 5 *Taladro percutor 800W* para el *Almacén Santo Domingo*.",
+      "steps": [
+        {
+          "goto": "/odoo/action-sale.action_quotations"
+        },
+        {
+          "waitFor": ".o_data_row",
+          "timeout": 40000
+        },
+        {
+          "click": ".o_data_row .o_data_cell"
+        },
+        {
+          "waitFor": ".o_field_one2many .o_data_row a[data-icon='area_chart']",
+          "timeout": 30000
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "03-por-almacen",
+      "title": "3. Existencia por almacén",
+      "description": "Al pulsar el ícono se abre la ventana con **la cantidad disponible en cada almacén**. En el ejemplo: 14 unidades en *Almacén Santo Domingo* (18 a mano menos 4 reservadas) y 9 en *Almacén Santiago*.\n\nLa ventana funciona también en líneas que aún no se han guardado: toma el producto, la compañía y la unidad de medida de la línea tal como está en pantalla.",
+      "steps": [
+        {
+          "click": ".o_field_one2many .o_data_row a[data-icon='area_chart']"
+        },
+        {
+          "waitFor": ".o_popover",
+          "timeout": 15000
+        },
+        {
+          "wait": 600
+        }
+      ]
+    },
+    {
+      "id": "04-por-ubicacion",
+      "title": "4. Existencia por almacén y ubicación",
+      "description": "Con **View by Warehouse and Location**, la misma ventana agrupa por almacén y lista cada ubicación interna que tiene el producto: *Pasillo A* y *Pasillo B* en Santo Domingo, *Estante 1* en Santiago.\n\nCon *Available Quantity*, Pasillo A muestra 8 unidades y no 12, porque 4 ya están reservadas.",
+      "steps": [
+        {
+          "press": "Escape"
+        },
+        {
+          "evaluate": "fetch('/web/dataset/call_kw/ir.config_parameter/set_str', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {model: 'ir.config_parameter', method: 'set_str', args: ['sale_stock_qty_date_widgets.qty_date_widget_view_option', 'view_warehouse_and_location'], kwargs: {}}})})"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": ".o_field_one2many .o_data_row a[data-icon='area_chart']"
+        },
+        {
+          "waitFor": ".o_popover",
+          "timeout": 15000
+        },
+        {
+          "wait": 600
+        }
+      ]
+    },
+    {
+      "id": "05-ver-pronostico",
+      "title": "5. Ver el detalle en Inventario",
+      "description": "El enlace **View Forecast** al pie de la ventana abre las existencias del producto (*Inventario › Existencias*) filtradas a ese producto, con el filtro *A mano* puesto. Ahí se ve cada ubicación con su cantidad a mano y reservada, y se puede seguir hacia el inventario o los movimientos.",
+      "steps": [
+        {
+          "click": ".o_popover .action_open_forecast"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 30000
+        },
+        {
+          "wait": 800
+        }
+      ]
+    }
+  ],
+  "notes": "- El ícono reemplaza al de Odoo **solo en la lista de líneas** de la orden. En el formulario de línea (vista móvil) sigue el ícono de Odoo core con el pronóstico del almacén de la orden.\n- Se cuentan solo las ubicaciones **internas** con cantidad positiva y de la **misma compañía** que la orden.\n- Los ajustes son globales para la base de datos, no por compañía ni por usuario.\n- *Available Quantity* resta lo reservado para otras entregas, pero no las cantidades de cotizaciones sin confirmar.\n- Si se borra la precisión decimal elegida en los ajustes, las cantidades vuelven a mostrarse con 2 decimales."
+}

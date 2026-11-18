@@ -1,0 +1,82 @@
+{
+  "module": "account_payment_card_bin",
+  "title": "BIN de tarjetas — Manual de usuario (account_payment_card_bin)",
+  "intro": "Cada tarjeta de crédito o débito empieza con un **BIN** (*Bank Identification Number*): los primeros 6 dígitos del número. El BIN dice qué banco emitió la tarjeta, de qué marca es (Visa, Mastercard, American Express) y si es de crédito o de débito.\n\nOdoo core no trae un catálogo de BINs. Este módulo lo agrega: un maestro de **Marcas de tarjeta** y otro de **BINs**, cada BIN con su banco emisor dominicano. Es la base que usan las promociones por tarjeta (`account_payment_promotion_discount`) y el punto de venta en backend para reconocer la tarjeta con la que paga el cliente.\n\nEl módulo trae precargadas las tres marcas principales y los BINs de las tarjetas más comunes de Banreservas y Banco Popular.",
+  "requirements": [
+    "Módulo **`account_payment_card_bin`** instalado (v `20.0.2.0.0`, Odoo 20.0).",
+    "Dependencias: `account`, `contacts` y `l10n_do_banks` (lista de bancos dominicanos).",
+    "Los menús están en *Contactos › Configuración*, visibles para usuarios con **Ajustes** (administrador)."
+  ],
+  "flows": [
+    {
+      "id": "01-menu",
+      "title": "1. Dónde están los menús",
+      "description": "En *Contactos › Configuración* aparece la sección **Tarjetas de pago** con dos opciones:\n\n- **Marcas de tarjeta**: Visa, Mastercard, American Express…\n- **BINs de tarjeta**: el catálogo de BINs con su marca, tipo y banco emisor.\n\nEn Odoo 20.0 desapareció el submenú *Cuentas bancarias* donde vivían estos menús en 19.0; ahora tienen su propia sección.",
+      "steps": [
+        { "goto": "/odoo/action-contacts.action_contacts" },
+        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 40000 },
+        { "wait": 1500 },
+        { "click": ".o_menu_sections button:has-text('Configuración')" },
+        { "waitFor": ".dropdown-menu:has-text('Tarjetas de pago')", "timeout": 15000 },
+        { "wait": 800 }
+      ]
+    },
+    {
+      "id": "02-marcas",
+      "title": "2. Marcas de tarjeta",
+      "description": "La lista de marcas. El **Número de identificación** es el primer dígito con el que empiezan las tarjetas de esa marca: `3` American Express, `4` Visa, `5` Mastercard.\n\nSe pueden agregar marcas nuevas con **Nuevo**.",
+      "steps": [
+        { "goto": "/odoo/action-account_payment_card_bin.action_account_card_brand" },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "03-marca-form",
+      "title": "3. Ficha de una marca",
+      "description": "Cada marca guarda su nombre, el dígito de identificación y su **logo**, que se muestra como avatar de la ficha.",
+      "steps": [
+        { "goto": "/odoo/action-account_payment_card_bin.action_account_card_brand" },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "click": ".o_data_row:has-text('Visa') .o_data_cell" },
+        { "waitFor": ".o_form_view .oe_avatar img", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "04-bins",
+      "title": "4. Catálogo de BINs",
+      "description": "La lista de BINs muestra, para cada uno, el **BIN** (6 dígitos), el **nombre de la tarjeta**, el **tipo** (crédito o débito), la **marca** y el **banco emisor**.\n\nEl banco emisor se elige de la lista de bancos dominicanos de `l10n_do_banks` (Banreservas, Banco Popular, BHD, Scotiabank…).",
+      "steps": [
+        { "goto": "/odoo/action-account_payment_card_bin.action_account_payment_card_bin" },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-bin-form",
+      "title": "5. Registrar un BIN",
+      "description": "La ficha del BIN: nombre de la tarjeta como título, el número BIN debajo, y a los lados el **tipo**, la **marca** y el **banco emisor**.\n\nEn el ejemplo, la tarjeta *BHD Mastercard Black* (BIN `552246`) creada para este manual.",
+      "steps": [
+        { "goto": "/odoo/action-account_payment_card_bin.action_account_payment_card_bin" },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "click": ".o_data_row:has-text('552246') .o_data_cell" },
+        { "waitFor": ".o_form_view [name='l10n_do_bank']", "timeout": 30000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "06-buscar",
+      "title": "6. Buscar por BIN o por nombre",
+      "description": "Al buscar un BIN desde cualquier campo que lo use (por ejemplo, en un programa de promoción por tarjeta) se puede escribir **el número BIN o el nombre de la tarjeta**. En la lista, el buscador filtra igual: aquí, los BINs que contienen `4513`.",
+      "steps": [
+        { "goto": "/odoo/action-account_payment_card_bin.action_account_payment_card_bin" },
+        { "waitFor": ".o_list_view .o_data_row", "timeout": 40000 },
+        { "fill": ".o_searchview_input", "value": "4513" },
+        { "press": "Enter" },
+        { "wait": 2000 }
+      ]
+    }
+  ],
+  "notes": "- **Cambio en 20.0:** Odoo 20.0 eliminó el modelo de bancos (`res.bank`). El banco emisor de cada BIN pasó a ser la lista de bancos dominicanos de `l10n_do_banks`, la misma que usan las cuentas bancarias. Al actualizar desde 19.0, cada BIN conserva su banco.\n- Los BINs precargados por el módulo se pueden editar; una actualización del módulo vuelve a escribir sus valores originales."
+}

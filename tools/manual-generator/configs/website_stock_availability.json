@@ -1,0 +1,210 @@
+{
+  "module": "website_stock_availability",
+  "title": "Disponibilidad por almacén en la tienda — Manual de usuario (website_stock_availability, Odoo 20.0)",
+  "intro": "Este módulo muestra, en la página del producto de la tienda en línea, **en qué almacenes hay existencia** del producto y, si se desea, **cuántas unidades** hay en cada uno. La tabla aparece debajo del botón *Agregar al carrito* y se actualiza sola al cambiar de variante (color, talla, etc.).\n\nOdoo 20.0 solo muestra la cantidad total disponible (o la de un único almacén configurado en el sitio web); no tiene un desglose por almacén, por eso el módulo se porta.\n\n**Qué cambió en 20.0:** la configuración es la misma que en 19.0. La página del producto de Odoo 20.0 se reescribió y el módulo se adaptó a ella. Además:\n\n- Los encabezados de la tabla (*Almacén*, *Existencias*, *Disponible*) ahora salen en español; antes aparecían en inglés.\n- En el modo *Mostrar solo almacén* la marca verde vuelve a verse (Odoo 20.0 ya no incluye la fuente de iconos que usaba el módulo).\n- El ajuste en *Sitio web → Ajustes* tiene ahora una descripción.",
+  "requirements": [
+    "Módulo **`website_stock_availability`** `20.0.1.0.0` instalado. Depende de **`website_sale`**, **`stock`** y **`website_sale_stock`**.",
+    "Productos **con seguimiento de inventario** (*Rastrear inventario* marcado) y **publicados** en el sitio web.",
+    "Para ver más de un almacén: opción **Almacenes múltiples** activa en *Inventario → Configuración → Ajustes*.",
+    "La tabla solo se muestra a usuarios que tienen acceso de lectura a Inventario (por ejemplo, el personal interno). A los visitantes anónimos de la tienda no se les muestra (ver *Notas*)."
+  ],
+  "flows": [
+    {
+      "id": "01-ajuste-sitio-web",
+      "title": "1. Elegir qué se muestra en la tienda",
+      "description": "**Sitio web → Configuración → Ajustes**, sección *Tienda*: **Mostrar almacén en el sitio web**. El campo *Mostrar existencias* tiene tres opciones:\n\n- **Nada** (por defecto): no se muestra la tabla.\n- **Mostrar solo almacén**: lista los almacenes con existencia, con una marca verde.\n- **Mostrar almacén con existencias**: lista los almacenes con existencia y la cantidad disponible en cada uno.\n\nEl ajuste es por sitio web.",
+      "steps": [
+        {
+          "goto": "/odoo/action-website.action_website_configuration"
+        },
+        {
+          "waitFor": ".o_setting_container",
+          "timeout": 60000
+        },
+        {
+          "fill": ".o_searchview_input",
+          "value": "almacén"
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "02-almacen-visible",
+      "title": "2. Elegir qué almacenes aparecen",
+      "description": "**Inventario → Configuración → Almacenes**, abra el almacén: la casilla **Mostrar almacén en el sitio web** (debajo del *Nombre corto*) decide si el almacén puede aparecer en la tabla. Viene marcada en todos los almacenes.",
+      "steps": [
+        {
+          "goto": "/odoo/action-website_stock_availability.demo_wh_main"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "03-almacen-oculto",
+      "title": "3. Ocultar un almacén",
+      "description": "Desmarque la casilla en los almacenes que no deben verse en la tienda (por ejemplo, un almacén de tránsito o de mercancía en cuarentena). Aunque tenga existencia, ese almacén no aparecerá en la tabla.",
+      "steps": [
+        {
+          "goto": "/odoo/action-website_stock_availability.demo_wh_transit"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-existencias",
+      "title": "4. Existencias de ejemplo",
+      "description": "En este ejemplo el *Taladro Inalámbrico 20V* tiene dos variantes:\n\n- **Amarillo**: 12 en *Almacén Principal*, 5 en *Almacén Santiago* y 8 en *Almacén Tránsito* (oculto en la tienda).\n- **Negro**: 3 en *Almacén Santiago*.\n\nLa tabla usa la **cantidad libre** (a mano menos lo reservado para otras entregas).",
+      "steps": [
+        {
+          "goto": "/odoo/action-website_stock_availability.demo_quants"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_group_header >> nth=0"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o_group_header >> nth=1"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-tienda-con-existencias",
+      "title": "5. Página del producto: almacén con existencias",
+      "description": "Con **Mostrar almacén con existencias**, debajo de *Agregar al carrito* aparece la tabla **Almacén / Existencias** de la variante seleccionada. Solo se listan los almacenes visibles que tienen existencia: *Almacén Tránsito* no aparece porque está oculto, aunque tenga 8 unidades.",
+      "steps": [
+        {
+          "evaluate": "fetch('/web/dataset/call_kw/website/search_read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'search_read',args:[[],['id']],kwargs:{}}})}).then(r=>r.json()).then(d=>fetch('/web/dataset/call_kw/website/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'write',args:[d.result.map(w=>w.id),{show_stock:'warehouse_with_stock'}],kwargs:{}}})}))"
+        },
+        {
+          "goto": "/shop?search=Taladro"
+        },
+        {
+          "waitFor": "a:has-text('Taladro Inalámbrico 20V')",
+          "timeout": 60000
+        },
+        {
+          "click": "a:has-text('Taladro Inalámbrico 20V')"
+        },
+        {
+          "waitFor": ".o_wsale_product_page",
+          "timeout": 60000
+        },
+        {
+          "waitFor": "#website_stock_container .stock-container-tabular",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "#website_stock_container"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-tienda-cambio-variante",
+      "title": "6. Cambio de variante",
+      "description": "Al elegir otra variante, la tabla se actualiza sin recargar la página. Para el color **Negro** solo aparece *Almacén Santiago* con 3 unidades.",
+      "steps": [
+        {
+          "click": "label:has-text('Negro')"
+        },
+        {
+          "waitFor": "#website_stock_container tr:has-text('Almacén Santiago'):has-text('3')",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "#website_stock_container"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-tienda-solo-almacen",
+      "title": "7. Página del producto: solo almacén",
+      "description": "Con **Mostrar solo almacén**, la tabla lista los mismos almacenes pero, en lugar de la cantidad, muestra una marca verde. Útil cuando no se quiere revelar cuántas unidades hay.",
+      "steps": [
+        {
+          "evaluate": "fetch('/web/dataset/call_kw/website/search_read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'search_read',args:[[],['id']],kwargs:{}}})}).then(r=>r.json()).then(d=>fetch('/web/dataset/call_kw/website/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'write',args:[d.result.map(w=>w.id),{show_stock:'warehouse'}],kwargs:{}}})}))"
+        },
+        {
+          "goto": "/shop?search=Taladro"
+        },
+        {
+          "waitFor": "a:has-text('Taladro Inalámbrico 20V')",
+          "timeout": 60000
+        },
+        {
+          "click": "a:has-text('Taladro Inalámbrico 20V')"
+        },
+        {
+          "waitFor": ".o_wsale_product_page",
+          "timeout": 60000
+        },
+        {
+          "waitFor": "#website_stock_container tr:has-text('Almacén Santiago')",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "#website_stock_container"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "08-tienda-nada",
+      "title": "8. Página del producto: nada",
+      "description": "Con **Nada**, la página del producto queda como la estándar de Odoo, sin la tabla de almacenes.",
+      "steps": [
+        {
+          "evaluate": "fetch('/web/dataset/call_kw/website/search_read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'search_read',args:[[],['id']],kwargs:{}}})}).then(r=>r.json()).then(d=>fetch('/web/dataset/call_kw/website/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'call',params:{model:'website',method:'write',args:[d.result.map(w=>w.id),{show_stock:'nothing'}],kwargs:{}}})}))"
+        },
+        {
+          "goto": "/shop?search=Taladro"
+        },
+        {
+          "waitFor": "a:has-text('Taladro Inalámbrico 20V')",
+          "timeout": 60000
+        },
+        {
+          "click": "a:has-text('Taladro Inalámbrico 20V')"
+        },
+        {
+          "waitFor": ".o_wsale_product_page",
+          "timeout": 60000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    }
+  ],
+  "notes": "- **Visitantes anónimos y clientes del portal no ven la tabla.** Para leer las existencias por almacén el usuario necesita acceso a Inventario; si no lo tiene, la página del producto funciona normalmente y la tabla simplemente no aparece (en la consola del navegador queda el mensaje `[website_stock_availability] stock_qty not available`). Es el mismo comportamiento que en 19.0.\n- Solo aparecen almacenes de la **compañía actual** del usuario, con existencia libre mayor que cero y con *Mostrar almacén en el sitio web* marcado.\n- Si el producto no está publicado, la tabla no se muestra.\n- En el modo *Mostrar solo almacén* la marca roja (✗) nunca aparece: los almacenes sin existencia no se listan.\n- El bloque de disponibilidad estándar de Odoo (\"Solo quedan X unidades\", *Agotado*, etc.) sigue funcionando igual; la tabla se agrega debajo."
+}

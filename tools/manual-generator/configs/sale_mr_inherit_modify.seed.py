@@ -6,15 +6,15 @@ borrador y órdenes de fabricación vinculadas a líneas de venta. Además activ
 es_DO para que las capturas salgan en español.
 """
 
-env = env(user=2)  # admin  # noqa: F821
-
 # ─── idioma: capturas en español ────────────────────────────────────────────
 lang = env["res.lang"]._activate_lang("es_DO")
 wizard = env["base.language.install"].create(
     {"lang_ids": [(6, 0, lang.ids)], "overwrite": False}
 )
 wizard.lang_install()
-env.user.write({"lang": "es_DO"})
+env.ref("base.user_admin").write({"lang": "es_DO", "tz": "America/Santo_Domingo", "tour_enabled": False})
+env.cr.commit()
+env = env(user=2)  # admin  # noqa: F821
 
 # ─── clientes ───────────────────────────────────────────────────────────────
 Partner = env["res.partner"]
@@ -168,7 +168,7 @@ mo1 = Production.create(
     {
         "product_id": ceramica.id,
         "product_qty": 40.0,
-        "product_uom_id": ceramica.uom_id.id,
+        "uom_id": ceramica.uom_id.id,
         "bom_id": bom_ceramica.id,
         "sale_line_id": line_ceramica_sala.id,
     }
@@ -180,7 +180,7 @@ mo2 = Production.create(
     {
         "product_id": madera.id,
         "product_qty": 24.0,
-        "product_uom_id": madera.uom_id.id,
+        "uom_id": madera.uom_id.id,
         "bom_id": bom_madera.id,
         "origin": order2.name,
     }
@@ -188,8 +188,42 @@ mo2 = Production.create(
 mo2.find_qty()
 assert mo2.sale_line_id == line_madera_salon, "find_qty debió vincular la línea"
 
-env.cr.commit()
+MODULE = "sale_mr_inherit_modify"
+
+
+def demo_action(xmlid, vals):
+    existing = env.ref("%s.%s" % (MODULE, xmlid), raise_if_not_found=False)
+    if existing:
+        return existing
+    act = env["ir.actions.act_window"].create(vals)
+    env["ir.model.data"].create(
+        {"module": MODULE, "name": xmlid, "model": "ir.actions.act_window", "res_id": act.id, "noupdate": True}
+    )
+    return act
+
+
+def form_action(xmlid, record):
+    demo_action(xmlid, {"name": record.display_name, "res_model": record._name, "view_mode": "form", "res_id": record.id})
+
+
+form_action("manual_order_confirmed", order1)
+form_action("manual_quotation", order2)
+form_action("manual_mo_linked", mo1)
+form_action("manual_mo_find_qty", mo2)
+form_action("manual_picking", picking)
+demo_action(
+    "manual_picking_lines",
+    {
+        "name": "Operaciones de %s" % picking.name,
+        "res_model": "stock.move.line",
+        "view_mode": "list",
+        "view_id": env.ref("stock.view_stock_move_line_detailed_operation_tree").id,
+        "domain": [("picking_id", "=", picking.id)],
+        "context": {"picking_code": "outgoing"},
+    },
+)
 print(
     "SEED OK — pedido %s (entrega %s), cotización %s, MOs %s/%s"
     % (order1.name, picking.name, order2.name, mo1.name, mo2.name)
 )
+env.cr.commit()

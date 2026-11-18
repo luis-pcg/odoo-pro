@@ -65,9 +65,11 @@ if env["ir.module.module"].search(
     except Exception:
         pass
     if company.chart_template != "do":
+        company.partner_id.lang = "en_US"
         env["account.chart.template"].try_loading(
             "do", company, install_demo=False, force_create=True
         )
+        company.partner_id.lang = "es_DO"
     if company.account_fiscal_country_id != do:
         company.account_fiscal_country_id = do.id
     print("Contabilidad DO: plan=%s pais_fiscal=%s RNC=%s" % (
@@ -76,17 +78,13 @@ if env["ir.module.module"].search(
 # ── 2. Calendario RD 44h + estructura + diario ────────────────────────────────
 attendances = []
 for dow in range(5):
-    attendances.append((0, 0, {"name": "Mañana", "dayofweek": str(dow),
-                               "hour_from": 8, "hour_to": 12, "day_period": "morning"}))
-    attendances.append((0, 0, {"name": "Tarde", "dayofweek": str(dow),
-                               "hour_from": 13, "hour_to": 17, "day_period": "afternoon"}))
-attendances.append((0, 0, {"name": "Sábado", "dayofweek": "5",
-                           "hour_from": 8, "hour_to": 12, "day_period": "morning"}))
+    attendances.append((0, 0, {"dayofweek": str(dow), "hour_from": 8, "hour_to": 12, "day_period": "morning"}))
+    attendances.append((0, 0, {"dayofweek": str(dow), "hour_from": 13, "hour_to": 17, "day_period": "afternoon"}))
+attendances.append((0, 0, {"dayofweek": "5", "hour_from": 8, "hour_to": 12, "day_period": "morning"}))
 calendar_rd = env["resource.calendar"].search([("name", "=", "Jornada RD 44 horas")], limit=1)
 if not calendar_rd:
     calendar_rd = env["resource.calendar"].create({
-        "name": "Jornada RD 44 horas", "company_id": company.id, "tz": TZ,
-        "hours_per_day": 8, "attendance_ids": attendances,
+        "name": "Jornada RD 44 horas", "company_id": company.id, "attendance_ids": attendances,
     })
 company.resource_calendar_id = calendar_rd
 
@@ -165,6 +163,7 @@ seed_history(juan, date(2026, 9, 30), 12, 60000.0)
 def make_liquidation(employee, start, end, salary, fill_from_end=None):
     liq = env["l10n.do.hr.liquidation"].create({
         "employee_id": employee.id, "date_start": start, "date_end": end,
+        "current_salary": salary,
     })
     lines = liq.salary_line_ids.sorted("sequence")
     target = lines[-fill_from_end:] if fill_from_end else lines

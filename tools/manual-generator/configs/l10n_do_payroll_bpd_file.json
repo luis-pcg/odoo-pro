@@ -1,95 +1,171 @@
 {
   "module": "l10n_do_payroll_bpd_file",
-  "title": "Archivo de pago Banco Popular (BPD) — Colaboradores extranjeros con pasaporte",
-  "intro": "Manual funcional del archivo de pago/banco de Banco Popular (BPD) para nómina dominicana.\n\nCubre el caso de un **colaborador extranjero sin cédula dominicana**: el archivo de pago ahora toma el **pasaporte (`passport_id`)** como documento válido cuando el empleado no tiene **identificación nacional (`identification_id`)**, sin obligar al usuario a copiar el pasaporte manualmente en el campo de cédula. El archivo de Autodeterminación/TSS sigue funcionando con el pasaporte, sin verse afectado.",
+  "title": "Archivo de pago de nómina Banco Popular (BPD) — Manual de usuario (Odoo 20.0)",
+  "intro": "El módulo **l10n_do_payroll_bpd_file** genera, desde un periodo de nómina, el archivo de **pago de nómina de Banco Popular Dominicano** (formato de ancho fijo `PE…E.txt`) que se sube al portal empresarial del banco.\n\nSe apoya en **l10n_do_payroll_file_base** (acción **Archivo de Banco** del periodo de nómina) y se activa cuando el diario elegido tiene una cuenta bancaria cuya **Entidad Bancaria** es *Banco Popular Dominicano (BPD)*.\n\n**Cambios en Odoo 20.0:** Odoo eliminó el catálogo de bancos (`res.bank`). El **código de ruta** y el **dígito verificador** que Banco Popular exige para cada banco destino ya no se editan en una ficha de banco: vienen con el módulo para los 22 bancos y asociaciones que el banco publica, y se toman de la **Entidad Bancaria** de la cuenta del colaborador. El tipo de cuenta (corriente / ahorro) se indica en la cuenta bancaria.",
   "requirements": [
-    "Módulo instalado: l10n_do_payroll_bpd_file (arrastra l10n_do_payroll_file_base, l10n_do_hr_payroll, l10n_do_banks).",
-    "Empresa con país República Dominicana, moneda DOP, RNC y «Número de banco BPD» (5 dígitos) configurado.",
-    "Un diario de tipo Banco asociado al banco Popular (BIC BPDODOSX).",
-    "Interfaz en español (es_DO)."
+    "Módulo instalado: l10n_do_payroll_bpd_file (arrastra l10n_do_payroll_file_base, l10n_do_hr_payroll y l10n_do_banks).",
+    "Empresa con **RNC** y **Número de banco BPD** (5 dígitos, lo asigna Banco Popular).",
+    "Un diario de tipo **Banco** con la cuenta de la empresa en *Banco Popular Dominicano (BPD)*.",
+    "Cada colaborador con cuenta bancaria (**Entidad Bancaria** y **Tipo de cuenta**) y con **cédula** o **pasaporte**.",
+    "Un periodo de nómina en estado **Hecho** con los recibos validados."
   ],
   "flows": [
     {
-      "id": "01-empleado-extranjero",
-      "title": "1. Colaborador extranjero: pasaporte sin cédula",
-      "description": "Ficha del colaborador extranjero **Carlos Pérez Marval**, pestaña **Personal**, sección **Ciudadanía**. Tiene el **N.º de pasaporte** completado (`VEN1234567`) y el **N.º de identificación** (cédula) **vacío**. Antes del ajuste, esta configuración impedía generar el archivo de pago BPD.",
+      "id": "01-empresa",
+      "title": "1. Número de banco BPD de la empresa",
+      "description": "En **Ajustes ▸ Empresas**, la ficha de la empresa tiene el campo **Número de banco BPD** junto al RNC. Es el número de 5 dígitos con que Banco Popular identifica a la empresa, y forma parte del nombre del archivo (`PE<número>01<MMDD><secuencia>E.txt`).",
       "steps": [
-        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
-        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
-        { "click": ".o_searchview_input" },
-        { "type": ".o_searchview_input", "value": "Carlos" },
-        { "press": "Enter" },
-        { "wait": 1500 },
-        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view", "timeout": 15000 },
-        { "click": ".o_notebook a.nav-link:has-text(\"Personal\")" },
-        { "wait": 1500 }
+        {
+          "goto": "/odoo/action-base.action_res_company_form/1"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
-      "id": "02-empleado-dominicano",
-      "title": "2. Colaborador dominicano: cédula (control)",
-      "description": "Ficha del colaborador dominicano **Juan Domínguez Reyes**, con **N.º de identificación** (cédula `00112345678`) y sin pasaporte. Caso estándar que se incluye para contrastar el comportamiento del archivo de pago.",
+      "id": "02-moneda",
+      "title": "2. Código de moneda BPD",
+      "description": "Cada moneda lleva su **Código de moneda BPD** (DOP `214`, USD `840`, EUR `978`, ya cargados por el módulo). El archivo lo escribe en cada transacción según la moneda de la cuenta destino.",
       "steps": [
-        { "goto": "/odoo/action-hr.open_view_employee_list_my" },
-        { "waitFor": ".o_kanban_view, .o_list_view", "timeout": 30000 },
-        { "click": ".o_searchview_input" },
-        { "type": ".o_searchview_input", "value": "Juan" },
-        { "press": "Enter" },
-        { "wait": 1500 },
-        { "click": ".o_kanban_record:not(.o_kanban_ghost), .o_data_row:first-child .o_data_cell" },
-        { "waitFor": ".o_form_view", "timeout": 15000 },
-        { "click": ".o_notebook a.nav-link:has-text(\"Personal\")" },
-        { "wait": 1500 }
+        {
+          "goto": "/odoo/action-base.action_currency_form/74"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
-      "id": "03-lote-nomina",
-      "title": "3. Lote de nómina en estado «Hecho»",
-      "description": "Lote de nómina (**Nómina** ▸ **Períodos de nómina**) con las nóminas calculadas y validadas. Al estar en estado **Listo/Hecho**, sobre la tarjeta del lote aparece el botón **Bank File** (Archivo de Banco).",
+      "id": "03-cuenta-empleado",
+      "title": "3. Cuenta bancaria del colaborador",
+      "description": "La **Entidad Bancaria** (pestaña *Información bancaria*) decide el código de ruta y el dígito verificador del banco destino. El **Tipo de cuenta** decide el tipo (`1` corriente, `2` ahorro) y el código de transacción (`22` / `32`). Una cuenta sin tipo detiene la generación con un aviso.",
       "steps": [
-        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
-        { "waitFor": ".o_kanban_view", "timeout": 30000 },
-        { "wait": 1500 }
+        {
+          "goto": "/odoo/action-base.action_res_partner_bank_account_form/4"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_notebook .nav-link:has-text(\"Información bancaria\")"
+        },
+        {
+          "wait": 1500
+        }
       ]
     },
     {
-      "id": "04-asistente-archivo-banco",
-      "title": "4. Asistente «Archivo de Banco» — diario BPD",
-      "description": "Con el botón **Bank File** de la tarjeta se abre el asistente. Se selecciona el diario del **Banco Popular (BPD Nómina)**. El siguiente paso es pulsar **Generar**.",
+      "id": "04-asistente-bpd",
+      "title": "4. Asistente con el diario de Banco Popular",
+      "description": "Desde el menú **⋮** de la tarjeta del periodo ▸ **Archivo de Banco**, se elige el diario de **Banco Popular**. Aparece la **Fecha efectiva**: el día en que el banco debe acreditar los pagos (no puede quedar vacía).",
       "steps": [
-        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
-        { "waitFor": ".o_kanban_view", "timeout": 30000 },
-        { "wait": 1200 },
-        { "click": "button:has-text(\"Bank File\")" },
-        { "waitFor": ".modal-content", "timeout": 15000 },
-        { "wait": 500 },
-        { "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler" },
-        { "wait": 800 },
-        { "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BPD Nómina\")" },
-        { "wait": 1200 }
-      ]
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "evaluate": "(() => { const c=[...document.querySelectorAll('.o_kanban_record')].find(x=>x.innerText.includes('1ra')); const b=[...c.querySelectorAll('button, a, .dropdown-toggle')].filter(e=>!e.innerText.trim()); b[b.length-1].click(); })()"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".dropdown-menu .dropdown-item:has-text(\"Archivo de Banco\")"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 15000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"Banco Popular - Nómina\")"
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "screenshotEl": ".modal-content"
     },
     {
       "id": "05-archivo-generado",
-      "title": "5. Archivo de pago generado con el pasaporte",
-      "description": "Al pulsar **Generar**, el archivo de pago BPD se crea correctamente **sin necesidad de copiar el pasaporte en el campo de cédula**. El registro del colaborador extranjero usa el tipo de documento **PS (pasaporte)** y el número del pasaporte. El asistente muestra el archivo `.txt` listo para descargar.",
+      "title": "5. Archivo generado",
+      "description": "Con **Generar**, el asistente muestra el archivo `PE…E.txt` listo para descargar y subir al portal de Banco Popular. Si algún recibo del periodo no está validado, se lista como aviso debajo.",
       "steps": [
-        { "goto": "/odoo/action-hr_payroll.action_hr_payslip_run" },
-        { "waitFor": ".o_kanban_view", "timeout": 30000 },
-        { "wait": 1200 },
-        { "click": "button:has-text(\"Bank File\")" },
-        { "waitFor": ".modal-content", "timeout": 15000 },
-        { "wait": 500 },
-        { "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler" },
-        { "wait": 800 },
-        { "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"BPD Nómina\")" },
-        { "wait": 800 },
-        { "click": ".modal-content button[name='action_generate_file']" },
-        { "waitFor": ".modal-content div[name='data'] a", "timeout": 20000 },
-        { "wait": 1200 }
-      ]
+        {
+          "goto": "/odoo/action-hr_payroll.action_hr_payslip_run"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "evaluate": "(() => { const c=[...document.querySelectorAll('.o_kanban_record')].find(x=>x.innerText.includes('1ra')); const b=[...c.querySelectorAll('button, a, .dropdown-toggle')].filter(e=>!e.innerText.trim()); b[b.length-1].click(); })()"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".dropdown-menu .dropdown-item:has-text(\"Archivo de Banco\")"
+        },
+        {
+          "waitFor": ".modal-content",
+          "timeout": 15000
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".modal-content div[name='journal_id'] input.o_select_menu_toggler"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": ".o_select_menu_menu .o_select_menu_item:has-text(\"Banco Popular - Nómina\")"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": ".modal-content button[name='action_generate_file']"
+        },
+        {
+          "waitFor": ".modal-content div[name='data'] a, .modal-content div[name='data'] button",
+          "timeout": 20000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "screenshotEl": ".modal-content"
     }
   ],
-  "notes": "**Lógica aplicada (módulo `l10n_do_payroll_bpd_file`):**\n\n- Si el empleado tiene **identificación nacional** (`identification_id`): se usa esa. El tipo se deriva del campo: 11 dígitos → **CE** (cédula); en otro caso → **RN** (RNC).\n- Si **no** tiene identificación nacional pero **sí pasaporte** (`passport_id`): se usa el pasaporte con tipo **PS**.\n- El archivo de pago **no se bloquea** por tener la cédula vacía mientras exista pasaporte.\n- El tipo de documento se deriva del **campo de origen**, no de la cantidad de dígitos del valor.\n\n**Autodeterminación / TSS:** vive en otro módulo (`l10n_do_hr_report_base`, función `l10n.do.hr.fixedwidth.mixin._get_document_type`) y ya tomaba el pasaporte (tipo `P`). El ajuste del archivo de pago **no lo afecta**: el colaborador extranjero ya no requiere mover el pasaporte entre campos para generar uno u otro archivo."
+  "notes": "**Ejemplo real** del periodo de este manual (`PE123450109290000006E.txt`, se muestran los primeros 130 caracteres de cada línea; el archivo usa fin de línea CRLF):\n\n```\nH131793916      Empresa Dominicana SRL             0000006012026092900000000000000000000000000000000003000000848264100000000000000\nN131793916      000000600000169601234567          2214101010106320000003919276CE00112345678    Ana Mercedes Pérez                 \nN131793916      00000060000017774555001           1214101010708220000002117025CE40298765432    Beto Antonio Gómez                 \nN131793916      0000006000001812345678            2214101012308320000002446340PSVEN1234567     Carlos Pérez Marval                \n```\n\n- La línea **H** (encabezado) lleva el RNC de la empresa, el nombre, la secuencia del archivo, la fecha efectiva, la cantidad de créditos y el total en centavos.\n- Cada línea **N** es una transacción: cuenta destino (sin guiones), tipo de cuenta (`1` corriente / `2` ahorro), moneda (`214`), **código de ruta + dígito verificador** del banco destino, código de transacción (`22` / `32`), monto en centavos, tipo de documento y documento, nombre, referencia y correo.\n- Las tres líneas van a tres bancos distintos: BanReservas (`10101010` / `6`), Banco Popular (`10101070` / `8`) y BHD (`10101230` / `8`).\n- **Tipo de documento:** con cédula de 11 dígitos, `CE`; con otra identificación nacional, `RN`; sin identificación pero con **pasaporte**, `PS` y el número de pasaporte (caso de Carlos Pérez Marval, colaborador extranjero). Sin ninguno de los dos, la generación se detiene con el nombre del colaborador.\n- **Depósitos a terceros** del recibo (pestaña del recibo de nómina) generan su propia línea hacia la cuenta del tercero, que debe tener RNC.\n\n**Bancos con código de ruta** (22): Popular, BanReservas, BHD, Santa Cruz, Citibank, Scotiabank, BDI, López de Haro, Vimenca, Promerica, Asociación Popular, Caribe, Bancamérica, Asociación Cibao (ACAP), Banesco, Asociación La Nacional, Lafise, Bell Bank, Empire, Atlántico, ADEMI y BACF. Una cuenta destino en otro banco se escribe sin código de ruta y Banco Popular rechazará esa línea.\n\n**Migración a 20.0:** no requiere pasos. Los códigos que antes se guardaban en la ficha de cada banco (`res.bank`, eliminada en 20.0) ahora vienen en el módulo con los mismos valores; la **Entidad Bancaria** de cada cuenta la traslada `l10n_do_banks` al actualizar.\n\n**Pendiente conocido:** algunas etiquetas propias del módulo (*BPD Bank Number*, *BPD Currency Code*, *Effective Date*) aparecen en inglés: el archivo de traducción del módulo nunca las tradujo."
 }

@@ -1,0 +1,68 @@
+{
+  "module": "payment_azul_webservices",
+  "title": "Azul — Webservices (payment_azul_webservices) — Manual de configuración y uso (20.0)",
+  "intro": "El módulo **`payment_azul_webservices`** agrega el proveedor de pago **Azul** en su modalidad *Webservices*: el cliente escribe los datos de la tarjeta en el formulario de pago de Odoo y Odoo cobra directamente contra la API de Azul (con autenticación **3D Secure 2**), sin salir del sitio. Permite guardar la tarjeta (DataVault), autorizar y capturar después, anular y reembolsar.\n\nEste manual se generó sobre **Odoo 20.0** con los dos módulos de Azul instalados a la vez (`payment_azul_webservices` y `payment_azul_webpages`), para mostrar que conviven: cada uno ofrece su propia opción en el formulario de pago.\n\n> **Qué cambió en 20.0:** cada proveedor tiene sus métodos de pago; el de Webservices es **Tarjeta de crédito y débito (Azul)** (código `azul_webservices`) con las marcas VISA, MasterCard, American Express y Discover. El modo de prueba es la casilla **Producción** (desmarcada = ambiente de pruebas de Azul). Los reembolsos, capturas y anulaciones se registran como transacciones hijas de la original. El paso *3DS Method* y el *challenge* del banco se resuelven desde el propio formulario de pago.\n\n> La base de ejemplo se siembra con `configs/payment_azul_webservices.seed.py` (credenciales y certificados ficticios, sin conexión real con Azul; la transacción de ejemplo se aprobó con la respuesta de Azul simulada).",
+  "requirements": [
+    "Instalar **`payment_azul_webservices`** (depende de `payment` y `website_sale`) y la librería Python **`pyazul==3.2.1`**.",
+    "Monedas **DOP** y/o **USD** activas: Azul cobra siempre en pesos dominicanos; los montos en USD se convierten con la tasa del día.",
+    "Credenciales de Azul: **MID**, **Authorization 1 y 2**, el **certificado SSL (PEM)** y su **llave privada** generada con el CSR.",
+    "Interfaz en español (es_DO)."
+  ],
+  "flows": [
+    {
+      "id": "01-credenciales",
+      "title": "1. Credenciales y modo de prueba",
+      "description": "**Configuración → Proveedores de pago → Azul** (el de código `azul_webservices`), pestaña **Configuración**: número de afiliado (MID), *Authorization 1* y *2*, el certificado y la llave privada. Odoo valida que los archivos sean PEM. Son obligatorios cuando el proveedor está en **Producción**; desmarcada, los pagos van al ambiente de pruebas de Azul. En *Opciones* se activa **Permitir guardar métodos de pago** y **Capturar el importe manualmente** (autorizar y capturar al despachar).",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider/28" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook button[name='configuration']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "02-3ds",
+      "title": "2. Configuración 3D Secure",
+      "description": "Pestaña **Configuración 3D Secure**: activar o no 3D Secure y la preferencia de *challenge*. Las URLs de retorno (`/payment/azul/3ds_return`) son las que Azul y el banco usan para devolver el resultado de la autenticación.",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider/28" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook button[name='azul_3ds_config']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "03-metodos",
+      "title": "3. Métodos de pago del proveedor",
+      "description": "Pestaña **Métodos de pago**: **Tarjeta de crédito y débito (Azul)** con sus marcas, activos desde la instalación. Al guardar una tarjeta, el token queda con la marca que informa Azul (VISA, MasterCard…).",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_provider/28" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "click": ".o_notebook button[name='payment_methods']" },
+        { "wait": 1200 }
+      ]
+    },
+    {
+      "id": "04-checkout",
+      "title": "4. El cliente paga con tarjeta",
+      "description": "En el formulario de pago aparecen las dos opciones de Azul: **Página de pago Azul** (módulo *Página de pago*) y **Tarjeta de crédito y débito (Azul)**. Al elegir esta última se despliega el formulario de tarjeta (número, vencimiento y CVC) y, si el proveedor lo permite, *Guardar mis detalles de pago*.\n\nAl pulsar **Pagar**:\n\n1. Odoo envía el cobro a Azul. Si no hace falta 3D Secure, la transacción queda aprobada y el cliente pasa a la página de estado.\n2. Si el banco pide el **3DS Method**, se ejecuta en segundo plano en el mismo formulario (unos segundos) y Odoo continúa la autenticación.\n3. Si el banco pide un **challenge**, el navegador va a la página del banco; al terminar, el banco devuelve al cliente a Odoo, que consulta el resultado y muestra el estado.\n\nUn pago con tarjeta guardada sigue el mismo camino de 3D Secure.",
+      "steps": [
+        { "goto": "/payment/pay?reference=S00006&amount=2950.0&currency_id=74&partner_id=3&access_token=ec64cf21358fc9838ea8ac4eb3c856073675548ae5a8a7f9616ddfc7941a3752" },
+        { "waitFor": "input[data-provider-code='azul_webservices']", "timeout": 30000 },
+        { "evaluate": "document.querySelector(\"input[data-provider-code='azul_webservices']\").click()" },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "id": "05-transaccion",
+      "title": "5. La transacción aprobada",
+      "description": "La transacción aprobada queda **Confirmada** con el **ID de orden de Azul** (referencia del proveedor) y el mensaje de Azul. Desde la transacción se puede **Verificar estado** (consulta a Azul) y, si está confirmada, **Reembolsar**; con captura manual aparecen **Capturar** y **Anular**. Cada reembolso, captura o anulación crea una transacción hija; la original pasa a *Confirmado* cuando se captura todo o a *Cancelado* cuando se anula. Un cron cada 30 minutos verifica en Azul las transacciones que quedan pendientes (por ejemplo, un 3D Secure abandonado).",
+      "steps": [
+        { "goto": "/odoo/action-payment.action_payment_transaction/2" },
+        { "waitFor": ".o_form_view", "timeout": 30000 },
+        { "wait": 1200 }
+      ]
+    }
+  ],
+  "notes": "- **Convivencia con `payment_azul_webpages`:** los dos módulos pueden estar instalados a la vez y se probaron juntos: instalación, pruebas de ambos módulos en la misma base, formulario de pago con las dos opciones y desinstalación de uno con el otro funcionando.\n- **Migración desde 19.0:** el script `upgrades/2.0.0` reutiliza los métodos de pago que el upgrade de Odoo haya dejado en el proveedor (renombra *Card* a *Tarjeta de crédito y débito (Azul)* y conserva los tokens) y convierte el certificado y la llave si siguen guardados en base64, para que el cliente de Azul los pueda leer.\n- Las pruebas en el ambiente de Azul requieren el certificado real emitido por Azul para el comercio."
+}
