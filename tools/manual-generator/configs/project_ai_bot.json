@@ -1,0 +1,492 @@
+{
+  "module": "project_ai_bot",
+  "title": "Bot Claude para tareas de proyecto — Manual de usuario",
+  "cover": {
+    "program": "Manual de Usuario",
+    "subject": "BOT CLAUDE PARA TAREAS DE PROYECTO",
+    "version": "V19"
+  },
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "Project AI Bot (`project_ai_bot`)"
+    },
+    {
+      "label": "Dónde está en Odoo",
+      "value": "Proyecto ▸ Configuración ▸ Bot Claude, y la pestaña **Claude** de cada tarea"
+    },
+    {
+      "label": "Para quién es",
+      "value": "Administradores de proyecto (configuración) y el equipo que trabaja tareas de desarrollo (uso diario)"
+    },
+    {
+      "label": "Qué resuelve",
+      "value": "Pasa una tarea a Claude Code para que reproduzca, corrija, migre o desarrolle el cambio y abra el PR, y conversa con el equipo desde el chatter"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    }
+  ],
+  "intro": "Este módulo conecta las tareas de Odoo con el **bot de Claude Code**. Cuando una tarea marcada para el bot pasa a la etapa **1 In Progress**, Odoo le envía al bot todo lo que necesita saber: qué tipo de trabajo es (bug, migración, desarrollo o QA), en qué versión de Odoo, qué tan compleja es y en qué repositorios trabajar. El bot abre una sesión de Claude, hace el trabajo, pregunta por el chatter cuando tiene dudas y abre el pull request.\n\nToda la configuración vive en Odoo: qué etiquetas activan el bot, qué versiones existen, a qué versión se migra cada una y qué repositorios usa. Cambiarla **no** requiere tocar el bot.",
+  "requirements": [
+    "El **gateway del bot** está instalado y publicado por HTTPS (lo hace el equipo técnico; ver la guía de instalación en `indexa-git/bot_ia_odoo`).",
+    "Cada versión de Odoo tiene su **routine de Claude** creada en claude.ai (ID y token).",
+    "Para configurar: permiso **Proyecto: Administrador**. Para ver el secreto del webhook y el token de la routine: **Administración: Ajustes**.",
+    "Para usar el bot en una tarea: ser usuario de Proyecto. Los comandos se escriben como **nota interna**."
+  ],
+  "flows": [
+    {
+      "id": "c01-menu",
+      "section": "Configuración (administrador)",
+      "title": "1. Menú del bot",
+      "description": "Vaya a **Proyecto ▸ Configuración ▸ Bot Claude**. Ahí están las seis pantallas de configuración:\n\n- **Configuración**: conexión con el gateway y cuándo trabaja el bot.\n- **Flujos**: tipos de trabajo y sus etiquetas.\n- **Versiones**: versiones de Odoo, routines y cadena de migración.\n- **Repositorios**: catálogo de repos.\n- **Esfuerzo** y **Áreas**: reglas extra según etiquetas.\n\nAl instalar el módulo, Odoo **enlaza solo** las etiquetas y etapas que ya existen (`1. Type - …`, `3. Versión - …`, `4. Base - …`, `5. Complejidad - …`, `Documentación`, *1 In Progress*, *Review*) y crea la etiqueta `0. Team - Claude 🤖` si no existe.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project.open_view_project_all"
+        },
+        {
+          "waitFor": ".o_kanban_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_menu_sections button:has-text('Configuración')"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "hover": ".dropdown-item:has-text('Configuración')"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "viewport": {
+        "height": 620
+      }
+    },
+    {
+      "id": "c02-configuracion",
+      "section": "Configuración (administrador)",
+      "title": "2. Configuración general",
+      "description": "**Bot Claude ▸ Configuración.** Hay un solo registro.\n\n**Gateway**\n\n- **URL del gateway**: la dirección HTTPS del bot, sin `/hooks/…` (p. ej. `https://claudebot.progressa.group`).\n- **Secreto del webhook**: el mismo valor que `BOT_WEBHOOK_SECRET` del gateway. Sin URL y secreto, Odoo no avisa al bot.\n- **Usuario del bot**: el usuario técnico con el que el bot escribe en las tareas. Sus notas nunca se reenvían al bot.\n- **Máx. sesiones simultáneas**: tope de tareas trabajándose a la vez (`0` = sin tope).\n- **Prefijo del comando**: con qué empiezan las notas que van al bot (`/claude`).\n\n**Cuándo trabaja el bot**\n\n- **Etiquetas de activación**: la tarea debe tener una de estas. Puede añadir cualquier etiqueta que ya exista.\n- **Etapas de inicio**: mover la tarea a una de estas etapas abre (o retoma) la sesión.\n- **Etapas de revisión**: adonde el bot puede mover la tarea cuando abre el PR.\n- **Etiquetas de documentación**: la tarea debe actualizar también el manual.\n- **Proyectos**: vacío = todos. Úselo para limitar el bot mientras se prueba.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_config_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "element": ".o_form_sheet"
+    },
+    {
+      "id": "c03-flujos",
+      "section": "Configuración (administrador)",
+      "title": "3. Flujos",
+      "description": "**Bot Claude ▸ Flujos.** Cada flujo es un tipo de trabajo y se elige por las etiquetas de **tipo** de la tarea.\n\n| Flujo | Qué hace el bot |\n|---|---|\n| Corrección de error | Reproduce el error, escribe el test, corrige y abre el PR |\n| Migración | Porta el módulo de una versión a otra |\n| Desarrollo | Propone un análisis y **espera aprobación** antes de cambiar código |\n| QA funcional | Prueba la funcionalidad y reporta |\n\nLas etiquetas se editan en la misma lista (son muchos a muchos: se agregan o quitan sin crear etiquetas nuevas). **Requiere aprobación** obliga a aprobar el análisis con `/claude aprobar`. Abra un flujo para añadir **instrucciones** propias.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_flow_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 520
+      }
+    },
+    {
+      "id": "c04-versiones",
+      "section": "Configuración (administrador)",
+      "title": "4. Versiones",
+      "description": "**Bot Claude ▸ Versiones.** Un registro por versión de Odoo. Aquí se define **de qué versión a qué versión** se migra, sin tocar el bot.\n\n- **Etiquetas**: las etiquetas `3. Versión - …` que identifican la versión.\n- **Forward-port a**: la siguiente versión de la cadena (17.0 → 19.0 → 20.0).\n- **Migrar a**: destino por defecto cuando una tarea de migración tiene **una sola** etiqueta de versión.\n- **Routine ID**: la routine de Claude que abre las sesiones de esa versión.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_version_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 460
+      }
+    },
+    {
+      "id": "c05-version-19",
+      "section": "Configuración (administrador)",
+      "title": "5. Detalle de una versión",
+      "description": "Abra una versión para completarla:\n\n- **Rama** e **Imagen Docker** de esa versión.\n- **Nube de Claude**: **Entorno en la nube**, **Routine ID** y **Token de la routine** (sólo lo ven los administradores). Ambos salen de claude.ai/code/routines al crear la routine con disparador API.\n- Pestaña **Repositorios**: qué repos y con qué rama recibe la sesión. Para 19.0: `odoo/odoo`, `indexa-git/enterprise` y `indexa-git/odoo-pro` en `19.0`; `indexa-git/upgrade-util` y `indexa-git/pyazul` en `master`.\n\nPara una versión nueva (p. ej. 21.0): cree el registro con su etiqueta, rama, routine y repositorios, y ponga **Forward-port a** / **Migrar a** en la versión anterior. El destino siempre debe ser una versión más nueva: Odoo no deja guardar lo contrario.",
+      "steps": [
+        {
+          "gotoXmlId": "project_ai_bot.version_19",
+          "action": "project_ai_bot.project_ai_bot_version_action"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "element": ".o_form_sheet"
+    },
+    {
+      "id": "c06-repositorios",
+      "section": "Configuración (administrador)",
+      "title": "6. Repositorios",
+      "description": "**Bot Claude ▸ Repositorios.** Catálogo de repos que pueden usar las versiones (`organización/repositorio`). Un repo nuevo se crea aquí y luego se agrega en la pestaña **Repositorios** de cada versión con su rama.\n\nLa sesión sólo puede clonar repos a los que la **Claude GitHub App** tiene acceso en la organización `indexa-git`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_repository_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 460
+      }
+    },
+    {
+      "id": "c07-esfuerzo",
+      "section": "Configuración (administrador)",
+      "title": "7. Esfuerzo",
+      "description": "**Bot Claude ▸ Esfuerzo.** Relaciona las etiquetas de complejidad con el **nivel de razonamiento** de Claude: más esfuerzo = análisis más profundo (y más costo). Si la tarea tiene varias, gana la más alta; sin ninguna, se usa `medium`.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_effort_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 420
+      }
+    },
+    {
+      "id": "c08-areas",
+      "section": "Configuración (administrador)",
+      "title": "8. Áreas",
+      "description": "**Bot Claude ▸ Áreas.** Una por cada etiqueta `4. Base - …`. Cuando la tarea tiene la etiqueta del área, el bot recibe las **skills** y las **instrucciones** de esa área (p. ej. *Payroll*: validar contra la escala ISR vigente).",
+      "steps": [
+        {
+          "goto": "/odoo/action-project_ai_bot.project_ai_bot_area_action"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "viewport": {
+        "height": 420
+      }
+    },
+    {
+      "id": "u01-tarea",
+      "section": "Pasar una tarea al bot",
+      "title": "9. Marque la tarea para el bot",
+      "description": "En la tarea, ponga las etiquetas:\n\n1. **Activación**: `0. Team - Claude 🤖`.\n2. **Tipo**: `1. Type - BUG`, `MIG`, `NEW`/`IMP`/`REF` o `QA`.\n3. **Versión**: `3. Versión - 19` (o la que corresponda).\n4. Opcional: **complejidad** (`5. Complejidad - …`), **área** (`4. Base - …`) y `Documentación`.\n\nCon la etiqueta de activación aparecen el botón **Enviar a Claude** y la pestaña **Claude**. Escriba en la **descripción** lo que se debe hacer, con el mayor detalle posible: es lo primero que lee el bot.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_bug",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "width": 1500,
+        "height": 720
+      }
+    },
+    {
+      "id": "u02-pestana",
+      "section": "Pasar una tarea al bot",
+      "title": "10. Revise cómo la va a trabajar",
+      "description": "La pestaña **Claude** muestra lo que el bot entendió de las etiquetas, **antes** de enviarla:\n\n- **La trabaja Claude**: la tarea tiene la etiqueta de activación y está en un proyecto habilitado.\n- **Flujo de Claude**: el tipo de trabajo.\n- **Versión de Claude**: la versión en la que trabajará.\n\nSi **Flujo** o **Versión** salen vacíos, falta la etiqueta correspondiente o no está enlazada en *Flujos* / *Versiones*.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_bug",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='claude']"
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "element": ".o_notebook"
+    },
+    {
+      "id": "u03-migracion",
+      "section": "Pasar una tarea al bot",
+      "title": "11. Tareas de migración",
+      "description": "En una migración, la pestaña muestra además **Migrar desde**:\n\n- **Una** etiqueta de versión (p. ej. `3. Versión - 17`): migra desde esa versión hacia su **Migrar a** (17.0 → 19.0).\n- **Dos** etiquetas (p. ej. 17 y 20): migra de la menor a la mayor (17.0 → 20.0).\n\nPara cambiar el destino de todas las migraciones de una versión, cambie **Migrar a** en *Versiones*.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_migration",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='claude']"
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "element": ".o_notebook"
+    },
+    {
+      "id": "u04-iniciar",
+      "section": "Pasar una tarea al bot",
+      "title": "12. Inicie el trabajo",
+      "description": "Hay dos formas:\n\n- **Mover la tarea a 1 In Progress** (la etapa de inicio): es la forma normal.\n- Botón **Enviar a Claude**: para iniciar o reintentar a mano, por ejemplo si el gateway estaba caído.\n\nOdoo confirma **Enviada a Claude** y el estado pasa a **Iniciando**. En unos segundos el bot deja una nota interna con el enlace a la sesión y el estado pasa a **Trabajando**.\n\nSi la tarea ya tiene sesión, no se abre otra: el bot **retoma** la misma.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_bug",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "button[name='action_ai_bot_start']"
+        },
+        {
+          "waitFor": ".o_notification",
+          "timeout": 15000
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "viewport": {
+        "width": 1500,
+        "height": 520
+      }
+    },
+    {
+      "id": "u05-error",
+      "section": "Pasar una tarea al bot",
+      "title": "13. Cuando falta algo",
+      "description": "Si falta configuración, **Enviar a Claude** explica qué:\n\n| Mensaje | Qué hacer |\n|---|---|\n| La tarea no tiene la etiqueta de activación del bot Claude. | Añadir `0. Team - Claude 🤖` |\n| Ningún flujo de Claude coincide con las etiquetas de tipo de la tarea. | Añadir una etiqueta `1. Type - …` |\n| Ninguna versión de Claude coincide con las etiquetas de versión de la tarea. | Añadir una etiqueta `3. Versión - …` |\n| La versión X no tiene routine de Claude. | El administrador carga la routine en *Versiones* |\n| Configure la URL y el secreto del gateway… | El administrador completa *Configuración* |\n\nAl **mover de etapa** no aparece ningún mensaje: si falta algo, la tarea simplemente no se envía. Use el botón para saber por qué.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_master",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": "button[name='action_ai_bot_start']"
+        },
+        {
+          "waitFor": ".modal-dialog",
+          "timeout": 15000
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "element": ".modal-content",
+      "viewport": {
+        "width": 1100,
+        "height": 700
+      }
+    },
+    {
+      "id": "u06-sesion",
+      "section": "Conversar con el bot",
+      "title": "14. Siga el trabajo y responda",
+      "description": "Mientras trabaja, la pestaña **Claude** muestra:\n\n- **Estado de Claude**: Iniciando, Trabajando, **Espera respuesta**, **Espera aprobación**, Bloqueada, Falló o Terminada.\n- **Enlace de la sesión**: abre la sesión en claude.ai para ver en vivo lo que hace.\n- **Costo Claude (USD)**: lo consumido por la sesión.\n\nEl bot pregunta con **notas internas** que terminan en `status: needs_input`. Para responder, escriba una **nota interna** que empiece con `/claude`:\n\n> `/claude Sí, aplica también a E34. Usa la misma regla.`\n\nLa respuesta llega a la misma sesión y el bot continúa.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_working",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".o-mail-Message",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='claude']"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "width": 1700,
+        "height": 900
+      }
+    },
+    {
+      "id": "u07-aprobacion",
+      "section": "Conversar con el bot",
+      "title": "15. Apruebe un desarrollo",
+      "description": "En el flujo **Desarrollo** el bot no cambia código hasta que alguien apruebe su análisis. La tarea queda en **Espera aprobación**. Responda con una nota interna:\n\n- `/claude aprobar` para que empiece.\n- `/claude rechazar <motivo>` para que corrija el análisis.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_development",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".o-mail-Message",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='claude']"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "width": 1700,
+        "height": 820
+      }
+    },
+    {
+      "id": "u08-comandos",
+      "section": "Conversar con el bot",
+      "title": "16. Comandos del chatter",
+      "description": "Siempre como **nota interna** (botón *Registrar nota*), nunca como mensaje: los mensajes a seguidores **no** se envían al bot.\n\n| Comando | Efecto |\n|---|---|\n| `/claude <texto>` | Responde una pregunta o da una indicación |\n| `/claude aprobar` | Aprueba el análisis (flujo Desarrollo) |\n| `/claude rechazar <motivo>` | Rechaza el análisis |\n| `/claude estado` | Pide un resumen del avance |\n| `/claude detener` | Detiene la sesión |\n\nLas notas que no empiezan con `/claude` son normales: el bot no las recibe.",
+      "image": false
+    },
+    {
+      "id": "u09-revision",
+      "section": "Resultado",
+      "title": "17. PR abierto y tarea en Review",
+      "description": "Al terminar, el bot deja en el chatter el enlace del **pull request**, mueve la tarea a la etapa de revisión (**Review**) y el estado pasa a **Terminada**. A partir de ahí el PR se revisa como cualquier otro.",
+      "steps": [
+        {
+          "gotoXmlId": "manual_seed.task_review",
+          "action": "project.action_view_all_task"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 60000
+        },
+        {
+          "waitFor": ".o-mail-Message",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_notebook .nav-link[name='claude']"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "viewport": {
+        "width": 1700,
+        "height": 820
+      }
+    },
+    {
+      "id": "u10-filtro",
+      "section": "Resultado",
+      "title": "18. Ver todas las tareas del bot",
+      "description": "En la lista de tareas, el filtro **Tareas de Claude** muestra las que tienen sesión. Agrupe por **Estado de Claude** para ver cuáles esperan una respuesta o una aprobación.",
+      "steps": [
+        {
+          "goto": "/odoo/action-project.action_view_all_task?view_type=list"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 60000
+        },
+        {
+          "click": ".o_searchview_dropdown_toggler"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": ".o-dropdown--menu .o_menu_item:has-text('Tareas de Claude')"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": ".o_searchview_dropdown_toggler"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "viewport": {
+        "width": 1500,
+        "height": 620
+      }
+    },
+    {
+      "id": "u11-olvidar",
+      "section": "Resultado",
+      "title": "19. Empezar de cero",
+      "description": "**Olvidar sesión** (pestaña *Claude*, sólo administradores de proyecto) desvincula la sesión y limpia el estado. El siguiente inicio abre una sesión **nueva**. Úselo si la sesión quedó trabada (por ejemplo en **Iniciando** porque el gateway no respondió) o si se quiere rehacer la tarea desde cero.",
+      "image": false
+    }
+  ],
+  "notes": "Código del módulo: `odoo-pro/project_ai_bot` (rama 19.0, PR [indexa-git/odoo-pro#1386](https://github.com/indexa-git/odoo-pro/pull/1386)). Gateway, guía de instalación y guía de pruebas: [indexa-git/bot_ia_odoo](https://github.com/indexa-git/bot_ia_odoo) (`docs/GUIA_INSTALACION.md`, `docs/GUIA_PRUEBAS.md`). Tarea: [#75227 — Bot de migración/corrección/desarrollo Odoo](https://www.progressa.group/odoo/project.task/75227)."
+}

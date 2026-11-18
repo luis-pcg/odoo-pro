@@ -1,0 +1,238 @@
+{
+  "module": "pos_operating_unit_visibility",
+  "title": "Punto de venta por unidad operativa — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "version": "V19",
+    "subject": "PUNTO DE VENTA POR UNIDAD OPERATIVA"
+  },
+  "intro": "Una **unidad operativa** es una parte de la empresa que trabaja por su cuenta dentro de la misma compañía. En NC44 cada tienda es una unidad operativa (*Tienda San Felipe*, *Tienda Caciques*, …), además de **Main Operating Unit** (oficina central y CEDI) y **REGIONAL 01**.\n\nEl módulo **Punto de venta por unidad operativa** (`pos_operating_unit_visibility`) asigna cada caja a una o varias unidades:\n\n- Las **sesiones**, **órdenes**, **líneas** y **pagos** toman las unidades de la caja cuando se crean.\n- Cada usuario sólo ve las cajas, sesiones, órdenes y pagos de sus unidades, más los que no tienen unidad.\n\nLos asientos, facturas y movimientos de inventario del punto de venta siguen centralizados. Reemplaza a `pos_operating_unit` (store-addons); en la base migrada, las unidades de cajas, sesiones, órdenes y pagos siguen en su lugar.",
+  "requirements": [
+    "Odoo 19 con **Punto de venta** y **Unidades operativas** (`operating_unit_base`).",
+    "Módulo **Punto de venta por unidad operativa** (`pos_operating_unit_visibility`).",
+    "Para asignar unidades a una caja, el grupo **Responsable de las unidades operativas**. Para ver la columna en órdenes y pagos, **Múltiples unidades operativas**."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "PUNTO DE VENTA POR UNIDAD OPERATIVA"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`pos_operating_unit_visibility`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Reemplaza a",
+      "value": "`pos_operating_unit` (store-addons)"
+    },
+    {
+      "label": "Depende de",
+      "value": "`point_of_sale`, `operating_unit_base`"
+    },
+    {
+      "label": "Qué hay que configurar",
+      "value": [
+        "Las unidades de cada caja (*Punto de venta → Configuración → Ajustes*, bloque *Unidades operativas*)",
+        "Una caja sin unidades la ven todos los usuarios"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Revisión en la base migrada",
+      "groups": [
+        {
+          "title": "Datos conservados",
+          "items": [
+            {
+              "label": "Las 138 cajas tienen unidades operativas (ninguna quedó sin unidad)",
+              "ok": true
+            },
+            {
+              "label": "47.064 de 47.140 sesiones conservan sus unidades",
+              "ok": true
+            },
+            {
+              "label": "3.701.117 de 3.702.260 órdenes conservan sus unidades",
+              "ok": true
+            },
+            {
+              "label": "6.355.666 de 6.357.593 pagos conservan sus unidades",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Pantallas",
+          "items": [
+            {
+              "label": "Bloque *Unidades operativas* en los ajustes de la caja",
+              "ok": true
+            },
+            {
+              "label": "Columna de unidades en órdenes y pagos",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-ajustes",
+      "section": "Configuración",
+      "title": "1. Unidades operativas de la caja",
+      "description": "Entra a **Punto de venta → Configuración → Ajustes**, elige la caja arriba (aquí la caja #1 de San Felipe) y busca el bloque **Unidades operativas**.\n\nEn NC44 cada caja tiene dos unidades: **Main Operating Unit** (oficina central) y la de su tienda. Así la oficina central ve todas las cajas y cada tienda sólo las suyas.\n\nEl campo sólo se ve y se edita con el grupo **Responsable de las unidades operativas**.",
+      "steps": [
+        {
+          "goto": "/odoo/settings#point_of_sale"
+        },
+        {
+          "waitFor": ".o_form_view",
+          "timeout": 90000
+        },
+        {
+          "waitFor": "[name='pos_config_id'] input",
+          "timeout": 60000
+        },
+        {
+          "click": "[name='pos_config_id'] input"
+        },
+        {
+          "fill": "[name='pos_config_id'] input",
+          "value": "T0001-SAN FELIPE caja #1"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": ".o-autocomplete--dropdown-item:has-text('T0001-SAN FELIPE caja #1')"
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "waitFor": "[name='pos_operating_unit_ids']",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "[name='pos_operating_unit_ids']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "02-tablero",
+      "section": "Operación",
+      "title": "2. Tablero de cajas",
+      "description": "En **Punto de venta → Tablero** cada usuario ve sólo las cajas de sus unidades. El administrador, con todas las unidades, ve las 138 cajas de NC44.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_config_kanban"
+        },
+        {
+          "waitFor": ".o_kanban_record",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "03-sesiones",
+      "section": "Operación",
+      "title": "3. Sesiones",
+      "description": "En **Punto de venta → Órdenes → Sesiones** cada sesión queda con las unidades de su caja al abrirse. Un usuario de tienda sólo ve las sesiones de sus cajas.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_session"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "04-ordenes",
+      "section": "Operación",
+      "title": "4. Órdenes",
+      "description": "En **Punto de venta → Órdenes → Órdenes** las columnas **Punto de venta** y **Unidades operativas** muestran de qué caja y unidades es cada venta.\n\nCada orden toma las unidades de la caja al registrarse; si después cambian las unidades de la caja, las órdenes ya registradas no cambian.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_pos_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "05-orden",
+      "section": "Operación",
+      "title": "5. Unidades operativas en la orden",
+      "description": "Al abrir una orden, el campo **Unidades operativas** aparece junto a la sesión y el punto de venta. Es de solo lectura.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_pos_form/3890332"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "06-pagos",
+      "section": "Operación",
+      "title": "6. Pagos",
+      "description": "En **Punto de venta → Órdenes → Pagos** cada pago muestra su punto de venta y sus unidades operativas.",
+      "steps": [
+        {
+          "goto": "/odoo/action-point_of_sale.action_pos_payment_form"
+        },
+        {
+          "waitFor": ".o_list_view",
+          "timeout": 90000
+        },
+        {
+          "click": ".o_searchview_facet .o_facet_remove"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "07-limites",
+      "section": "Comportamiento",
+      "title": "7. Qué hace y qué no hace el módulo",
+      "image": false,
+      "description": "- **La marca se pone al crear.** Sesiones, órdenes, líneas y pagos no se recalculan si cambia la configuración de la caja.\n- **Contabilidad e inventario centralizados.** Asientos, facturas y movimientos de inventario de la caja no llevan unidad por este módulo.\n- **Registros sin unidad:** 76 sesiones, 1.143 órdenes y 1.927 pagos antiguos no tienen unidad; los ven todos los usuarios del punto de venta. Conviene revisar si deben asignarse a una unidad.\n- **No verificado en esta revisión:** lo que ve un cajero de tienda. La revisión se hizo en solo lectura con un administrador que tiene todas las unidades."
+    }
+  ],
+  "database": "odoo-nc44-test-42073117 (upgrade de prueba NC44 17.0 → 19.0, Odoo.sh)",
+  "notes": "Revisión hecha en solo lectura sobre la base migrada: no se crearon ni modificaron registros. Las capturas se tomaron con un administrador que tiene asignadas todas las unidades operativas."
+}

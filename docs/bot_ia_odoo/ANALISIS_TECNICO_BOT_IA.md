@@ -1,44 +1,46 @@
 # Bot de migración / corrección / desarrollo Odoo con IA (Claude Code)
 
-**Tarea:** [#75227](https://www.progressa.group/odoo/project.task/75227) · [TI] Ingeniería – BACKLOG
-**Tipo de documento:** Análisis técnico y propuesta de arquitectura (para validación)
-**Versión:** 3 · 2026-10-01
-**Estado:** Decisiones de diseño validadas – pendiente servidor y cuenta
+**Tarea:** [#75227](https://www.progressa.group/odoo/project.task/75227) · [TI] Ingeniería – BACKLOG  
+**Repositorio:** `indexa-git/bot_ia_odoo` (privado)  
+**Tipo de documento:** Análisis técnico y propuesta de arquitectura  
+**Versión:** 4 · 2026-10-26  
+**Estado:** Prototipo validado (gateway + nube de Claude, §18) – pendiente GitHub, token de routine y contenedor  
 
-### Cambios respecto a la versión 1
+### Cambios respecto a la versión 3 (daily 2026-10-26)
 
-| Antes (v1) | Ahora |
+| v3 | v4 |
 |---|---|
-| Cron en Odoo que encola tareas | **Acción automatizada** (`base.automation`) que se dispara al pasar la tarea a **«1 In Progress»** con los tags correspondientes |
-| Cola de trabajos y límite de paralelismo | **Sin cola**: cada disparo abre **una sesión nueva de Claude Code**; sesiones ilimitadas (el límite real es el servidor, §10) |
-| Workspace efímero por trabajo | **Un workspace (worker) por versión** — 17, 19, 20, master — igual que el entorno local `dev_env_odoo_pro-XX` |
-| Etiqueta nueva `[CLAUDE]` + `MIGRACION/BUG/NUEVO` | **Un único tag nuevo de activación** `0. Team - Claude 🤖` + **tags que ya existen** (`1. Type - …`, `3. Versión - …`, tags de módulo, `5. Complejidad - …`) |
-| Claude Agent SDK | **Claude Code CLI** en modo no interactivo con `--dangerously-skip-permissions` |
-| — | **Preguntas por chatter**: Claude publica la pregunta como nota interna mencionando al responsable; la respuesta con `/claude …` reanuda la misma sesión |
-| Migración por saltos | **Migración directa** origen → destino (17→19 salta 18) |
-| Etapa `Specification` para análisis | **Todo en `1 In Progress`**: si falta análisis, Claude lo hace y pide `/claude aprobar` |
-| Dumps anonimizados de clientes | **Sin acceso a datos de clientes** |
+| VM dedicada de 16 vCPU / 64 GB / 500 GB | **Prototipo en un contenedor ya creado** (4 vCPU, ~12 GB RAM, 40 GB disco) para 2–3 sesiones a la vez; se escala sólo con mediciones reales (§10) |
+| Todas las sesiones corren en el servidor propio | **Las sesiones corren en la nube de Claude** (Claude Code cloud sessions); el servidor sólo **orquesta** (gateway). Validado que se maneja desde consola (§3, §2) |
+| Sin flujo de forward-port | **Nuevo flujo de forward-port**: el bot de forward-port de Eric abre el PR a la siguiente versión **al hacer merge**; un revisor IA valida que el cambio aplica en la versión destino (§9.6) |
+| Revisión secundaria con Claude | **Evaluar GitHub Copilot como revisor secundario** (ya pagado, lee `CLAUDE.md` y documentación del repo); Claude queda como alternativa (§9.6.3) |
+| Servidor "a definir" | **Desplegar como servicio**: repo con `requirements`, `bin/`, README y guía de despliegue (variables de entorno, instalación); Claude puede instalarlo por SSH; firewall/puertos los abre infraestructura (§12) |
 
 ---
 
 ## 1. Resumen en simple
 
 Un desarrollador mueve una tarea a **«1 In Progress»**. Si la tarea tiene el tag **`0. Team - Claude 🤖`**
-y un tag de tipo (`1. Type - BUG 🐞`, `1. Type - MIG 🏃‍♂️💨`, …), Odoo avisa al **servidor del bot**,
-que abre **una sesión de Claude Code** en el **workspace de la versión** indicada por el tag
+y un tag de tipo (`1. Type - BUG 🐞`, `1. Type - MIG 🏃‍♂️💨`, …), Odoo avisa al **gateway del bot**, que
+abre **una sesión de Claude Code en la nube de Claude** con los repos de la versión indicada por el tag
 `3. Versión - XX`. Claude trabaja igual que hoy en local: reproduce, corrige o migra, prueba, saca
 capturas, genera el manual y abre el PR. Si tiene una duda, la escribe en el chatter de la tarea
 (nota interna) mencionando a los usuarios asignados; cuando alguien responde con `/claude <respuesta>`,
-la **misma sesión** continúa con ese contexto. Los usuarios asignados a la tarea no cambian: son
-quienes le dan seguimiento.
+la **misma sesión** continúa con ese contexto.
+
+Aparte, para los cambios que ya existen: cuando un PR de una versión se **mergea**, el **bot de
+forward-port** abre el PR equivalente en la siguiente versión y un **revisor IA** (Copilot o Claude)
+comprueba que el cambio aplica bien en esa versión antes de que lo revise una persona.
 
 Piezas:
 
 | Pieza | Qué es | Dónde vive |
 |---|---|---|
-| **Acción automatizada + módulo ligero `project_ai_bot`** | Dispara el webhook al cambiar de etapa; detecta comandos `/claude` en el chatter; guarda el id de sesión y el estado. | Instancia Progressa (19e) |
-| **Servidor del bot** | Recibe el webhook, abre/reanuda sesiones de Claude Code, una por tarea. Tiene un **workspace por versión** (17, 19, 20, master). | Servidor propio (VM dedicada) |
-| **Paquete de contexto** | CLAUDE.md, skills, memorias y herramientas (manual-generator, i18n-generator, plantillas `setup_*`/`replicate_*`) — lo mismo que hoy está en `~/.claude` y `dev_env_odoo_pro-XX`. | Repo privado en GitHub, clonado en el servidor |
+| **Acción automatizada + módulo ligero `project_ai_bot`** | Dispara el webhook al cambiar de etapa; detecta comandos `/claude` en el chatter; guarda el id de sesión y el estado | Instancia Progressa (19e) |
+| **Gateway** (`bot_ia_odoo`) | Servicio pequeño (Python) que recibe el webhook y abre/reanuda la sesión en la nube | Contenedor de pruebas (4 vCPU / 12 GB / 40 GB) |
+| **Sesión de Claude Code** | Una por tarea; repos de la versión, Postgres y Docker incluidos | Nube de Claude (por defecto) o el propio contenedor (alternativa, §3.3) |
+| **Bot de forward-port + revisor IA** | Abre el PR a la siguiente versión al hacer merge y pide revisión IA | GitHub (Actions) |
+| **Paquete de contexto** | CLAUDE.md, skills, memorias y herramientas (manual-generator, i18n-generator, plantillas `setup_*`/`replicate_*`) | Carpeta `context-pack/` del repo del bot |
 
 Reglas que no cambian: **el bot nunca hace merge, nunca toca producción y nunca corrige lo que no pudo reproducir.**
 
@@ -46,187 +48,161 @@ Reglas que no cambian: **el bot nunca hace merge, nunca toca producción y nunca
 
 ## 2. Validación de los requisitos
 
-| # | Requisito | Validación | Resultado |
-|---|---|---|---|
-| 1 | Capacidad del servidor | Medido en el entorno local: Odoo en reposo 160–440 MB por contenedor, Postgres ~340 MB, cada proceso de Claude Code ~360 MB. En carga (tests + navegador) una sesión activa llega a ~3 GB. | **Recomendado: 16 vCPU, 64 GB RAM, 500 GB NVMe** para ~12 sesiones activas a la vez. Fórmula y escalones en §10. |
-| 2 | Un worker por versión | Viable y es el mismo modelo del entorno local. **Ajuste necesario:** si dos sesiones trabajan en la misma versión a la vez, no pueden compartir el mismo checkout de git (una cambiaría la rama de la otra). | Un workspace + contenedor Odoo por versión (hoy 17, 19, 20, master; se agregan más versiones mayores o menores por configuración, §6.5); **cada sesión usa un `git worktree` propio** y su propia base de datos (§6). |
-| 3 | Tareas ilimitadas, una sesión nueva de Claude Code por tarea | Viable: no hay cola; cada disparo lanza un proceso `claude -p` independiente. Límites reales: RAM/CPU del servidor, límites de tasa de la cuenta de Anthropic y costo. | Sin cola. Tope de sesiones simultáneas **configurable y apagado**; alerta de memoria (≥ 85 %) (§6.4). |
-| 4 | Acción automatizada en lugar de cron | Odoo 19 trae nativo `base.automation` con trigger **«Stage is set to»** (`on_stage_set`) y acción **«Send Webhook Notification»**. `base_automation` ya está instalado en la instancia. | Viable **sin código** para el disparo. Limitaciones del webhook nativo (1 s de timeout, sin reintento, sin cabeceras de autenticación) y cómo se cubren en §4. |
-| 5 | Usar los tags existentes | Revisados los 293 tags de la instancia. Existen tipo, versión, módulo, complejidad y área. **No existe ningún tag que diga "esto lo hace la IA"**: si sólo se usan tags de tipo, *toda* tarea BUG que un desarrollador pase a In Progress dispararía el bot. | Se usan los existentes (§5) + **un único tag nuevo de activación `0. Team - Claude 🤖`**, siguiendo la convención `0. Team - …`. Los usuarios asignados se mantienen. |
-| 6 | `--dangerously-skip-permissions` y que igual se detiene a preguntar | El flag elimina los prompts de permisos, pero **no** evita que el modelo decida preguntar o que termine su turno con una duda. En modo no interactivo (`-p`) no hay nadie para contestar. | Sesión en `-p` + `--permission-prompts none` (nada se queda esperando) + salida JSON obligatoria con `status: needs_input` para las dudas (§7). |
-| 7 | Pregunta por chatter + respuesta que reanuda | Las automatizaciones nativas de mensajes (`on_message_received/sent`) **ignoran las notas internas** (código de `base_automation`: si el mensaje es interno, sale sin disparar). | Hace falta un **hook pequeño** en el módulo `project_ai_bot` que detecte el comando `/claude …` en notas internas y llame al webhook (§8). |
-| 8 | Etapas | Proyecto `[TI] Ingeniería - BACKLOG`: `1 Backlog` · `Specification` · `To Do` · `1 In Progress` · `Review` · `Testing` · `1 Delivered` · `Cancelled`. | Todo ocurre en `1 In Progress` (incluido el análisis y su aprobación); el bot deja la tarea en `Review` al abrir el PR. |
+### 2.1 Requisitos originales (v3)
 
-Nota: la tarea #75227 está ahora en `To Do` (alguien la movió desde `1 In Progress`).
+| # | Requisito | Resultado |
+|---|---|---|
+| 1 | Capacidad del servidor | Con sesiones en la nube el contenedor sólo corre el gateway (< 1 GB). Si se ejecuta localmente, 12 GB alcanzan para **2–3 sesiones** activas de una versión (§10) |
+| 2 | Un worker por versión | Se mantiene como **entorno** por versión (en la nube: un *cloud environment* por versión; en local: una carpeta por versión con `git worktree` por sesión) |
+| 3 | Sesión nueva por tarea, sin cola | Viable. Límites: tope de sesiones simultáneas de la organización en la nube (no publicado), 100 disparos por hora por cuenta, costo |
+| 4 | Acción automatizada en lugar de cron | `base.automation` nativo con «Stage is set to» + «Send Webhook Notification». Sin código para el disparo (§4) |
+| 5 | Usar los tags existentes | Se usan los existentes + un único tag nuevo `0. Team - Claude 🤖` (§5) |
+| 6 | No detenerse a preguntar | `--permission-prompts none` existe (CLI 2.1.259+) y deniega lo que pediría permiso; `AskUserQuestion` deshabilitado; las dudas van al chatter (§7) |
+| 7 | Pregunta por chatter + reanudación | Hook `/claude` en `project_ai_bot` (las automatizaciones nativas ignoran notas internas). La reanudación en la nube se hace con `claude -p "<respuesta>" --cloud <session_id>` (§8) |
+| 8 | Etapas | Todo en `1 In Progress`; la tarea pasa a `Review` al abrir el PR |
+
+### 2.2 Puntos validados tras la daily
+
+| # | Punto | Validación (documentación oficial) | Resultado |
+|---|---|---|---|
+| 9 | **¿Las sesiones pueden crearse en la nube y no en el equipo local?** | Claude Code *cloud sessions*: cada sesión corre en una VM aislada de Anthropic (Ubuntu 24.04) con **4 vCPU, 16 GB RAM y 30 GB de disco**, sigue corriendo aunque se cierre el equipo, y clona los repos desde GitHub. Disponible en planes Pro, Max, Team y Enterprise (asientos con Claude Code). [cloud-environments](https://code.claude.com/docs/en/cloud-environments) | **Sí.** Elimina la necesidad de disco y RAM grandes en el servidor propio |
+| 10 | **¿Se puede manejar desde consola (no sólo la web)?** | CLI verificado (v2.1.310): `claude --cloud "<tarea>"` crea la sesión **sólo en modo interactivo** (con `-p` falla: *"--cloud cannot be combined with --print"*); `claude -p "<mensaje>" --cloud <session_id>` envía un mensaje a una sesión existente y sale (`--output-format json` devuelve `session_id` y `url`). Además, las **tareas programadas (routines)** tienen un disparo HTTP: `POST https://api.anthropic.com/v1/claude_code/routines/<trig_id>/fire` con token propio de la tarea. [claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web) · [routines](https://code.claude.com/docs/en/routines) | **Sí.** El gateway dispara con la API de routines y reanuda con `--cloud` |
+| 11 | **¿Qué hay que configurar en GitHub?** | Instalar la **Claude GitHub App** en `indexa-git` (requerida para repos privados) o conectar el token de `gh` con `/web-setup`. En plan Team/Enterprise un *Owner* habilita el método. Una sesión puede tener **varios repos** adjuntos (odoo-pro + enterprise) | Pendiente: instalar la app en la organización (owner) |
+| 12 | **¿Se pueden correr Odoo, Postgres y pruebas en la nube?** | La VM trae **PostgreSQL 16, Docker + compose, Python, Node y chromedriver**. El *setup script* corre como root (apt/pip) y su resultado se guarda como snapshot si termina en ~5 min (imágenes Docker incluidas). Red: lista de dominios permitidos configurable (se agrega `www.progressa.group`); los **network secrets** se inyectan en las peticiones sin que la sesión los vea (API key de Odoo) | **Sí.** Imagen `odoo:19` de Docker Hub para el core community + `enterprise` y `odoo-pro` adjuntos; master/20 con `indexa-git/odoo-docker-master` |
+| 13 | **Autenticación del bot** | `--cloud` exige sesión iniciada con una cuenta de claude.ai (no API key). El token de control de sesiones dura **30 días** como máximo; `claude setup-token` (1 año) sólo sirve para inferencia, no para crear sesiones. El disparo por routines usa un token propio por routine | Iniciar: routine `/fire` (token de larga duración). Reanudar: login de claude.ai en el gateway, **renovar cada 30 días** (riesgo §15). Para operación, pedir a Anthropic identidad de máquina |
+| 14 | **Alternativa: ejecutar en nuestro hardware, orquestado por claude.ai** | *Self-hosted environments* (beta pública, Team/Enterprise): `claude self-hosted-runner` en nuestro servidor; las sesiones se crean con `claude -p "…" --environment <ccpool_id>`. El código y los artefactos quedan en el host; la conversación sigue yendo a la API de Anthropic. Cada runner se bloquea al dueño de la primera sesión; capacidad por defecto 1 | Plan B si se necesita más disco/RAM que 30 GB/16 GB por sesión o datos en casa |
+| 15 | **Copilot como revisor secundario** | Ver §9.6.3. Copilot code review lee `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md` y **`CLAUDE.md`**; no permite elegir modelo; el ruleset automático **no filtra por label**; con una Action se puede filtrar y pedirlo por API (`copilot-pull-request-reviewer[bot]`). Créditos IA mensuales que **se reinician el día 1 a las 00:00 UTC** | Viable para revisar PRs de forward-port. Consumo actual: sólo lo puede ver un owner/billing manager de `indexa-git` (el usuario `luis-pcg` es *member*) |
+| 16 | **Servidor de pruebas** | Contenedor creado en la daily: 4 cores, ~12 GB RAM (12 196 MB), 40 GB disco | Suficiente para el gateway + 2–3 sesiones en la nube (o 1–2 locales de una sola versión) |
 
 ---
 
 ## 3. Arquitectura general
 
+### 3.1 Modo por defecto: sesiones en la nube de Claude
+
 ```
 ┌──────────────────────────── Instancia Progressa (Odoo 19e) ─────────────────────────────┐
-│                                                                                           │
-│  project.task ── etapa → «1 In Progress»                                                  │
-│      │  + tag «0. Team - Claude 🤖» + tag «1. Type - …»                                   │
+│  project.task ── etapa → «1 In Progress» + tag «0. Team - Claude 🤖» + «1. Type - …»     │
 │      ▼                                                                                    │
-│  base.automation  (on_stage_set)  ──►  Send Webhook Notification  ──────────────┐         │
-│                                                                                 │         │
-│  Nota interna «/claude …»  ──►  hook project_ai_bot  ──►  webhook  ─────────────┤         │
-│                                                                                 │         │
-│  ◄── notas internas (@asignados), PR, adjuntos, etapa Review ──── json2 API ──┐ │         │
-└────────────────────────────────────────────────────────────────────────────────┼─┼────────┘
-                                                                                 │ │ HTTPS
-┌────────────────────────────── Servidor del bot ────────────────────────────────┼─▼────────┐
-│  bot-gateway (Python, HTTP)                                                    │          │
-│   · valida secreto · lee la tarea por json2 · elige workspace por versión ─────┘          │
-│   · nueva sesión  → claude -p … --session-id <uuid>                                       │
-│   · respuesta     → claude -p … --resume <uuid>                                           │
-│                                                                                           │
-│  /srv/aibot/                                                                              │
-│  ├── v17/   odoo · enterprise · odoo-pro · contenedor bot_v17   worktrees/<tarea>/ …      │
-│  ├── v19/   odoo · enterprise · odoo-pro · contenedor bot_v19   worktrees/<tarea>/ …      │
-│  ├── v20/   …                                                                              │
-│  ├── master/…                                                                              │
-│  ├── upgrade-util/   context-pack/   postgres (compartido)                                │
-│                                                                                           │
-│  Sesión Claude Code (una por tarea, ilimitadas en paralelo)                               │
-│   cwd = vXX/worktrees/<tarea>   DB = bot_<tarea>   puerto http propio                     │
-└───────────────────────────────────────────┬───────────────────────────────────────────────┘
-                                            │ push rama / PR / reviewers
-                                     ┌──────▼──────┐
-                                     │   GitHub    │  CI (pre-commit, Test Modules)
-                                     └─────────────┘
+│  base.automation (on_stage_set) ──► Send Webhook Notification ─────────────┐              │
+│  Nota interna «/claude …» ──► hook project_ai_bot ──► webhook ─────────────┤              │
+│  ◄── notas internas (@asignados), PR, adjuntos, etapa Review ── json2 API ─┼──────┐       │
+└────────────────────────────────────────────────────────────────────────────┼──────┼───────┘
+                                                                             │HTTPS │
+┌──────────────── Contenedor del bot (4 vCPU / 12 GB / 40 GB) ───────────────▼──┐   │
+│  bot-gateway (systemd)                                                         │   │
+│   · valida secreto · lee la tarea por json2 · elige el entorno por versión     │   │
+│   · nueva sesión → POST routines/<trig_id>/fire  {"text": <contexto tarea>}     │   │
+│   · respuesta    → claude -p "<respuesta>" --cloud <session_id>                │   │
+│   · guarda session_id/url en la tarea; reconciliación al arrancar              │   │
+└──────────────────────────────────────────┬─────────────────────────────────────┘   │
+                                           │                                         │
+┌──────────────── Nube de Claude (una VM por sesión: 4 vCPU / 16 GB / 30 GB) ────────┴───┐
+│  Entorno «odoo-19»: repos odoo-pro (rama 19.0) + enterprise · imagen odoo:19 · PG 16    │
+│  Entorno «odoo-17», «odoo-20», …                                                         │
+│  Claude: reproduce/corrige/migra → tests → manual → push rama *-bot → PR                 │
+│          publica notas internas en la tarea (odoo-tasks, API key como network secret)    │
+└──────────────────────────────────────────┬──────────────────────────────────────────────┘
+                                           │ PR / reviewers
+                                    ┌──────▼──────┐   merge   ┌──────────────────────────┐
+                                    │   GitHub    │──────────►│ Bot forward-port + revisor│
+                                    │ CI + reviews│◄──────────│ IA (Copilot / Claude)     │
+                                    └─────────────┘  PR vN+1  └──────────────────────────┘
 ```
 
-Cambio de modelo respecto a v1: ahora **Odoo empuja** (webhook) en lugar de que el servidor consulte.
-Consecuencia: el servidor del bot necesita una **URL HTTPS accesible desde Odoo** (dominio propio +
-certificado, o un túnel tipo Cloudflare Tunnel si el servidor está detrás de NAT).
+Diferencia clave con v3: el contenedor **no** clona las versiones ni levanta Odoo; sólo recibe
+webhooks y lanza/reanuda sesiones. La sesión en la nube publica sus propias notas en la tarea, así que
+el gateway no necesita esperar la salida del proceso.
+
+### 3.2 Entornos en la nube (uno por versión)
+
+| Campo | Ejemplo `odoo-19` |
+|---|---|
+| Repos adjuntos | `indexa-git/odoo-pro` (rama `19.0`), `indexa-git/enterprise` (rama `19.0`) |
+| Core community | Imagen Docker `odoo:19` (setup script la descarga y queda en el snapshot) |
+| Setup script | `docker pull odoo:19`, dependencias Python de `odoo-pro`, Playwright + Chromium, `context-pack` en `~/.claude` |
+| Red | *Custom*: dominios por defecto + `www.progressa.group` |
+| Network secrets | API key del usuario Claude Bot en Odoo |
+| Variables | `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN` |
+
+Agregar una versión = crear el entorno con sus ramas e imagen (`odoo:17`, `odoo:19`,
+`indexa-git/odoo-docker-master` para 20/master) y registrar la routine correspondiente.
+
+### 3.3 Modo alternativo: ejecución en el contenedor
+
+Si una tarea no cabe en la VM de la nube (30 GB / 16 GB) o la nube no está disponible:
+
+- **Self-hosted environment**: `claude self-hosted-runner` en el contenedor, sesiones con
+  `--environment <ccpool_id>`. Mismo flujo, cómputo en casa.
+- **Headless local** (diseño v3): `claude -p … --session-id <uuid>` / `--resume <uuid>` con un
+  `git worktree` por tarea. Con 12 GB, máximo 2–3 sesiones de una sola versión.
 
 ---
 
 ## 4. Disparo: acción automatizada
 
-### 4.1 Regla «Claude – iniciar sesión» (configurable desde la interfaz, sin código)
+### 4.1 Regla «Claude – iniciar sesión» (sin código)
 
 | Campo | Valor |
 |---|---|
 | Modelo | Tarea (`project.task`) |
 | Disparador | **Stage is set to** → `1 In Progress` |
-| Aplicar en (filtro) | `tag_ids` contiene **`0. Team - Claude 🤖`** **y** `tag_ids` contiene alguno de: `1. Type - BUG 🐞`, `1. Type - MIG 🏃‍♂️💨`, `1. Type - NEW 🌟`, `1. Type - IMP ✅`, `1. Type - REF ⚠️`, `1. Type - QA 👮🏻‍♂️` |
+| Aplicar en (filtro) | `tag_ids` contiene **`0. Team - Claude 🤖`** **y** alguno de: `1. Type - BUG 🐞`, `1. Type - MIG 🏃‍♂️💨`, `1. Type - NEW 🌟`, `1. Type - IMP ✅`, `1. Type - REF ⚠️`, `1. Type - QA 👮🏻‍♂️` |
 | Acción | **Send Webhook Notification** |
-| URL | `https://aibot.<dominio>/hooks/<secreto>/task` |
+| URL | `https://<host-del-bot>/hooks/<secreto>/task` |
 | Campos enviados | `id`, `name`, `project_id`, `stage_id`, `tag_ids`, `user_ids` |
 
-No hay regla para `Specification`: análisis, aprobación y desarrollo ocurren en `1 In Progress` (§9.3).
+### 4.2 Limitaciones del webhook nativo y cobertura
 
-### 4.2 Limitaciones del webhook nativo y cómo se cubren
-
-| Limitación (verificada en `ir_actions.py` de Odoo 19) | Cobertura |
+| Limitación (Odoo 19, `ir_actions.py`) | Cobertura |
 |---|---|
-| Se envía después del commit con **timeout de 1 s** y estrategia "enviar y olvidar" | El gateway responde `202` de inmediato y lanza la sesión en segundo plano |
-| **Sin reintento**: si el servidor está caído, el aviso se pierde | Al arrancar, el gateway consulta por json2 las tareas en `1 In Progress` con el tag `0. Team - Claude 🤖` sin sesión registrada y las lanza (reconciliación, no es un cron de Odoo) |
-| **Sin cabeceras de autenticación** | Secreto largo en la URL + HTTPS + lista de IPs permitidas (la IP de la instancia) |
-| Sólo envía los campos elegidos | El gateway lee descripción, chatter y adjuntos por json2 con el usuario técnico Claude Bot |
-| Si la tarea sale y vuelve a `1 In Progress` se dispara otra vez | Si la tarea ya tiene sesión, el gateway la **reanuda** (`--resume`) en vez de abrir otra |
+| Timeout de 1 s, "enviar y olvidar" | El gateway responde `202` de inmediato y dispara la sesión en segundo plano |
+| Sin reintento | Reconciliación al arrancar: tareas en `1 In Progress` con el tag y sin sesión registrada |
+| Sin cabeceras de autenticación | Secreto largo en la URL + HTTPS + IP permitida de la instancia (firewall a cargo de infraestructura) |
+| Sólo envía los campos elegidos | La sesión lee descripción, chatter y adjuntos con el usuario técnico Claude Bot |
+| La tarea vuelve a `1 In Progress` | Si ya tiene sesión, se **reanuda** en vez de abrir otra |
 
 ---
 
 ## 5. Tags existentes → comportamiento
 
-Tags reales de la instancia, sin crear ninguno nuevo:
-
 | Grupo | Tag | Uso en el bot |
 |---|---|---|
-| **Activación** | `0. Team - Claude 🤖` *(único tag nuevo)* | Sin este tag el bot no toma la tarea, aunque tenga tipo y esté en `1 In Progress` |
+| **Activación** | `0. Team - Claude 🤖` *(único tag nuevo)* | Sin este tag el bot no toma la tarea |
 | **Tipo** | `1. Type - BUG 🐞` | Corrección con puerta de reproducción (§9.2) |
-| | `1. Type - MIG 🏃‍♂️💨` (o `Migración`) | Migración directa origen → destino (§9.1) |
-| | `1. Type - NEW 🌟` | Desarrollo nuevo: exige análisis aprobado (§9.3) |
-| | `1. Type - IMP ✅` | Mejora: mismo flujo que NEW |
-| | `1. Type - REF ⚠️` | Refactor: mismo flujo que NEW |
-| | `1. Type - QA 👮🏻‍♂️` | Prueba funcional en navegador + manual con capturas, sin tocar código (§9.4) |
-| **Versión** | `3. Versión - 17` / `19` / `20` … | Workspace donde corre la sesión. En MIG: con dos tags, el menor es el **origen** y el mayor el **destino**; con uno solo, es el destino y el origen se detecta por la rama donde vive hoy el módulo |
-| | `3. Versión - FWP` | Tras corregir en la versión indicada (p. ej. 17.0), **evaluar** el fix en las demás versiones configuradas donde exista el módulo y llevarlo sólo donde haga falta (§9.2) |
-| **Módulo** | `l10n_do_accounting`, `payment_azul`, … (≈200 tags con nombre técnico) | Módulo(s) objetivo. Si no hay, Claude lo deduce de la descripción y pregunta por chatter si hay duda |
-| **Complejidad** | `5. Complejidad - 👶🏼` / `🥶` / `🔥` | Nivel de esfuerzo de Claude: `medium` / `high` / `xhigh` |
-| **Área** | `4. Base - Account`, `4. Base - Payroll`, … | Contexto adicional en el prompt (qué skills y memorias cargar) |
-| **Otros** | `Documentación` | Fuerza generar/actualizar el manual aunque el tipo no lo exija |
-| **Usuarios asignados** | `user_ids` (sin cambios) | Son quienes dan seguimiento: reciben la mención cuando Claude pregunta o termina |
-
-Al terminar una migración se mantiene la práctica actual: se añade `3. Versión - <destino>` y se quita el de origen.
+| | `1. Type - MIG 🏃‍♂️💨` | Migración directa origen → destino (§9.1) |
+| | `1. Type - NEW 🌟` / `IMP ✅` / `REF ⚠️` | Análisis aprobado antes de desarrollar (§9.3) |
+| | `1. Type - QA 👮🏻‍♂️` | Prueba funcional + manual con capturas (§9.4) |
+| **Versión** | `3. Versión - 17` / `19` / `20` … | Entorno donde corre la sesión. En MIG: el menor es origen, el mayor destino |
+| | `3. Versión - FWP` | Tras corregir, llevar el fix a las versiones siguientes vía el flujo de forward-port (§9.6) |
+| **Módulo** | `l10n_do_accounting`, `payment_azul`, … | Módulo(s) objetivo |
+| **Complejidad** | `5. Complejidad - 👶🏼` / `🥶` / `🔥` | Esfuerzo: `medium` / `high` / `xhigh` |
+| **Área** | `4. Base - Account`, `4. Base - Payroll`, … | Skills y memorias a cargar |
+| **Otros** | `Documentación` | Fuerza generar/actualizar el manual |
+| **Usuarios asignados** | `user_ids` (sin cambios) | Reciben la mención cuando Claude pregunta o termina |
 
 ---
 
-## 6. Workspaces por versión y sesiones ilimitadas
+## 6. Sesiones
 
-### 6.1 Estructura (igual que local, una carpeta por versión)
+### 6.1 Ciclo de vida (modo nube)
 
-```
-/srv/aibot/
-├── v17/                     # = dev_env_odoo_pro-17
-│   ├── odoo/  enterprise/  odoo-pro/ (con submódulos OCA)
-│   ├── docker-compose.yml   # contenedor bot_v17 (worker de la versión)
-│   └── worktrees/
-│       ├── 75301-mig-payment_azul/     # git worktree de odoo-pro, rama de la tarea
-│       └── 75310-bug-l10n_do_hr/
-├── v19/   (ídem)            # = dev_env_odoo_pro-19
-├── v20/   (ídem)            # = dev_env_odoo_pro-20
-├── master/(ídem)
-├── upgrade-util/
-├── context-pack/            # CLAUDE.md, skills, memorias, tools
-└── postgres/                # un solo servidor Postgres para todas las versiones
-```
+1. Disparo → el gateway arma el contexto (id, tipo, versión, módulos, asignados) y llama a la routine
+   del entorno de esa versión; guarda `session_id` y `url` en la tarea.
+2. La sesión crea la rama `{versión}-{tipo}-{módulo}-bot`, levanta Postgres/Odoo, trabaja y publica notas.
+3. Si pregunta, la sesión queda en pausa; la respuesta `/claude …` se envía con `--cloud <session_id>`.
+   Las sesiones inactivas pueden reciclarse: todo avance se **empuja a la rama** antes de preguntar,
+   para poder retomar desde GitHub.
+4. Al cerrar la tarea o hacer merge del PR → se archiva la sesión; la rama se borra con el merge.
 
-### 6.2 Qué comparte y qué no cada sesión
+### 6.2 Límites reales
 
-| Recurso | Compartido por versión | Propio de la sesión |
+| Límite | Efecto | Recomendación |
 |---|---|---|
-| Core `odoo/` y `enterprise/` | ✔ (sólo lectura) | |
-| Contenedor Odoo de la versión (imagen, dependencias Python) | ✔ | |
-| Submódulos OCA | ✔ (sólo lectura, vía `addons_path`) | |
-| Código de `odoo-pro` | | ✔ `git worktree` en su propia rama |
-| Base de datos | | ✔ `bot_<tarea>` (+ `bot_<tarea>_origen` en migraciones) |
-| Proceso Odoo para pruebas en navegador | | ✔ `odoo-bin` dentro del contenedor de la versión, con su `--addons-path` y un puerto del rango 9100–9999 |
-| Sesión Claude Code (historial) | | ✔ `--session-id` = uuid guardado en la tarea |
-
-**Por qué el worktree:** en local trabajas una tarea a la vez por versión. El bot puede tener 5 tareas
-de v19 al mismo tiempo; con un solo checkout, cada `git checkout` de una sesión rompería a las otras.
-El worktree comparte el historial de git (no duplica el repo) y cuesta ~300–400 MB de disco.
-
-### 6.3 Ciclo de vida
-
-1. Disparo → crear worktree y rama (`{versión}-{tipo}-{módulo}-bot`), crear DB, lanzar `claude`.
-2. Mientras espera una respuesta por chatter, el worktree y la DB **se conservan** (la reanudación necesita el mismo directorio).
-3. Al cerrarse la tarea (`1 Delivered` / `Cancelled`) o al hacer merge del PR → se borran worktree, DB y procesos; los logs se guardan N días.
-
-### 6.4 "Ilimitado" en la práctica
-
-No hay cola: cada disparo abre su sesión de inmediato. Lo que pone el techo:
-
-| Límite | Efecto si se pasa | Recomendación |
-|---|---|---|
-| RAM del servidor | El sistema empieza a matar procesos (OOM) — fallan sesiones al azar | Dimensionar al pico esperado (§10) + alerta al 85 % |
-| Límites de tasa de la cuenta Anthropic (tokens/minuto según el nivel de la organización) | Respuestas `429`; Claude Code reintenta y las sesiones se vuelven lentas | Subir el nivel de la cuenta según uso |
-| Conexiones a Postgres | Errores de conexión en Odoo | `max_connections` ≥ 300 y `db_maxconn` bajo por proceso |
-| Costo | — | Reporte mensual; tope opcional por sesión con `--max-budget-usd` (apagado por defecto) |
-
-Parámetro `max_concurrent_sessions` en la configuración: **apagado** (sin tope) por ahora; si se activa, las sesiones que excedan el tope esperan a que se libere un cupo.
-
-### 6.5 Agregar versiones
-
-Las versiones no están fijas en el código. Cada versión es una entrada de configuración:
-
-| Campo | Ejemplo |
-|---|---|
-| Clave | `19.0`, `20.0`, `saas-19.2`, `master` |
-| Tag de la instancia | `3. Versión - 19` |
-| Rama base de `odoo-pro` / `odoo` / `enterprise` | `19.0` |
-| Carpeta de workspace | `/srv/aibot/v19` |
-| Imagen / Dockerfile | `images/v19` |
-| Activa | sí / no |
-
-Agregar una versión (mayor o menor) = clonar sus repos en una carpeta nueva, construir su imagen,
-registrar la entrada y, si no existe, crear el tag `3. Versión - XX`. El checklist de migración de esa
-versión se agrega al skill `odoo-migrate`.
+| Sesiones simultáneas por organización (nube, número no publicado) | Nuevas sesiones esperan o fallan | Medir en el prototipo; tope configurable en el gateway (apagado) |
+| 100 disparos/hora por cuenta, 30/hora por routine | `429` | Suficiente para el volumen esperado |
+| Uso del plan de Claude | Sesiones lentas o bloqueadas al agotar el uso | Separar la cuenta del bot de la de los desarrolladores al pasar a operación |
+| VM de la nube: 30 GB disco, comandos de 2–10 min | Migraciones con DB grande o tests largos | Modo alternativo §3.3 |
 
 ---
 
@@ -235,105 +211,67 @@ versión se agrega al skill `odoo-migrate`.
 ### 7.1 Cómo se lanza
 
 ```bash
-# nueva sesión
-claude -p "$PROMPT_DE_LA_TAREA" \
-  --session-id "$UUID" \
-  --dangerously-skip-permissions \
-  --permission-prompts none \
-  --disallowedTools AskUserQuestion \
-  --output-format stream-json --verbose \
-  --json-schema "$RESULT_SCHEMA" \
-  --append-system-prompt-file /srv/aibot/context-pack/prompts/bot.md \
-  --effort "$EFFORT" \
-  --model claude-opus-5-5
+# nueva sesión en la nube (routine del entorno odoo-19)
+curl -X POST "https://api.anthropic.com/v1/claude_code/routines/$TRIG_ID/fire" \
+  -H "Authorization: Bearer $ROUTINE_TOKEN" \
+  -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{"text": "<contexto de la tarea>"}'
+# → claude_code_session_id, claude_code_session_url
 
 # respuesta desde el chatter
-claude -p "$RESPUESTA_CON_CONTEXTO" --resume "$UUID" \
-  --dangerously-skip-permissions --permission-prompts none \
-  --disallowedTools AskUserQuestion \
-  --output-format stream-json --verbose --json-schema "$RESULT_SCHEMA"
+claude -p "Respuesta de <autor>: <texto>" --cloud "$SESSION_ID" --output-format json
 ```
 
-`cwd` = el worktree de la tarea. CLAUDE.md, skills y memorias se cargan desde el paquete de contexto
-(instalado en `~/.claude` del usuario `aibot`), igual que en local.
+El `text` llega a la sesión marcado como no confiable; el prompt guardado en la routine indica
+explícitamente que debe tratarlo como la tarea a trabajar (y como dato, no como órdenes del sistema).
 
-### 7.2 Por qué Claude "se detiene a preguntar" aunque se salten los permisos
+Modo alternativo (local), sin cambios respecto a v3:
 
-| Causa | Qué pasa en interactivo | Cómo se resuelve en el bot |
-|---|---|---|
-| Prompt de permisos | Se salta con `--dangerously-skip-permissions` | Igual + `--permission-prompts none`: cualquier cosa que aún pidiera permiso se **deniega sola** y Claude sigue por otro camino, nunca se queda colgado |
-| Claude usa la herramienta de preguntas (`AskUserQuestion`) | Muestra opciones y espera | Herramienta deshabilitada (`--disallowedTools`) |
-| Claude termina su turno con una duda en texto | Espera a que escribas | En `-p` el proceso **termina**; la salida JSON obligatoria trae `status: "needs_input"` + pregunta → se publica en el chatter (§8) |
-| Proceso colgado (comando que no termina, servidor Odoo en primer plano) | Lo cortas a mano | El gateway mata la sesión si no hay actividad en N minutos y deja nota con el último log |
-
-### 7.3 Salida estructurada (`--json-schema`)
-
-```json
-{
-  "status": "done | needs_input | needs_approval | blocked | failed",
-  "summary": "qué se hizo",
-  "question": "sólo si needs_input / needs_approval",
-  "options": ["opción A", "opción B"],
-  "pr_urls": ["https://github.com/indexa-git/odoo-pro/pull/…"],
-  "artifacts": ["ruta/al/manual.pdf", "replicate_…sh"],
-  "blocked_reason": "sólo si blocked"
-}
+```bash
+claude -p "$PROMPT" --session-id "$UUID" --dangerously-skip-permissions \
+  --permission-prompts none --disallowedTools AskUserQuestion \
+  --output-format stream-json --verbose --json-schema "$RESULT_SCHEMA" \
+  --append-system-prompt-file context-pack/prompts/bot.md --effort "$EFFORT"
 ```
 
-El gateway actúa según `status`: publica nota, adjunta archivos, mueve la tarea a `Review` (si hay PR) o la deja donde está.
+### 7.2 Por qué no se queda esperando
+
+| Causa | Solución |
+|---|---|
+| Prompt de permisos | Nube: sin prompts. Local: `--dangerously-skip-permissions` + `--permission-prompts none` |
+| `AskUserQuestion` | Deshabilitada; las dudas se publican en el chatter |
+| Termina el turno con una duda | Publica la nota con `status: needs_input` y empuja la rama |
+| Proceso colgado | Timeout de comandos de la nube; en local el gateway mata la sesión inactiva |
+
+### 7.3 Estado que la sesión publica
+
+Cada nota de la sesión termina con un bloque de estado que el módulo guarda en la tarea:
+`done | needs_input | needs_approval | blocked | failed`, resumen, PRs y costo.
 
 ---
 
 ## 8. Preguntas por chatter y reanudación
 
-### 8.1 Flujo
-
 ```
-Claude termina con status = needs_input
-        │
-        ▼
-Gateway publica NOTA INTERNA en la tarea:
-   "🤖 Claude necesita una respuesta para continuar:
-    <pregunta>  (A) …  (B) …
-    Responde con:  /claude <tu respuesta>"
-   mencionando a los usuarios asignados a la tarea (user_ids)
-   → les llega la notificación aunque sea nota interna
-        │
-        ▼
-Cualquier usuario escribe nota interna:  /claude B, y usa el diario de ventas
-        │
-        ▼
-Hook de project_ai_bot detecta "/claude" → webhook al gateway
-   { task_id, message_id, author, body }
-        │
-        ▼
-Gateway: claude -p "Respuesta de <autor>: B, y usa el diario de ventas" --resume <uuid>
-        │
-        ▼
-La sesión continúa con TODO su contexto anterior
+Sesión termina con needs_input → nota interna «🤖 Claude necesita una respuesta…  Responde con /claude <respuesta>»
+   mencionando a user_ids
+Usuario escribe nota interna: /claude B, y usa el diario de ventas
+Hook project_ai_bot → webhook al gateway {task_id, message_id, author, body}
+Gateway → claude -p "Respuesta de <autor>: …" --cloud <session_id>
+La sesión continúa con su contexto
 ```
-
-### 8.2 Comandos en el chatter
 
 | Comando (nota interna) | Efecto |
 |---|---|
-| `/claude <texto>` | Responde la pregunta pendiente o da una instrucción adicional; reanuda la sesión |
-| `/claude aprobar` | Aprueba el análisis técnico → Claude pasa a desarrollar |
-| `/claude rechazar <motivo>` | Claude rehace el análisis con el comentario |
-| `/claude detener` | Mata la sesión en curso (conserva worktree y rama) |
-| `/claude estado` | Claude publica en qué va (último paso, PR, costo acumulado) |
+| `/claude <texto>` | Responde o da una instrucción adicional |
+| `/claude aprobar` | Aprueba el análisis → Claude desarrolla |
+| `/claude rechazar <motivo>` | Rehace el análisis |
+| `/claude detener` | Detiene la sesión (conserva la rama) |
+| `/claude estado` | Publica en qué va |
 
-Cualquier usuario que escriba el comando en una **nota interna** puede responder o aprobar. Los mensajes
-de clientes/portal no son notas internas, así que no disparan nada.
-
-### 8.3 Por qué hace falta código (y no sólo una automatización)
-
-En Odoo 19, `base_automation` sólo dispara con mensajes **no internos** (si el mensaje es nota interna
-o tiene subtipo interno, la automatización ni se evalúa). Como el chatter del bot es **siempre nota
-interna**, se necesita un override pequeño de `project.task.message_post` en `project_ai_bot` que:
-1. detecte notas de usuarios internos cuyo texto empieza por `/claude`,
-2. envíe el webhook después del commit (mismo patrón que el webhook nativo),
-3. marque el mensaje como procesado (evita disparos dobles).
+Hace falta el override de `project.task.message_post` en `project_ai_bot` porque `base_automation`
+no evalúa mensajes internos.
 
 ---
 
@@ -341,172 +279,196 @@ interna**, se necesita un override pequeño de `project.task.message_post` en `p
 
 ### 9.1 MIGRACIÓN (`1. Type - MIG`) — siempre directa
 
-**La migración va directo de la versión origen a la destino.** 17→19 salta 18: una rama, un PR, sin
-instalar versiones intermedias. Los cambios de API de las versiones saltadas se aplican **acumulados**
-(17→19 = checklist 18 + checklist 19 del skill `odoo-migrate`) y se verifica sólo contra el core destino.
-
-Workspaces: trabaja en el de **destino**; lee el módulo del de **origen** y usa el contenedor de origen
-para crear la DB de origen con datos semilla y probar la actualización.
-
-1. Verificar dependencias en la versión destino (OCA no portado → `blocked` con la lista).
-2. Rama `{destino}-mig-{módulo}-bot`, traer el módulo (forward-port con historial cuando aplique).
-3. Aplicar checklists acumulados; scripts de `migrations/` y `upgrade-util` para el salto completo.
-4. Instalar en DB limpia + actualizar desde la DB de origen → sin errores.
-5. Tests del módulo; `.po` con `generate-po.sh` (sólo traducir `msgstr`).
-6. Manual + capturas (§9.5). Tags: `+3. Versión - <destino>`, `−3. Versión - <origen>`.
+17→19 salta 18: una rama, un PR, checklists acumulados (`odoo-migrate`), verificación contra el core destino.
+Dependencias OCA no portadas → `blocked`. Instalar en DB limpia + actualizar desde DB de origen, tests, `.po`,
+manual. Tags: `+3. Versión - <destino>`, `−3. Versión - <origen>`. Los PRs de migración llevan el label
+`migration` y **no** entran al flujo de forward-port (§9.6).
 
 ### 9.2 BUG (`1. Type - BUG`) — con puerta de reproducción
 
-1. Leer tarea, chatter y adjuntos. ¿Faltan datos (pasos, versión, módulo)? → `needs_input` por chatter.
-2. Crear DB + `replicate_<bug>.sh`. **¿Falla igual que en el reporte?** No → `blocked: no reproducible` con diagnóstico.
-3. Fix mínimo + test automatizado. `replicate` pasa, tests pasan, el flujo anterior no se rompe.
-4. Con `3. Versión - FWP` (forward-port), por cada otra versión configurada donde exista el módulo:
-   - correr el `replicate_<bug>.sh` (adaptado) en el workspace de esa versión;
-   - **si el bug se reproduce** → aplicar el fix adaptado + test, un PR por versión;
-   - **si no se reproduce** (el código ya es distinto o ya estaba corregido) → no se toca;
-   - nota interna final con la tabla versión → *corregido (PR)* / *no aplica (motivo)*.
+1. Leer tarea, chatter y adjuntos; si faltan datos → `needs_input`.
+2. `replicate_<bug>.sh` sobre datos de demo/semilla. No se reproduce → `blocked` con diagnóstico.
+3. Fix mínimo + test.
+4. Con `3. Versión - FWP`: el fix sigue el flujo de forward-port al hacer merge (§9.6); ya no se abren
+   PRs por versión desde la misma sesión.
 
-Reproducible al 100 % = mismo error o mismo resultado incorrecto con un script re-ejecutable sobre
-datos de demo/semilla. **El bot no tiene acceso a datos de clientes**: si el bug depende de datos reales,
-Claude pide por chatter (`needs_input`) los pasos o la configuración para recrearlo con datos de prueba;
-si aun así no se reproduce, queda `blocked` con el diagnóstico.
+El bot **no tiene acceso a datos de clientes**.
 
 ### 9.3 NEW / IMP / REF — análisis antes de desarrollar
 
-```
-¿La tarea tiene análisis aprobado? (nota "/claude aprobar" posterior al análisis)
-   │no                                          │sí
-   ▼                                            ▼
-Claude genera el análisis técnico,          Claude desarrolla según el análisis:
-lo adjunta y publica nota:                  tests por criterio de aceptación,
-"responde /claude aprobar o                 setup_vXX_<módulo>.sh, manual,
- /claude rechazar <motivo>"                 PR → Review
-status = needs_approval
-```
-
-Todo ocurre con la tarea en `1 In Progress`. Claude decide si la descripción y los adjuntos ya son un
-análisis suficiente (modelos, vistas, reglas, criterios de aceptación); si no, lo genera y espera
-`/claude aprobar`. Si durante el desarrollo aparece algo no cubierto, vuelve a `needs_approval` con un anexo.
+Sin análisis aprobado → Claude lo genera y pide `/claude aprobar`. Con análisis → desarrollo con tests
+por criterio de aceptación, `setup_vXX_<módulo>.sh`, manual y PR.
 
 ### 9.4 QA (`1. Type - QA`)
 
-Recorre los flujos del módulo en navegador con `manual-generator` (Playwright), valida que cada paso
-aparezca en pantalla, toma capturas y adjunta el manual PDF. No toca código; si encuentra un fallo,
-lo reporta en el chatter con captura y propone crear una tarea BUG.
+Recorre los flujos con `manual-generator` (Playwright), adjunta el manual PDF, no toca código.
 
-### 9.5 Cierre común (tipos con código)
+### 9.5 Cierre común
 
-1. Revisión de código (skill de revisión) + `pre-commit`.
-2. Push, PR en inglés con evidencia (tests, scripts, capturas) y enlace a la tarea.
-3. Espera CI; si falla, corrige (máx. N intentos) o pasa a `blocked` con el log.
-4. Pide revisores; PR en la descripción + nota interna (`odoo-tasks pr`); tarea → `Review`.
-5. Manual: `manual-generator` levanta la DB con `setup_vXX_<módulo>.sh`, recorre los flujos, falla si un paso no aparece y genera MD/HTML/PDF adjunto a la tarea.
-6. No se registran horas de timesheet automáticamente.
+Revisión de código + `pre-commit` → push → PR en inglés con evidencia → CI (máx. N reintentos) →
+revisores, PR en la descripción + nota interna (`odoo-tasks pr`) → tarea a `Review`. No registra horas.
+
+### 9.6 FORWARD-PORT (nuevo, acordado en la daily)
+
+#### 9.6.1 Qué hace
+
+El bot de forward-port (Eric, sobre la base del trabajo de este bot) replica el comportamiento del
+forward-port de Odoo: un cambio hecho en `17.0` se lleva a la siguiente versión (`19.0`, luego `20.0`)
+con un PR automático y un label propio.
+
+#### 9.6.2 Cuándo se dispara
+
+| Opción | Decisión |
+|---|---|
+| Al aprobarse el PR (dos reviews) | Descartada por ahora: puede haber cambios después de la aprobación |
+| **Al hacer merge** | **Elegida.** Tras el segundo review se hace merge de inmediato; disparar en el merge evita gastar tokens en cambios que aún pueden moverse |
+
+Filtros:
+
+| Regla | Motivo |
+|---|---|
+| Sólo PRs mergeados a una rama de versión (`17.0`, `19.0`) con siguiente versión configurada | La cadena 17.0 → 19.0 → master/20.0 |
+| **Excluir PRs con label `migration`** | Una migración ya es la versión destino |
+| El PR de forward-port lleva un label (`forward-port`) puesto por el bot | Identificarlo y filtrar la revisión IA |
+| Si el cherry-pick tiene conflictos *(propuesta)* | El PR se abre en borrador con el conflicto marcado y se asigna al autor original |
+
+#### 9.6.3 Revisión IA del PR de forward-port
+
+Objetivo de la revisión: que el cambio **aplica y no rompe** la versión destino, y que el formato es
+correcto (p. ej. `tree` → `list`, prefijo de versión del manifiesto, APIs renombradas, tests).
+
+| Opción | Cómo | A favor | En contra |
+|---|---|---|---|
+| **A. Copilot por ruleset** | Regla «Automatically request Copilot code review» en `19.0` / `master` | Sin código; ya pagado; lee `CLAUDE.md` e instrucciones por ruta; PRs de bots se cobran a la organización | Revisa **todos** los PRs a esas ramas (no filtra por label ni autor); no elige modelo; sólo comenta |
+| **B. Copilot pedido por una Action** *(recomendada para empezar)* | Workflow en `pull_request` con `if:` autor = bot de FW y sin label `migration` → pide `copilot-pull-request-reviewer[bot]` por REST | Mismo costo que A, con el filtro que necesitamos; pocas líneas de YAML | Verificar si basta `GITHUB_TOKEN` o hace falta un token de app/PAT |
+| **C. Claude (`anthropics/claude-code-action`)** | Workflow con prompt propio | Control total: diff contra el commit original, código del core destino, correr tests, elegir modelo | Facturación aparte (API key o token de suscripción), más mantenimiento |
+| **D. Agente Claude dentro de Copilot** (`@claude`) | Agentes de terceros en Copilot (vista previa) | Usa créditos de Copilot | Es agente de código, no revisor; sin disparo por API documentado |
+
+Instrucciones para Copilot (viajan con la rama del PR, así cada versión revisa con sus reglas):
+
+```
+.github/copilot-instructions.md                     # reglas generales odoo-pro
+.github/instructions/forward-port.instructions.md   # applyTo: "**" — checklist de la versión destino
+```
+
+Copilot factura en **créditos IA** (Business 1 900 / Enterprise 3 900 por asiento al mes, en bolsa
+común). La bolsa se **reinicia el día 1 de cada mes a las 00:00 UTC**; el uso pagado por encima está
+activado por defecto en organizaciones. Una revisión cuesta aprox. USD 0,05–1 (Lite) o 0,25–5 (Balanced).
+
+#### 9.6.4 Pendientes del flujo
+
+- Ubicación del código del bot de forward-port (no está en `indexa-git`; el repo `Claudebot-pcg` sólo tiene README).
+- Crear los labels `forward-port` y `migration` en `odoo-pro` (hoy no existen).
+- Un owner de `indexa-git` revisa el consumo de Copilot del mes y la política de uso pagado.
 
 ---
 
 ## 10. Capacidad del servidor
 
-### 10.1 Mediciones (entorno local, hoy)
+### 10.1 Prototipo (contenedor creado en la daily)
 
-| Componente | Memoria |
-|---|---|
-| Contenedor Odoo en reposo (v17 / v20) | 436 MB / 162 MB |
-| Postgres compartido en reposo | 341 MB |
-| Proceso Claude Code | ~360 MB |
-| Checkout por versión (odoo + enterprise + odoo-pro) | v19 ≈ 2,2 GB · v17 ≈ 1,9 GB |
+| Recurso | Asignado | Uso en modo nube | Uso en modo local (§3.3) |
+|---|---|---|---|
+| vCPU | 4 | Gateway: < 0,2 | 2 base + 1,5 por sesión → **1–2 sesiones** |
+| RAM | ~12 GB | Gateway + CLI: < 1 GB | ~3 GB base (una versión) + 3 GB por sesión → **2–3 sesiones** |
+| Disco | 40 GB | < 5 GB (código, logs) | Una versión ≈ 2,2 GB fuentes + ~5 GB imágenes + 1,5 GB por sesión → 1–2 versiones |
 
-### 10.2 Consumo estimado por sesión activa (pico)
+Por qué v3 pedía 500 GB: 4 versiones clonadas, ~12 sesiones con su worktree y su DB, imágenes y logs en
+el mismo servidor. Con las sesiones en la nube ese disco lo pone cada VM (30 GB c/u) y el servidor
+propio no lo necesita.
 
-| Elemento | RAM | CPU |
-|---|---|---|
-| Claude Code | 0,4–0,5 GB | bajo (espera a la API la mayor parte del tiempo) |
-| `odoo-bin` con tests o `-u` del módulo | 1–1,5 GB | 1 vCPU sostenido |
-| Chromium (Playwright, manual/QA) | 0,5–1 GB | 0,5–1 vCPU |
-| Conexiones/consultas en Postgres | 0,2–0,5 GB | variable |
-| **Total pico por sesión** | **~3 GB** | **~1,5 vCPU** |
+### 10.2 Escalones (sólo si se descarta la nube)
 
-Una sesión que espera respuesta en el chatter casi no consume (sólo su DB en disco).
-
-### 10.3 Fórmula y escalones
-
-- **RAM** ≈ 10 GB base (SO, Docker, Postgres con caché, 4 contenedores de versión) + **3 GB × sesiones activas a la vez**
-- **vCPU** ≈ 2 + **1,5 × sesiones activas**
-- **Disco** ≈ 4 versiones × ~3 GB fuentes + ~10 GB imágenes Docker + **~1,5 GB × sesión abierta** (worktree + DB + filestore) + 50 GB logs/capturas
-
-| Escalón | Sesiones activas simultáneas | vCPU | RAM | Disco NVMe |
+| Escalón | Sesiones activas | vCPU | RAM | Disco |
 |---|---|---|---|---|
+| Prototipo | 2–3 | 4 | 12 GB | 40 GB |
 | Inicial | hasta 6 | 8 | 32 GB | 250 GB |
-| **Recomendado** | **hasta 12** | **16** | **64 GB** | **500 GB** |
-| Alto | hasta 25 | 32 | 128 GB | 1 TB |
+| Amplio | hasta 12 | 16 | 64 GB | 500 GB |
 
-Recomendaciones adicionales: Linux x86_64 (Chromium/Playwright sin las particularidades de arm64),
-Postgres con `max_connections` ≥ 300, swap de 8–16 GB como colchón, y medir el uso real las primeras
-dos semanas antes de subir de escalón.
+Medir el uso real del prototipo dos semanas antes de subir de escalón.
 
 ---
 
-## 11. Módulo Odoo `project_ai_bot` (ligero)
+## 11. Módulo Odoo `project_ai_bot` (odoo-pro PR #1386)
 
-Con la acción automatizada nativa, el módulo queda pequeño:
+Toda la configuración del bot vive en Odoo (*Proyecto › Configuración › Claude Bot*); el gateway sólo
+recibe el contexto ya resuelto. Agregar una versión, un repositorio o una etiqueta no requiere tocar el bot.
 
-| Elemento | Para qué |
+| Modelo | Para qué |
 |---|---|
-| Campos en `project.task`: `ai_session_id`, `ai_state` (`running` / `needs_input` / `needs_approval` / `blocked` / `done` / `failed`), `ai_workspace` (versión), `ai_cost_usd` | Saber si la tarea ya tiene sesión (reanudar vs. nueva) y mostrar el estado |
-| Override de `message_post` para comandos `/claude` | §8.3 |
-| Datos: tag `0. Team - Claude 🤖`, usuario técnico **Claude Bot** (autor de las notas y dueño de la API key; no se asigna a tareas), la `base.automation` (§4.1) | Instalación reproducible |
-| Parámetros: URL del gateway, secreto, `max_concurrent_sessions` (apagado), versiones configuradas (§6.5) | Configuración |
-| Vista: pestaña "Claude" en la tarea (estado, sesión, costo, último resumen) + filtro "Tareas del bot" | Seguimiento |
+| `project.ai.bot.config` | Gateway (URL, secreto), usuario técnico, tope de sesiones, prefijo `/claude`, etiquetas de activación y documentación, etapas de inicio y revisión, proyectos (many2many) |
+| `project.ai.bot.flow` | Corrección / migración / desarrollo / QA, con sus etiquetas de tipo (many2many) y si exige aprobación |
+| `project.ai.bot.version` | Etiquetas de versión, rama, imagen Docker, entorno y routine (ID + token), forward-port (`next_version_id`) y destino de migración (`migration_target_id`). Semilla: 17.0 → 19.0 → 20.0/master |
+| `project.ai.bot.repository` + líneas por versión | Repos y rama por versión: `odoo/odoo`, `indexa-git/enterprise`, `indexa-git/odoo-pro`, `indexa-git/upgrade-util`, `indexa-git/pyazul` |
+| `project.ai.bot.effort` / `project.ai.bot.area` | Complejidad → esfuerzo; área → skills e instrucciones |
+| `project.task` | `ai_session_id/url`, `ai_state`, `ai_cost_usd`; flujo y versiones calculados; pestaña «Claude», botón «Enviar a Claude», filtro |
 
-El resto (lanzar sesiones, workspaces, GitHub) vive en el servidor, no en Odoo.
-
----
-
-## 12. Paquete de contexto
-
-Repo privado `claude-odoo-context` con `CLAUDE.md`, `skills/` (migrar, corregir, desarrollar, analizar,
-manual, i18n, revisión, `odoo-tasks`), `memory/` (gotchas por versión), `tools/` (manual-generator,
-i18n-generator, plantillas `setup_*`/`replicate_*`) y `prompts/` (plantilla por tipo de tarea + `bot.md`
-con las reglas de salida JSON). El mismo paquete sirve en local y en el servidor: lo que un
-desarrollador aprende, el bot lo usa en la siguiente sesión.
+- Mover una tarea activa a una etapa de inicio envía el contexto al gateway tras el commit; una nota
+  interna `/claude …` se reenvía a la sesión (las del usuario del bot no).
+- Migración: con dos etiquetas de versión, de la menor a la mayor; con una, al destino de esa versión.
+- El gateway responde con `ai_bot_register_session` y la sesión informa con `ai_bot_set_state`.
+- Al instalar enlaza las etiquetas y etapas de Progressa por nombre y crea `0. Team - Claude 🤖` si falta.
+- Probado: 14 tests en una base 19.0 limpia y el ciclo real módulo → gateway → API `/fire` → nota de vuelta.
 
 ---
 
-## 13. Seguridad (importante con `--dangerously-skip-permissions`)
+## 12. Despliegue como servicio (repo `indexa-git/bot_ia_odoo`)
 
-El propio Claude Code advierte que este flag es "recomendado sólo para sandboxes sin acceso a internet".
-El bot sí necesita internet (API de Anthropic, GitHub, Odoo), así que **el aislamiento lo da el
-servidor**, no Claude:
+Siguiendo el modelo de los servicios ya desplegados en el equipo: todo lo necesario para instalar
+está en el repo y Claude puede hacer la instalación entrando por SSH al contenedor.
+
+```
+bot_ia_odoo/
+├── README.md                 # qué es, cómo correrlo en local
+├── requirements.txt
+├── .env.example              # variables de entorno (sin secretos)
+├── bin/                      # install.sh, bot-gateway (entrypoint), healthcheck
+├── bot_gateway/              # servicio Python: webhook → routine / --cloud
+├── deploy/
+│   ├── DEPLOY.md             # requisitos, instalación, variables, puertos, firewall
+│   └── bot-gateway.service   # unidad systemd
+├── cloud/                    # setup scripts y prompts de cada entorno de la nube
+├── context-pack/             # CLAUDE.md, skills, memorias, tools del bot
+├── .github/workflows/        # forward-port review (Copilot/Claude) — se copia a odoo-pro
+└── docs/                     # este análisis y su PDF
+```
+
+| Variable | Uso |
+|---|---|
+| `BOT_LISTEN_HOST` / `BOT_LISTEN_PORT` | Dirección del gateway |
+| `BOT_WEBHOOK_SECRET` | Secreto de la URL del webhook |
+| `BOT_ALLOWED_IPS` | IP(s) de la instancia Progressa |
+| `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`, `ODOO_API_KEY` | Usuario técnico Claude Bot (json2) |
+| `ROUTINE_<VERSION>_ID`, `ROUTINE_<VERSION>_TOKEN` | Routine de la nube por versión |
+| `BOT_MAX_CONCURRENT_SESSIONS` | Tope (vacío = sin tope) |
+
+A cargo de infraestructura: abrir el puerto/HTTPS hacia el gateway (o túnel), restringir a la IP de la
+instancia y el firewall de salida.
+
+---
+
+## 13. Paquete de contexto
+
+Carpeta `context-pack/` del repo: `CLAUDE.md`, `skills/` (migrar, corregir, desarrollar, analizar,
+manual, i18n, revisión, `odoo-tasks`), `memory/`, `tools/` y `prompts/` (plantilla por tipo + reglas de
+salida). El setup script de cada entorno de la nube lo copia a `~/.claude`. El mismo paquete alimenta
+las instrucciones de Copilot para la revisión de forward-port.
+
+---
+
+## 14. Seguridad
 
 | Medida | Por qué |
 |---|---|
-| VM dedicada sólo para el bot, sin nada más instalado | Con el flag, Claude puede ejecutar cualquier comando que el usuario `aibot` pueda ejecutar |
-| Usuario no-root `aibot` | Limita daños; no correr Claude Code con este flag como root |
-| Tener en cuenta que el grupo `docker` equivale a root en el host | Otra razón para que la VM sea exclusiva |
-| Sin acceso a datos de clientes: ni credenciales, ni red hacia sus instancias, ni dumps | Un error o una instrucción maliciosa no puede llegar a datos reales |
-| Firewall de salida: sólo Anthropic, GitHub, la instancia Progressa, PyPI/npm | Reduce fuga de datos |
-| GitHub App/token del bot con push sólo a ramas `*-bot`; ramas base protegidas | Nunca merge ni push a `17.0`/`19.0` |
-| Usuario Claude Bot en Odoo con permisos mínimos (leer tareas, notas internas, adjuntos, mover etapa) | La API key del bot no sirve para otra cosa |
-| Texto de tareas/chatter tratado como dato, no como órdenes | Las tareas las escriben personas, a veces clientes; el prompt del sistema lo delimita |
-| Cuenta de Anthropic: en pruebas, la cuenta actual de Luis; la cuenta definitiva (organización, presupuesto) se evaluará después | Al pasar a operación, separar el consumo del bot del uso de los desarrolladores |
-
----
-
-## 14. Costos estimados (orden de magnitud)
-
-Referencia `claude-opus-5-5`: USD 4 / MTok entrada, USD 20 / MTok salida, ~USD 0,20 / MTok en lecturas de
-caché (la mayor parte del contexto de una sesión larga se lee de caché).
-
-| Tipo | Por tarea |
-|---|---|
-| Análisis técnico | USD 1 – 5 |
-| QA + manual | USD 3 – 10 |
-| Bug reproducible sencillo | USD 3 – 15 |
-| Migración de módulo mediano (directa, con manual) | USD 10 – 40 |
-| Desarrollo nuevo mediano | USD 15 – 60 |
-
-Cada sesión reporta su costo real (`total_cost_usd` en la salida de Claude Code) y se guarda en la tarea.
-Servidor: costo fijo mensual según el escalón de §10.
+| Sesiones en VMs aisladas de la nube; credenciales de GitHub tras el proxy de Anthropic | Un comando erróneo no afecta al servidor propio |
+| API key de Odoo como **network secret** | La sesión la usa sin poder leerla |
+| Red de la nube en *Custom*: GitHub, Docker Hub, PyPI/npm, `www.progressa.group` | Reduce fuga de datos |
+| Contenedor del gateway: usuario no-root, sólo el puerto del webhook, IP de la instancia | Superficie mínima |
+| Push sólo a ramas `*-bot`; ramas de versión protegidas | Nunca merge ni push a `17.0`/`19.0` |
+| Usuario Claude Bot en Odoo con permisos mínimos | La API key no sirve para otra cosa |
+| Sin datos de clientes (credenciales, red, dumps) | Nada real al alcance del bot |
+| Texto de tareas/chatter y payload de la routine tratados como datos | Los escriben personas, a veces clientes |
+| Modo local: `--dangerously-skip-permissions` sólo en el contenedor exclusivo | El aislamiento lo da el contenedor |
 
 ---
 
@@ -514,15 +476,15 @@ Servidor: costo fijo mensual según el escalón de §10.
 
 | Riesgo | Mitigación |
 |---|---|
-| Muchas sesiones a la vez agotan la RAM | Dimensionar al pico, alerta al 85 %, tope opcional |
-| Bug que sólo ocurre con datos de un cliente | `needs_input` pidiendo pasos para recrearlo con datos de prueba; si no, `blocked` |
-| Webhook perdido (servidor caído) | Reconciliación al arrancar el gateway (§4.2) |
-| Disparos accidentales en tareas de humanos | Activación sólo con el tag `0. Team - Claude 🤖`, no por tag de tipo |
-| Pregunta sin respuesta durante días | Worktree y DB conservados; recordatorio en chatter a los N días; se limpia al cerrar la tarea |
-| Fix que parece funcionar sin serlo | Puerta de reproducción + test + revisión humana |
-| Dependencias OCA no portadas | `blocked` temprano con la lista |
-| `--dangerously-skip-permissions` | §13 |
-| Contexto desactualizado | Paquete de contexto versionado y revisado por PR |
+| Token de control de sesiones de la nube vence a los 30 días | Renovación programada del login + alerta; pedir a Anthropic identidad de máquina |
+| Funciones de la nube en vista previa (routines `/fire`, self-hosted) | Mantener el modo local (§3.3) como respaldo |
+| Sesión en pausa reciclada | Empujar la rama antes de preguntar; la reanudación parte de GitHub |
+| Tope de sesiones simultáneas de la organización | Medir en el prototipo; tope del gateway |
+| Copilot revisa sin ver el commit original | El PR de forward-port incluye el commit/PR de origen en la descripción; si no basta, opción C |
+| Revisión automática de Copilot sobre todos los PRs (opción A) | Usar la opción B (Action con filtro) |
+| Consumo de Copilot o Claude fuera de presupuesto | Política de uso pagado y presupuesto por owner; reporte mensual |
+| Bug que sólo ocurre con datos de cliente | `needs_input` para recrearlo con datos de prueba; si no, `blocked` |
+| Webhook perdido | Reconciliación al arrancar el gateway |
 
 ---
 
@@ -530,18 +492,49 @@ Servidor: costo fijo mensual según el escalón de §10.
 
 | Fase | Alcance | Esfuerzo aprox. |
 |---|---|---|
-| **0. Servidor + paquete de contexto** | VM, workspaces v17/v19/v20/master, Postgres, usuario `aibot`, extraer CLAUDE.md/skills/memorias/tools a un repo | 4–5 días |
-| **1. Disparo + BUG + chatter** | `project_ai_bot` (campos, hook `/claude`, tag de activación, usuario técnico, automatización), gateway con nueva sesión / reanudar, flujo BUG en v19 | 2–3 semanas |
-| **2. MIG directa** | Checklists acumulados por versión, workspace origen + destino, upgrade-util, `.po`, tags de versión | 2 semanas |
-| **3. NEW/IMP/REF + QA** | Análisis → `/claude aprobar` → desarrollo; QA con manual-generator | 2 semanas |
-| **4. Operación** | Métricas de costo/RAM, limpieza automática, FWP, nuevas versiones | continuo |
-
+| **0. Prototipo** | Repo `bot_ia_odoo`; gateway como servicio en el contenedor de pruebas; entorno `odoo-19` en la nube; instalar la Claude GitHub App; prueba de una sesión iniciada por webhook y reanudada desde consola | 3–4 días |
+| **1. Forward-port + revisión IA** | Integrar el bot de Eric; disparo al merge; labels; Action de revisión con Copilot (opción B); medir créditos | 1 semana |
+| **2. Disparo + BUG + chatter** | `project_ai_bot` (campos, hook `/claude`, tag, usuario técnico, automatización); flujo BUG en v19 | 2 semanas |
+| **3. MIG directa** | Entornos 17 y 20/master; checklists acumulados; upgrade-util | 2 semanas |
+| **4. NEW/IMP/REF + QA** | Análisis → aprobar → desarrollo; QA con manual-generator | 2 semanas |
+| **5. Operación** | Métricas de costo, renovación de credenciales, nuevas versiones | continuo |
 
 ---
 
 ## 17. Pendientes
 
-| Tema | Estado |
-|---|---|
-| Servidor (nube o propio) y dominio HTTPS para el webhook | Se definirá luego; dimensionamiento de referencia en §10 |
-| Cuenta de Anthropic definitiva y presupuesto | Se evaluará luego; pruebas con la cuenta actual de Luis |
+| Tema | Responsable | Estado |
+|---|---|---|
+| Instalar la Claude GitHub App en `indexa-git` y habilitar sesiones en la nube en la organización de Claude | Owner GitHub / admin Claude | Pendiente |
+| Revisar consumo y política de Copilot del mes (reinicio 1 de noviembre) | Owner `indexa-git` | Pendiente — `luis-pcg` es *member* y no tiene acceso |
+| Código del bot de forward-port y su repositorio | Eric | Pendiente |
+| Labels `forward-port` y `migration` en `odoo-pro` | Equipo | Pendiente |
+| Acceso SSH al contenedor de pruebas, puerto/HTTPS del webhook y firewall | Infraestructura | Contenedor creado; falta acceso y puertos |
+| Cuenta de Claude definitiva del bot (plan, presupuesto) | Dirección | Pruebas con la cuenta actual de Luis |
+
+---
+
+## 18. Pruebas realizadas (2026-10-26)
+
+| # | Prueba | Cómo | Resultado |
+|---|---|---|---|
+| 1 | Tests unitarios del gateway | `python -m unittest` en contenedor `python:3.12-slim` | **10/10 OK** (13/13 tras el punto 9) |
+| 2 | Gateway contra la instancia Progressa real (json2, sólo lectura) | Gateway en contenedor Linux, `POST /hooks/<secreto>/task` con la tarea #75227 | **OK** tras corregir: la instancia respondía `403` al user agent por defecto de Python; ahora envía `bot-ia-odoo-gateway/1.0`. La tarea se leyó y se **descartó** correctamente por no tener el tag `0. Team - Claude 🤖` |
+| 3 | Seguridad del webhook | Secreto incorrecto → `404`; el secreto ya no aparece en el log de acceso | **OK** (fuga del secreto en el log detectada y corregida) |
+| 4 | Sesión nueva en la nube de Claude | Routine de prueba sin repos, disparada por API | **OK** en ~10 s: 4 vCPU, 15 GB RAM, 31 GB libres, PostgreSQL 16.15, Docker 29.9 |
+| 5 | Respuesta del chatter → misma sesión | `send_to_cloud_session()` del gateway (`claude -p "Reply from Luis: …" --cloud <session_id>`) | **OK**: la sesión respondió en el mismo hilo, con su contexto anterior |
+| 6 | Contexto de la tarea en el disparo | Disparo de la routine con el JSON de la tarea como texto | **OK**: la sesión leyó `task_id` y `version`. La nube entrega el texto envuelto en `<routine-fire-payload>` **como datos, no como instrucciones**; por eso el prompt de la routine (`cloud/prompts/routine.md`) es el que ordena trabajar esa tarea |
+| 7 | Endpoint `/fire` real con el código del gateway | `bin/cloud-test 19` con token inválido | **OK**: `HTTP 401 Invalid bearer token` → URL y cabeceras correctas; sólo falta el token real |
+| 8 | Sesión nueva sin routine | `claude -p "…" --cloud "<descripción>"` | **No soportado**: crear sesiones sin intervención sólo es posible con el disparo `/fire` de una routine |
+| 9 | Fallos visibles en la tarea | Tests: disparo rechazado o sesión inalcanzable (p. ej. login vencido) | **OK** (13/13 tests): el gateway publica una nota interna con el error y `status: failed`, y no registra la sesión |
+
+Para repetir el ciclo completo en el servidor (disparo + respuesta en la misma sesión) una vez cargado el token: `bin/cloud-test 19`.
+
+Falta para la prueba de punta a punta:
+
+| Paso | Bloqueo | Quién |
+|---|---|---|
+| Disparo con el token `/fire` de la routine (lo que usa el gateway en producción) | El token del disparo por API se genera desde claude.ai/code/routines | Luis |
+| Sesión con `odoo-pro` y `enterprise` adjuntos | GitHub no está conectado a la cuenta de Claude; la Claude GitHub App no está instalada en `indexa-git` | Luis / owner de la organización |
+| Tarea de prueba con el tag `0. Team - Claude 🤖` | El tag no existe en la instancia | Equipo |
+| Gateway en el contenedor de pruebas | Acceso SSH y puerto HTTPS | Infraestructura |

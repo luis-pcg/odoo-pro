@@ -7,7 +7,7 @@
 #
 # Uso:   ./azul_health.sh
 #   export AZUL_HEALTH_CONTAINER=mi_contenedor   (default: lfernandez_v19)
-#   export AZUL_CERT_DIR=/ruta/a/certs           (default: dev_env_odoo_pro-17/certs)
+#   export AZUL_CERT_DIR=/ruta/a/certs           (default: 17.0/certs)
 #
 # El script auto-aprovisiona dentro del contenedor:
 #   /tmp/azul_probe.py   (desde azul_probe.py junto a este script)
@@ -16,7 +16,7 @@
 
 CONTAINER="${AZUL_HEALTH_CONTAINER:-lfernandez_v19}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CERT_DIR="${AZUL_CERT_DIR:-$SCRIPT_DIR/../dev_env_odoo_pro-17/certs}"
+CERT_DIR="${AZUL_CERT_DIR:-$SCRIPT_DIR/../17.0/certs}"
 
 # Verificar contenedor vivo
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then

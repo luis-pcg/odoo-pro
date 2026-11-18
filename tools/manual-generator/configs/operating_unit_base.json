@@ -1,0 +1,220 @@
+{
+  "module": "operating_unit_base",
+  "title": "Unidades operativas — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "version": "V19",
+    "subject": "UNIDADES OPERATIVAS"
+  },
+  "intro": "Una **unidad operativa** es una parte de la empresa que trabaja por su cuenta dentro de la misma compañía. En NC44 cada tienda es una unidad operativa (*Tienda San Felipe*, *Tienda Caciques*, …), además de **Main Operating Unit** (oficina central y CEDI) y **REGIONAL 01**.\n\nEl módulo **Unidades operativas** (`operating_unit_base`) crea las unidades y dice con cuáles trabaja cada usuario. Los módulos de Inventario, Punto de venta y Contabilidad analítica por unidad operativa usan esa asignación para decidir qué ve cada persona.\n\nReemplaza al módulo `operating_unit` de OCA: en la base migrada, las unidades y los usuarios asignados siguen en su lugar.",
+  "requirements": [
+    "Odoo 19 con el módulo **Unidades operativas** (`operating_unit_base`) instalado.",
+    "Para crear o modificar unidades operativas y asignarlas a usuarios hace falta ser administrador de Ajustes."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "UNIDADES OPERATIVAS"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`operating_unit_base`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Reemplaza a",
+      "value": "`operating_unit` (OCA)"
+    },
+    {
+      "label": "Dónde se configura",
+      "value": [
+        "Unidades: *Ajustes → Usuarios y empresas → Unidades operativas*",
+        "Usuarios: *Ajustes → Usuarios y empresas → Usuarios*, pestaña *Permisos de acceso*"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Revisión en la base migrada",
+      "groups": [
+        {
+          "title": "Datos conservados",
+          "items": [
+            {
+              "label": "Las 71 unidades operativas siguen activas con su nombre, código y contacto",
+              "ok": true
+            },
+            {
+              "label": "Cada usuario conserva sus unidades permitidas y su unidad por defecto (69 usuarios de tienda con una sola unidad)",
+              "ok": true
+            },
+            {
+              "label": "Los grupos de unidades operativas siguen asignados a usuarios (por ejemplo, el usuario de T0001 tiene *Usuario de unidades operativas*)",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Pantallas",
+          "items": [
+            {
+              "label": "El menú *Unidades operativas* abre la lista y el formulario",
+              "ok": true
+            },
+            {
+              "label": "El bloque *Unidades operativas* aparece en *Permisos de acceso* del usuario",
+              "ok": true
+            },
+            {
+              "label": "Los grupos de unidades operativas aparecen en *Permisos de acceso* para asignarlos sin modo desarrollador",
+              "ok": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-lista",
+      "section": "Unidades operativas",
+      "title": "1. Lista de unidades operativas",
+      "description": "Entra a **Ajustes → Usuarios y empresas → Unidades operativas**. La lista muestra el **código** y el **nombre** de cada unidad. En NC44 los códigos de tienda empiezan por `T` (`T0001`, `T0002`, …).\n\nLa búsqueda acepta el nombre o el código.",
+      "steps": [
+        {
+          "goto": "/odoo/action-operating_unit_base.action_operating_unit_tree"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "02-formulario",
+      "section": "Unidades operativas",
+      "title": "2. Datos de una unidad operativa",
+      "description": "Abre una unidad, por ejemplo **Tienda San Felipe**. Cada unidad tiene:\n\n- **Nombre** y **Código** (único por compañía).\n- **Empresa** a la que pertenece.\n- **Usuarios permitidos**: quiénes pueden trabajar con ella. Es el mismo dato que se ve en la ficha de cada usuario.\n\nPara crear una unidad nueva usa **Nuevo** en la lista. Para dejar de usarla, **Archivar** desde el menú de acciones; no se borra para no perder el histórico.",
+      "steps": [
+        {
+          "goto": "/odoo/action-operating_unit_base.action_operating_unit_tree/3"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "03-usuario-tienda",
+      "section": "Usuarios",
+      "title": "3. Usuario de una sola tienda",
+      "description": "Abre el usuario en **Ajustes → Usuarios y empresas → Usuarios** y entra a la pestaña **Permisos de acceso**. El bloque **Unidades operativas** tiene dos campos:\n\n1. **Unidades operativas permitidas**: las unidades con las que trabaja.\n2. **Unidad operativa por defecto**: la que se propone en documentos nuevos. Tiene que ser una de las permitidas.\n\nEl usuario de la tienda *T0001* sólo tiene **Tienda San Felipe**: en Inventario, Punto de venta y Contabilidad analítica sólo ve lo de esa tienda.",
+      "steps": [
+        {
+          "goto": "/odoo/action-base.action_res_users/44"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_notebook_headers a[name='access_rights']"
+        },
+        {
+          "waitFor": "[name='operating_unit_ids']",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "[name='operating_unit_ids']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "04-usuario-varias",
+      "section": "Usuarios",
+      "title": "4. Usuario con varias unidades",
+      "description": "Un usuario puede tener varias unidades (supervisores, contabilidad, regional). Ve los registros de todas ellas.\n\nPara ver el campo de unidades en listas y formularios de otros módulos, el usuario necesita además el grupo **Múltiples unidades operativas**.",
+      "steps": [
+        {
+          "goto": "/odoo/action-base.action_res_users/54"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_notebook_headers a[name='access_rights']"
+        },
+        {
+          "waitFor": "[name='operating_unit_ids']",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": "[name='operating_unit_ids']"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "05-grupos",
+      "section": "Usuarios",
+      "title": "5. Grupos de unidades operativas",
+      "description": "Hay tres grupos:\n\n| Grupo | Para qué sirve |\n|---|---|\n| **Múltiples unidades operativas** | Ver el campo *Unidad operativa* en almacenes, transferencias, órdenes, pagos y cuentas analíticas, y agrupar por él. |\n| **Usuario de unidades operativas** | Incluye el anterior. |\n| **Responsable de las unidades operativas** | Incluye los anteriores. Ve **todas** las unidades de sus compañías aunque no las tenga asignadas, y puede asignar unidades a los puntos de venta. |\n\n**Hallazgo de la revisión:** en la base migrada los tres grupos no tienen categoría (*privilegio*), así que **no aparecen** en *Permisos de acceso* del usuario. Los usuarios que ya los tenían los conservan, pero para asignarlos a un usuario nuevo hay que activar el modo desarrollador y hacerlo desde la pestaña de grupos o desde *Ajustes → Usuarios y empresas → Grupos*. En la captura, la pestaña *Permisos de acceso* de un usuario que sí tiene el grupo *Múltiples unidades operativas* no muestra ninguna sección para esos grupos.",
+      "steps": [
+        {
+          "goto": "/odoo/action-base.action_res_users/54"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_notebook_headers a[name='access_rights']"
+        },
+        {
+          "waitFor": "[name='operating_unit_ids']",
+          "timeout": 30000
+        },
+        {
+          "scrollTo": ".o_notebook .tab-pane.active"
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "06-limites",
+      "section": "Comportamiento",
+      "title": "6. Qué hace y qué no hace el módulo",
+      "image": false,
+      "description": "- **Separa por unidad, no por compañía.** Todas las unidades están en la misma compañía, con los mismos productos y plan contable.\n- **Un registro sin unidad operativa lo ven todos.** Por eso un almacén o una caja sin unidad aparece para cualquier usuario.\n- **La unidad por defecto** sólo propone un valor en documentos nuevos; no limita nada por sí sola.\n- **No verificado en esta revisión:** la restricción de lo que ve un usuario de tienda. La revisión se hizo en solo lectura, con un administrador que tiene las 71 unidades; no se entró como usuario de tienda."
+    }
+  ],
+  "database": "odoo-nc44-test-42073117 (upgrade de prueba NC44 17.0 → 19.0, Odoo.sh)",
+  "notes": "Revisión hecha en solo lectura sobre la base migrada: no se crearon ni modificaron registros. Las capturas se tomaron con un administrador que tiene asignadas todas las unidades operativas."
+}

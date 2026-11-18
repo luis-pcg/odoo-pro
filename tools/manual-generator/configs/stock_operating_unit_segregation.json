@@ -1,0 +1,245 @@
+{
+  "module": "stock_operating_unit_segregation",
+  "title": "Inventario por unidad operativa — Manual de usuario",
+  "cover": {
+    "program": "Aseguramiento de Calidad",
+    "version": "V19",
+    "subject": "INVENTARIO POR UNIDAD OPERATIVA"
+  },
+  "intro": "Una **unidad operativa** es una parte de la empresa que trabaja por su cuenta dentro de la misma compañía. En NC44 cada tienda es una unidad operativa (*Tienda San Felipe*, *Tienda Caciques*, …), además de **Main Operating Unit** (oficina central y CEDI) y **REGIONAL 01**.\n\nEl módulo **Inventario por unidad operativa** (`stock_operating_unit_segregation`) separa el inventario por unidad:\n\n- Cada **almacén** y cada **ubicación interna** puede pertenecer a una unidad operativa.\n- Cada **transferencia** toma la unidad del almacén de su tipo de operación.\n- Cada usuario sólo ve los almacenes, ubicaciones, transferencias, movimientos y existencias de sus unidades, más los que no tienen unidad.\n\nReemplaza a `stock_operating_unit` (store-addons). En la base migrada, las unidades de almacenes, ubicaciones, transferencias y existencias siguen en su lugar.",
+  "requirements": [
+    "Odoo 19 con **Inventario** y **Unidades operativas** (`operating_unit_base`).",
+    "Módulo **Inventario por unidad operativa** (`stock_operating_unit_segregation`).",
+    "Para ver y editar el campo *Unidad operativa*, el grupo **Múltiples unidades operativas**."
+  ],
+  "general": [
+    {
+      "label": "Módulo",
+      "value": "INVENTARIO POR UNIDAD OPERATIVA"
+    },
+    {
+      "label": "Nombre técnico",
+      "value": "`stock_operating_unit_segregation`"
+    },
+    {
+      "label": "Versión",
+      "value": "19.0.1.0.0"
+    },
+    {
+      "label": "Reemplaza a",
+      "value": "`stock_operating_unit` (store-addons)"
+    },
+    {
+      "label": "Depende de",
+      "value": "`stock`, `operating_unit_base`"
+    },
+    {
+      "label": "Qué hay que configurar",
+      "value": [
+        "La unidad operativa de cada almacén (*Inventario → Configuración → Gestión del almacén → Almacenes*)",
+        "La unidad operativa de las ubicaciones internas (*… → Ubicaciones*)"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "title": "Revisión en la base migrada",
+      "groups": [
+        {
+          "title": "Datos conservados",
+          "items": [
+            {
+              "label": "El almacén CEDI (CDRM) conserva la unidad *Main Operating Unit*",
+              "ok": true
+            },
+            {
+              "label": "La ubicación CDRM/Stock conserva su unidad operativa",
+              "ok": true
+            },
+            {
+              "label": "11.986 transferencias conservan su unidad operativa (las del CEDI)",
+              "ok": true
+            },
+            {
+              "label": "616 registros de existencias conservan su unidad operativa",
+              "ok": true
+            }
+          ]
+        },
+        {
+          "title": "Pantallas",
+          "items": [
+            {
+              "label": "Columna *Unidad operativa* en almacenes, ubicaciones y transferencias",
+              "ok": true
+            },
+            {
+              "label": "Agrupar transferencias por unidad operativa",
+              "ok": true
+            },
+            {
+              "label": "Campo *Unidad operativa* en el formulario del almacén, la ubicación y la transferencia",
+              "ok": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "01-almacenes",
+      "section": "Configuración",
+      "title": "1. Almacenes por unidad operativa",
+      "description": "Entra a **Inventario → Configuración → Gestión del almacén → Almacenes**. La columna **Unidad operativa** dice a qué unidad pertenece cada almacén.\n\nEn NC44 sólo el **CEDI** tiene unidad (*Main Operating Unit*). *Centro de Tiendas Ritmo (Bolsa)* y *Villa Mella San Felipe* no tienen: los ven todos los usuarios de inventario.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_warehouse_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "02-almacen",
+      "section": "Configuración",
+      "title": "2. Unidad operativa del almacén",
+      "description": "Abre el almacén. El campo **Unidad operativa** está debajo del nombre, junto al **Nombre corto**.\n\n- Un almacén nuevo toma la unidad por defecto de quien lo crea; se puede cambiar antes de guardar.\n- Si se cambia la unidad de un almacén, sus ubicaciones internas cambian con él.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_warehouse_form/1"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "03-ubicaciones",
+      "section": "Configuración",
+      "title": "3. Ubicaciones",
+      "description": "Entra a **Inventario → Configuración → Gestión del almacén → Ubicaciones**. La columna **Unidad operativa** muestra la unidad de cada ubicación interna. En NC44 las ubicaciones del almacén *Bolsa* (`BOLCT01/…`) no tienen unidad; sólo **CDRM/Stock** la tiene.\n\nReglas que el módulo hace cumplir al guardar:\n\n- Sólo las ubicaciones **internas** llevan unidad; las de proveedor, cliente o virtuales no.\n- Una sububicación tiene que tener la misma unidad que su ubicación padre.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_location_form"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "04-ubicacion",
+      "section": "Configuración",
+      "title": "4. Unidad operativa de una ubicación",
+      "description": "Abre la ubicación **CDRM/Stock**, la única ubicación interna con unidad en NC44. El campo **Unidad operativa** está en el formulario.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_location_form/8"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "05-transferencias",
+      "section": "Operación",
+      "title": "5. Transferencias agrupadas por unidad operativa",
+      "description": "Entra a **Inventario → Operaciones → Traslados** (Recepciones, Entregas o Interno). En la búsqueda, **Agrupar por → Unidad operativa** separa las transferencias por unidad.\n\nCada transferencia toma la unidad del almacén de su tipo de operación. Las del CEDI quedan en *Main Operating Unit*; las del almacén *Bolsa* quedan sin unidad porque ese almacén no la tiene.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_picking_tree_all"
+        },
+        {
+          "waitFor": ".o_list_view .o_data_row",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_searchview_dropdown_toggler"
+        },
+        {
+          "waitFor": ".o_group_by_menu",
+          "timeout": 30000
+        },
+        {
+          "click": ".o_group_by_menu .o-dropdown-item:has-text('Unidad operativa')"
+        },
+        {
+          "press": "Escape"
+        },
+        {
+          "waitFor": ".o_list_view .o_group_header",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "06-transferencia",
+      "section": "Operación",
+      "title": "6. Unidad operativa en la transferencia",
+      "description": "Abre una transferencia del CEDI, por ejemplo **CDRM/INT/04208**. En la pestaña **Información adicional** está el campo **Unidad operativa solicitante**, que se llena con la unidad del almacén del tipo de operación.\n\nNo se puede guardar una transferencia con una unidad distinta a la de su almacén.",
+      "steps": [
+        {
+          "goto": "/odoo/action-stock.action_picking_tree_all/3951491"
+        },
+        {
+          "waitFor": ".o_form_view .o_form_sheet",
+          "timeout": 90000
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "click": ".o_notebook_headers a:text-matches('Información adicional|Additional Info')"
+        },
+        {
+          "waitFor": "[name='operating_unit_id']",
+          "timeout": 30000
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
+      "id": "07-reabastecimiento",
+      "section": "Operación",
+      "title": "7. Reglas de reabastecimiento",
+      "image": false,
+      "description": "En **Inventario → Operaciones → Aprovisionamiento → Reabastecimiento**, una regla exige que el almacén y la ubicación sean de la misma unidad operativa.\n\nUn usuario puede abrir las reglas de inventario de almacenes de otras unidades (por ejemplo, la ruta del CEDI desde una tienda) sin error de acceso."
+    },
+    {
+      "id": "08-limites",
+      "section": "Comportamiento",
+      "title": "8. Qué hace y qué no hace el módulo",
+      "image": false,
+      "description": "- **Limita lo que se ve.** Quién puede crear o validar sigue dependiendo de los permisos normales de Inventario.\n- **Lo que no tiene unidad lo ven todos.** En NC44 es el caso de los almacenes *Bolsa* y *Villa Mella San Felipe* y de sus transferencias.\n- **No verificado en esta revisión:** lo que ve un usuario de tienda. La revisión se hizo en solo lectura con un administrador que tiene todas las unidades."
+    }
+  ],
+  "database": "odoo-nc44-test-42073117 (upgrade de prueba NC44 17.0 → 19.0, Odoo.sh)",
+  "notes": "Revisión hecha en solo lectura sobre la base migrada: no se crearon ni modificaron registros. Las capturas se tomaron con un administrador que tiene asignadas todas las unidades operativas."
+}

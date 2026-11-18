@@ -153,6 +153,9 @@ if [[ -z "$BASE_URL_OVERRIDE" ]]; then
     --format '{{range .Mounts}}{{if eq .Destination "/var/lib/odoo"}}{{.Name}}{{end}}{{end}}')"
   DATA_MOUNT=()
   [[ -n "$DATA_VOL" ]] && DATA_MOUNT=(-v "$DATA_VOL:/var/lib/odoo")
+  ADDONS_VOL="$(docker inspect "$CONTAINER" \
+    --format '{{range .Mounts}}{{if eq .Destination "/mnt/extra-addons"}}{{.Name}}{{end}}{{end}}')"
+  [[ -n "$ADDONS_VOL" ]] && DATA_MOUNT+=(-v "$ADDONS_VOL:/mnt/extra-addons")
   docker rm -f "$EPHEMERAL_NAME" >/dev/null 2>&1 || true
   # --user root: the shared filestore is written by root (docker exec installs),
   # the image's default 'odoo' user cannot create asset files there.
